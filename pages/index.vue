@@ -1,47 +1,16 @@
 <template>
   <div class="min-h-screen bg-gray-50">
-    <div class="container mx-auto p-4">
-      <h1 class="text-2xl font-bold mb-4">RSS Reader MVP - Testing</h1>
+    <!-- Hamburger Menu -->
+    <HamburgerMenu />
 
-      <!-- Add Feed Form -->
-      <div class="bg-white p-4 rounded shadow mb-4">
-        <h2 class="font-semibold mb-2">Add Feed</h2>
-        <div class="flex gap-2">
-          <input
-            v-model="newFeedUrl"
-            type="url"
-            placeholder="Enter RSS feed URL..."
-            class="flex-1 px-3 py-2 border rounded"
-            @keyup.enter="handleAddFeed"
-          />
-          <button
-            @click="handleAddFeed"
-            :disabled="feedsLoading"
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-          >
-            Add
-          </button>
-          <button
-            @click="handleSync"
-            :disabled="feedsLoading"
-            class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-          >
-            Sync All
-          </button>
-        </div>
-        <div v-if="feedsError" class="mt-2 text-red-500 text-sm">{{ feedsError }}</div>
-        <div class="mt-2 text-sm text-gray-600">
-          Test feeds:
-          <button @click="newFeedUrl = 'https://hnrss.org/frontpage'" class="text-blue-500">Hacker News</button> |
-          <button @click="newFeedUrl = 'https://techcrunch.com/feed/'" class="text-blue-500">TechCrunch</button>
-        </div>
-      </div>
+    <div class="container mx-auto p-4">
+      <h1 class="text-2xl font-bold mb-4">RSS Reader</h1>
 
       <!-- Feeds List -->
       <div class="bg-white p-4 rounded shadow mb-4">
         <h2 class="font-semibold mb-2">Feeds ({{ feeds.length }})</h2>
         <div v-if="feedsLoading" class="text-gray-500">Loading...</div>
-        <div v-else-if="feeds.length === 0" class="text-gray-500">No feeds yet. Add one above!</div>
+        <div v-else-if="feeds.length === 0" class="text-gray-500">No feeds yet. Open the menu to add one!</div>
         <div v-else class="space-y-2">
           <div
             v-for="feed in feeds"
@@ -139,11 +108,8 @@ const {
   selectedFeedId,
   selectedFeed,
   loading: feedsLoading,
-  error: feedsError,
   fetchFeeds,
-  addFeed,
-  deleteFeed,
-  syncAll
+  deleteFeed
 } = useFeeds()
 
 const {
@@ -156,8 +122,6 @@ const {
   markAsRead,
   markAllAsRead
 } = useArticles()
-
-const newFeedUrl = ref('')
 
 // Load feeds on mount
 onMounted(async () => {
@@ -181,17 +145,6 @@ watch(showUnreadOnly, async () => {
     await fetchArticles()
   }
 })
-
-const handleAddFeed = async () => {
-  if (!newFeedUrl.value.trim()) return
-
-  try {
-    await addFeed(newFeedUrl.value)
-    newFeedUrl.value = ''
-  } catch (error) {
-    console.error('Failed to add feed:', error)
-  }
-}
 
 const handleDeleteFeed = async (id: number) => {
   if (confirm('Are you sure you want to delete this feed?')) {
@@ -220,15 +173,6 @@ const handleMarkAllRead = async () => {
     await markAllAsRead(selectedFeedId.value ?? undefined)
   } catch (error) {
     console.error('Failed to mark all as read:', error)
-  }
-}
-
-const handleSync = async () => {
-  try {
-    const result = await syncAll()
-    alert(`Synced ${result.summary.total} feeds. ${result.summary.newArticles} new articles.`)
-  } catch (error) {
-    console.error('Failed to sync:', error)
   }
 }
 
