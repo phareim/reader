@@ -3,6 +3,9 @@
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
+    <!-- Keyboard Shortcuts Help Dialog -->
+    <KeyboardShortcutsHelp ref="helpDialogRef" />
+
     <!-- Main Content Area -->
     <div
       class="min-h-screen transition-all duration-300 ease-in-out"
@@ -23,8 +26,16 @@
             </svg>
           </button>
 
-          <h1 class="text-2xl font-bold">
-            <span v-if="selectedFeed">{{ selectedFeed.title }}</span>
+          <h1 class="text-2xl font-bold flex items-center gap-3">
+            <template v-if="selectedFeed">
+              <img
+                v-if="selectedFeed.faviconUrl"
+                :src="selectedFeed.faviconUrl"
+                :alt="selectedFeed.title"
+                class="w-8 h-8"
+              />
+              <span>{{ selectedFeed.title }}</span>
+            </template>
             <span v-else>All Vibes — The RSS Reader</span>
           </h1>
         </div>
@@ -54,7 +65,11 @@
             v-for="article in displayedArticles"
             :key="article.id"
             class="border-b bg-white hover:bg-gray-50 cursor-pointer transition-colors"
-            @click="handleSelectArticle(article.id)"
+            :class="{
+              'ring-2 ring-blue-400 ring-inset': selectedArticleId === article.id && expandedArticleId !== article.id,
+              'ring-2 ring-blue-500 ring-inset bg-blue-50': expandedArticleId === article.id
+            }"
+            @click="handleOpenArticle(article.id)"
           >
             <!-- Article Header -->
             <div class="px-6 py-4">
@@ -88,7 +103,7 @@
 
             <!-- Article Content (Expanded Inline) -->
             <Transition name="expand">
-              <div v-if="selectedArticleId === article.id" class="px-6 pb-6 border-t bg-gray-50">
+              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t bg-gray-50">
                 <div
                   v-if="article.content"
                   class="prose prose-sm max-w-none mt-4"
@@ -118,7 +133,9 @@ const {
   selectedFeedId,
   selectedFeed,
   loading: feedsLoading,
-  fetchFeeds
+  fetchFeeds,
+  refreshFeed,
+  syncAll
 } = useFeeds()
 
 const {
@@ -132,9 +149,19 @@ const {
   markAllAsRead
 } = useArticles()
 
+// Separate state for expanded article (different from selected/highlighted)
+const expandedArticleId = ref<number | null>(null)
+
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
 const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+
+// Reference to help dialog
+const helpDialogRef = ref<any>(null)
+
+// Track last key for g-combinations
+const lastKey = ref<string | null>(null)
+const lastKeyTimeout = ref<any>(null)
 
 const toggleMenu = () => {
   if (hamburgerMenuRef.value) {
@@ -146,20 +173,162 @@ const toggleMenu = () => {
 onMounted(async () => {
   await fetchFeeds()
 
-  // Keyboard navigation
-  const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      navigateArticles('up')
-    } else if (e.key === 'ArrowDown') {
+  // Keyboard shortcuts handler
+  const handleKeydown = async (e: KeyboardEvent) => {
+    // Ignore if typing in an input field
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      return
+    }
+
+    // Ignore if help dialog is open (except for Escape)
+    if (helpDialogRef.value?.isOpen && e.key !== 'Escape') {
+      return
+    }
+
+    const key = e.key
+    const shiftKey = e.shiftKey
+
+    // Track key for g-combinations
+    if (key === 'g') {
+      lastKey.value = 'g'
+      clearTimeout(lastKeyTimeout.value)
+      lastKeyTimeout.value = setTimeout(() => {
+        lastKey.value = null
+      }, 1000)
+      return
+    }
+
+    // Handle g-combinations
+    if (lastKey.value === 'g') {
+      lastKey.value = null
+      clearTimeout(lastKeyTimeout.value)
+
+      if (key === 'i' || key === 'a') {
+        // g+i or g+a: Go to all feeds
+        selectedFeedId.value = null
+        return
+      }
+      return
+    }
+
+    // Navigation: j/k or arrow keys
+    if (key === 'j' || key === 'ArrowDown') {
       e.preventDefault()
       navigateArticles('down')
+      return
+    }
+    if (key === 'k' || key === 'ArrowUp') {
+      e.preventDefault()
+      navigateArticles('up')
+      return
+    }
+
+    // Open/close article: o, Enter
+    if (key === 'o' || key === 'Enter') {
+      e.preventDefault()
+      if (selectedArticleId.value === null && displayedArticles.value.length > 0) {
+        // Select and open first article if none selected
+        selectedArticleId.value = displayedArticles.value[0].id
+        await handleOpenArticle(displayedArticles.value[0].id)
+      } else if (selectedArticleId.value !== null) {
+        // Open selected article
+        await handleOpenArticle(selectedArticleId.value)
+      }
+      return
+    }
+
+    // Close expanded article: Escape
+    if (key === 'Escape') {
+      e.preventDefault()
+      if (expandedArticleId.value !== null) {
+        expandedArticleId.value = null
+      }
+      return
+    }
+
+    // Mark as read without opening: e
+    if (key === 'e' && !shiftKey) {
+      e.preventDefault()
+      await handleMarkAsRead()
+      return
+    }
+
+    // Toggle menu: m
+    if (key === 'm' && !shiftKey) {
+      e.preventDefault()
+      toggleMenu()
+      return
+    }
+
+    // Mark as unread: Shift+U
+    if (key === 'U' && shiftKey) {
+      e.preventDefault()
+      if (selectedArticleId.value !== null) {
+        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
+        if (article && article.isRead) {
+          await markAsRead(selectedArticleId.value, false)
+        }
+      }
+      return
+    }
+
+    // View original: v
+    if (key === 'v') {
+      e.preventDefault()
+      if (selectedArticleId.value !== null) {
+        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
+        if (article) {
+          window.open(article.url, '_blank')
+        }
+      }
+      return
+    }
+
+    // Mark all as read: Shift+E
+    if (key === 'E' && shiftKey) {
+      e.preventDefault()
+      await handleMarkAllRead()
+      return
+    }
+
+    // Refresh current feed: r
+    if (key === 'r' && !shiftKey) {
+      e.preventDefault()
+      if (selectedFeedId.value !== null) {
+        try {
+          await refreshFeed(selectedFeedId.value)
+        } catch (error) {
+          console.error('Failed to refresh feed:', error)
+        }
+      }
+      return
+    }
+
+    // Refresh all feeds: Shift+R
+    if (key === 'R' && shiftKey) {
+      e.preventDefault()
+      try {
+        await syncAll()
+      } catch (error) {
+        console.error('Failed to sync all feeds:', error)
+      }
+      return
+    }
+
+    // Show help: ?
+    if (key === '?' || (key === '/' && shiftKey)) {
+      e.preventDefault()
+      helpDialogRef.value?.open()
+      return
     }
   }
+
   window.addEventListener('keydown', handleKeydown)
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown)
+    clearTimeout(lastKeyTimeout.value)
   })
 })
 
@@ -181,11 +350,43 @@ watch(showUnreadOnly, async () => {
   }
 })
 
-const handleSelectArticle = async (id: number, toggle = true) => {
-  // Toggle selection if clicking the same article (when toggle is true)
-  if (toggle && selectedArticleId.value === id) {
-    selectedArticleId.value = null
+// Clear expanded article if it's no longer in the displayed list
+watch(displayedArticles, () => {
+  if (expandedArticleId.value !== null) {
+    const stillExists = displayedArticles.value.some(a => a.id === expandedArticleId.value)
+    if (!stillExists) {
+      expandedArticleId.value = null
+    }
+  }
+  if (selectedArticleId.value !== null) {
+    const stillExists = displayedArticles.value.some(a => a.id === selectedArticleId.value)
+    if (!stillExists) {
+      selectedArticleId.value = null
+    }
+  }
+})
+
+// Navigate articles (highlight without opening)
+const navigateArticles = (direction: 'up' | 'down') => {
+  const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
+
+  if (direction === 'up' && currentIndex > 0) {
+    selectedArticleId.value = displayedArticles.value[currentIndex - 1].id
+  } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
+    selectedArticleId.value = displayedArticles.value[currentIndex + 1].id
+  } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
+    // If nothing selected, select first article
+    selectedArticleId.value = displayedArticles.value[0].id
+  }
+}
+
+// Open/expand article and mark as read
+const handleOpenArticle = async (id: number) => {
+  // Toggle if clicking the same expanded article
+  if (expandedArticleId.value === id) {
+    expandedArticleId.value = null
   } else {
+    expandedArticleId.value = id
     selectedArticleId.value = id
     const article = displayedArticles.value.find(a => a.id === id)
     if (article && !article.isRead) {
@@ -194,19 +395,13 @@ const handleSelectArticle = async (id: number, toggle = true) => {
   }
 }
 
-const navigateArticles = (direction: 'up' | 'down') => {
-  const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
-
-  if (direction === 'up' && currentIndex > 0) {
-    const newArticle = displayedArticles.value[currentIndex - 1]
-    handleSelectArticle(newArticle.id, false) // Don't toggle, just select
-  } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
-    const newArticle = displayedArticles.value[currentIndex + 1]
-    handleSelectArticle(newArticle.id, false) // Don't toggle, just select
-  } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
-    // If nothing selected, select first article
-    const firstArticle = displayedArticles.value[0]
-    handleSelectArticle(firstArticle.id, false)
+// Mark selected article as read without opening
+const handleMarkAsRead = async () => {
+  if (selectedArticleId.value !== null) {
+    const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
+    if (article && !article.isRead) {
+      await markAsRead(selectedArticleId.value, true)
+    }
   }
 }
 

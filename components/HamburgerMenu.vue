@@ -88,17 +88,31 @@
             <h3 class="font-semibold text-gray-900">Feeds ({{ feeds.length }})</h3>
             <div v-if="feeds.length === 0" class="text-sm text-gray-500">No feeds yet</div>
             <div v-else class="space-y-1">
-              <button
+              <div
                 v-for="feed in feeds"
                 :key="feed.id"
-                @click="selectFeed(feed.id)"
-                class="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
-                :class="selectedFeedId === feed.id ? 'bg-blue-100 text-blue-900' : 'text-gray-700 hover:bg-gray-100'"
+                class="flex items-center gap-1"
               >
-                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4" />
-                <span class="flex-1 truncate">{{ feed.title }}</span>
-                <span v-if="feed.unreadCount > 0" class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
-              </button>
+                <button
+                  @click="selectFeed(feed.id)"
+                  class="flex-1 text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
+                  :class="selectedFeedId === feed.id ? 'bg-blue-100 text-blue-900' : 'text-gray-700 hover:bg-gray-100'"
+                >
+                  <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4" />
+                  <span class="flex-1 truncate">{{ feed.title }}</span>
+                  <span v-if="feed.unreadCount > 0" class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
+                </button>
+                <button
+                  @click="handleDeleteFeed(feed.id, feed.title)"
+                  class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Delete feed"
+                  aria-label="Delete feed"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -166,7 +180,7 @@ const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 
-const { addFeed, syncAll, feeds, selectedFeedId } = useFeeds()
+const { addFeed, syncAll, deleteFeed, feeds, selectedFeedId } = useFeeds()
 const { unreadArticles } = useArticles()
 const { data: session, signOut } = useAuth()
 
@@ -284,6 +298,26 @@ const handleSyncAll = async () => {
 
 const handleSignOut = async () => {
   await signOut({ callbackUrl: '/login' })
+}
+
+const handleDeleteFeed = async (feedId: number, feedTitle: string) => {
+  if (!confirm(`Are you sure you want to delete "${feedTitle}"?\n\nThis will also delete all articles from this feed.`)) {
+    return
+  }
+
+  error.value = null
+  success.value = null
+
+  try {
+    await deleteFeed(feedId)
+    success.value = 'Feed deleted successfully!'
+
+    setTimeout(() => {
+      success.value = null
+    }, 3000)
+  } catch (err: any) {
+    error.value = err.data?.message || err.message || 'Failed to delete feed'
+  }
 }
 
 // Expose isOpen state to parent
