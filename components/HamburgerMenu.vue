@@ -18,19 +18,44 @@
             <input
               v-model="newFeedUrl"
               type="url"
-              placeholder="Enter RSS feed URL..."
+              placeholder="Enter URL or RSS feed URL..."
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              @keyup.enter="handleAddFeed"
+              @keyup.enter="handleDiscoverOrAddFeed"
             />
-            <button
-              @click="handleAddFeed"
-              :disabled="!newFeedUrl.trim() || loading"
-              class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {{ loading ? 'Adding...' : 'Add Feed' }}
-            </button>
+            <div class="flex gap-2">
+              <button
+                @click="handleDiscoverFeeds"
+                :disabled="!newFeedUrl.trim() || discovering"
+                class="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {{ discovering ? 'Discovering...' : 'Discover Feeds' }}
+              </button>
+              <button
+                @click="handleAddFeed"
+                :disabled="!newFeedUrl.trim() || loading"
+                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {{ loading ? 'Adding...' : 'Add Direct' }}
+              </button>
+            </div>
             <p v-if="error" class="text-sm text-red-500">{{ error }}</p>
             <p v-if="success" class="text-sm text-green-500">{{ success }}</p>
+
+            <!-- Discovered Feeds List -->
+            <div v-if="discoveredFeeds.length > 0" class="mt-3 space-y-2 p-3 bg-purple-50 rounded-lg">
+              <h4 class="text-sm font-semibold text-purple-900">Discovered Feeds:</h4>
+              <div class="space-y-1">
+                <button
+                  v-for="(feed, index) in discoveredFeeds"
+                  :key="index"
+                  @click="addDiscoveredFeed(feed.url)"
+                  class="w-full text-left px-3 py-2 text-sm bg-white hover:bg-purple-100 rounded border border-purple-200 transition-colors"
+                >
+                  <div class="font-medium text-purple-900">{{ feed.title }}</div>
+                  <div class="text-xs text-purple-600 truncate">{{ feed.url }}</div>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Feeds List -->
@@ -110,9 +135,11 @@
 const isOpen = ref(false)
 const newFeedUrl = ref('')
 const loading = ref(false)
+const discovering = ref(false)
 const syncLoading = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
+const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 
 const { addFeed, syncAll, feeds, selectedFeedId } = useFeeds()
 const { unreadArticles } = useArticles()
@@ -130,6 +157,55 @@ const selectFeed = (feedId: number) => {
   selectedFeedId.value = feedId
 }
 
+const handleDiscoverFeeds = async () => {
+  if (!newFeedUrl.value.trim()) return
+
+  discovering.value = true
+  error.value = null
+  success.value = null
+  discoveredFeeds.value = []
+
+  try {
+    const response = await $fetch<{ feeds: Array<{ url: string; title: string; type: string }> }>('/api/feeds/discover', {
+      method: 'POST',
+      body: { url: newFeedUrl.value }
+    })
+
+    discoveredFeeds.value = response.feeds
+    success.value = `Found ${response.feeds.length} feed(s)! Click one to add it.`
+
+    // Clear success message after 5 seconds
+    setTimeout(() => {
+      success.value = null
+    }, 5000)
+  } catch (err: any) {
+    error.value = err.data?.message || err.message || 'Failed to discover feeds'
+  } finally {
+    discovering.value = false
+  }
+}
+
+const addDiscoveredFeed = async (feedUrl: string) => {
+  loading.value = true
+  error.value = null
+  success.value = null
+
+  try {
+    await addFeed(feedUrl)
+    success.value = 'Feed added successfully!'
+    discoveredFeeds.value = []
+    newFeedUrl.value = ''
+
+    setTimeout(() => {
+      success.value = null
+    }, 3000)
+  } catch (err: any) {
+    error.value = err.data?.message || err.message || 'Failed to add feed'
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleAddFeed = async () => {
   if (!newFeedUrl.value.trim()) return
 
@@ -141,6 +217,7 @@ const handleAddFeed = async () => {
     await addFeed(newFeedUrl.value)
     success.value = 'Feed added successfully!'
     newFeedUrl.value = ''
+    discoveredFeeds.value = []
 
     // Clear success message after 3 seconds
     setTimeout(() => {
@@ -150,6 +227,14 @@ const handleAddFeed = async () => {
     error.value = err.data?.message || err.message || 'Failed to add feed'
   } finally {
     loading.value = false
+  }
+}
+
+const handleDiscoverOrAddFeed = async () => {
+  // Try to discover feeds first, if that fails, try adding directly
+  await handleDiscoverFeeds()
+  if (discoveredFeeds.value.length === 0 && !error.value) {
+    await handleAddFeed()
   }
 }
 

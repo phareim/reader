@@ -3,7 +3,7 @@ import type { Article, ArticlesResponse } from '~/types'
 export const useArticles = () => {
   const articles = useState<Article[]>('articles', () => [])
   const selectedArticleId = useState<number | null>('selectedArticleId', () => null)
-  const showUnreadOnly = useState<boolean>('showUnreadOnly', () => false)
+  const showUnreadOnly = useState<boolean>('showUnreadOnly', () => true)
   const loading = useState<boolean>('articlesLoading', () => false)
   const error = useState<string | null>('articlesError', () => null)
 
