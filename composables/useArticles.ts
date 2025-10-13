@@ -13,7 +13,8 @@ export const useArticles = () => {
 
   const displayedArticles = computed(() => {
     if (showUnreadOnly.value) {
-      return articles.value.filter(a => !a.isRead)
+      // Show unread articles + currently selected article (even if read)
+      return articles.value.filter(a => !a.isRead || a.id === selectedArticleId.value)
     }
     return articles.value
   })

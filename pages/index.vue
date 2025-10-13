@@ -51,9 +51,8 @@
         </div>
         <div v-else class="space-y-0">
           <div
-            v-for="(article, index) in displayedArticles"
+            v-for="article in displayedArticles"
             :key="article.id"
-            :ref="el => articleRefs[index] = el"
             class="border-b bg-white hover:bg-gray-50 cursor-pointer transition-colors"
             @click="handleSelectArticle(article.id)"
           >
@@ -129,9 +128,6 @@ const {
   markAllAsRead
 } = useArticles()
 
-// Article refs for scrolling
-const articleRefs = ref<any[]>([])
-
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
 const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
@@ -181,9 +177,9 @@ watch(showUnreadOnly, async () => {
   }
 })
 
-const handleSelectArticle = async (id: number) => {
-  // Toggle selection if clicking the same article
-  if (selectedArticleId.value === id) {
+const handleSelectArticle = async (id: number, toggle = true) => {
+  // Toggle selection if clicking the same article (when toggle is true)
+  if (toggle && selectedArticleId.value === id) {
     selectedArticleId.value = null
   } else {
     selectedArticleId.value = id
@@ -194,28 +190,19 @@ const handleSelectArticle = async (id: number) => {
   }
 }
 
-const scrollToArticle = (index: number) => {
-  if (articleRefs.value[index]) {
-    articleRefs.value[index].scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-}
-
 const navigateArticles = (direction: 'up' | 'down') => {
   const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
 
   if (direction === 'up' && currentIndex > 0) {
     const newArticle = displayedArticles.value[currentIndex - 1]
-    handleSelectArticle(newArticle.id)
-    // scrollToArticle(currentIndex - 1)
+    handleSelectArticle(newArticle.id, false) // Don't toggle, just select
   } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
     const newArticle = displayedArticles.value[currentIndex + 1]
-    handleSelectArticle(newArticle.id)
-    // scrollToArticle(currentIndex + 1)
+    handleSelectArticle(newArticle.id, false) // Don't toggle, just select
   } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
     // If nothing selected, select first article
     const firstArticle = displayedArticles.value[0]
-    handleSelectArticle(firstArticle.id)
-    // scrollToArticle(0)
+    handleSelectArticle(firstArticle.id, false)
   }
 }
 
