@@ -1,0 +1,50 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Feed {
+  id              Int       @id @default(autoincrement())
+  url             String    @unique
+  title           String
+  description     String?
+  siteUrl         String?
+  faviconUrl      String?
+  lastFetchedAt   DateTime?
+  lastError       String?
+  errorCount      Int       @default(0)
+  fetchInterval   Int       @default(900)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  articles        Article[]
+
+  @@index([isActive])
+}
+
+model Article {
+  id            Int       @id @default(autoincrement())
+  feedId        Int
+  guid          String
+  title         String
+  url           String
+  author        String?
+  content       String?
+  summary       String?
+  publishedAt   DateTime?
+  isRead        Boolean   @default(false)
+  isStarred     Boolean   @default(false)
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  feed          Feed      @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  @@unique([feedId, guid])
+  @@index([feedId, isRead])
+  @@index([publishedAt(sort: Desc)])
+}
