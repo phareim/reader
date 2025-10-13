@@ -109,6 +109,10 @@
 <script setup lang="ts">
 import { formatDistanceToNow } from 'date-fns'
 
+definePageMeta({
+  auth: true
+})
+
 const {
   feeds,
   selectedFeedId,

@@ -4,11 +4,19 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
-    '@nuxtjs/tailwindcss'
+    '@nuxtjs/tailwindcss',
+    '@sidebase/nuxt-auth'
   ],
 
   typescript: {
     strict: false,
     typeCheck: false
+  },
+
+  auth: {
+    provider: {
+      type: 'authjs'
+    },
+    globalAppMiddleware: false
   }
 })

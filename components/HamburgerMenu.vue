@@ -10,6 +10,31 @@
           <h2 class="text-xl font-bold">Vibe Reader</h2>
         </div>
 
+        <!-- User Profile Section -->
+        <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+          <div class="flex items-center gap-3">
+            <img
+              v-if="session?.user?.image"
+              :src="session.user.image"
+              :alt="session.user.name"
+              class="w-12 h-12 rounded-full border-2 border-white shadow-md"
+            />
+            <div v-else class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-xl shadow-md">
+              {{ session?.user?.name?.charAt(0) || '?' }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-900 truncate">{{ session?.user?.name }}</p>
+              <p class="text-xs text-gray-600 truncate">{{ session?.user?.email }}</p>
+            </div>
+          </div>
+          <button
+            @click="handleSignOut"
+            class="w-full mt-3 px-4 py-2 text-sm text-red-600 bg-white hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+          >
+            Sign Out
+          </button>
+        </div>
+
         <!-- Menu Content -->
         <div class="p-6 space-y-6">
           <!-- Add Feed Section -->
@@ -143,6 +168,7 @@ const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>
 
 const { addFeed, syncAll, feeds, selectedFeedId } = useFeeds()
 const { unreadArticles } = useArticles()
+const { data: session, signOut } = useAuth()
 
 const stats = computed(() => ({
   totalFeeds: feeds.value.length,
@@ -254,6 +280,10 @@ const handleSyncAll = async () => {
   } finally {
     syncLoading.value = false
   }
+}
+
+const handleSignOut = async () => {
+  await signOut({ callbackUrl: '/login' })
 }
 
 // Expose isOpen state to parent
