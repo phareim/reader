@@ -1,43 +1,13 @@
 <template>
   <div>
-    <!-- Hamburger Button -->
-    <button
-      @click="isOpen = true"
-      class="fixed top-4 left-4 z-40 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
-      aria-label="Open menu"
-    >
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-
-    <!-- Overlay -->
-    <Transition name="fade">
-      <div
-        v-if="isOpen"
-        @click="isOpen = false"
-        class="fixed inset-0 bg-black bg-opacity-50 z-40"
-      ></div>
-    </Transition>
-
     <!-- Slide-in Menu -->
-    <Transition name="slide-left">
-      <div
-        v-if="isOpen"
-        class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 overflow-y-auto"
-      >
+    <div
+      class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-30 overflow-y-auto transition-transform duration-300 ease-in-out"
+      :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
         <!-- Menu Header -->
         <div class="flex items-center justify-between p-6 border-b">
           <h2 class="text-xl font-bold">Vibe Reader</h2>
-          <button
-            @click="isOpen = false"
-            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Close menu"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
         <!-- Menu Content -->
@@ -133,7 +103,6 @@
           </div>
         </div>
       </div>
-    </Transition>
   </div>
 </template>
 
@@ -153,9 +122,12 @@ const stats = computed(() => ({
   unreadArticles: unreadArticles.value.length
 }))
 
+const toggleMenu = () => {
+  isOpen.value = !isOpen.value
+}
+
 const selectFeed = (feedId: number) => {
   selectedFeedId.value = feedId
-  isOpen.value = false // Close menu after selecting feed
 }
 
 const handleAddFeed = async () => {
@@ -199,6 +171,11 @@ const handleSyncAll = async () => {
   }
 }
 
+// Expose isOpen state to parent
+defineExpose({
+  isOpen
+})
+
 // Close menu on Escape key
 onMounted(() => {
   const handleEscape = (e: KeyboardEvent) => {
@@ -213,27 +190,3 @@ onMounted(() => {
   })
 })
 </script>
-
-<style scoped>
-/* Fade transition for overlay */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* Slide transition for menu (from left) */
-.slide-left-enter-active,
-.slide-left-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.slide-left-enter-from,
-.slide-left-leave-to {
-  transform: translateX(-100%);
-}
-</style>

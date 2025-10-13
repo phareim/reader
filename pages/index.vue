@@ -1,16 +1,33 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Hamburger Menu -->
-    <HamburgerMenu />
+    <HamburgerMenu ref="hamburgerMenuRef" />
 
     <!-- Main Content Area -->
-    <div class="min-h-screen">
+    <div
+      class="min-h-screen transition-all duration-300 ease-in-out"
+      :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
+    >
       <!-- Header -->
       <div class="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <h1 class="text-2xl font-bold">
-          <span v-if="selectedFeed">{{ selectedFeed.title }}</span>
-          <span v-else>All Vibes — The RSS Reader</span>
-        </h1>
+        <div class="flex items-center gap-4">
+          <!-- Hamburger Button -->
+          <button
+            @click="toggleMenu"
+            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path v-if="!menuIsOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <h1 class="text-2xl font-bold">
+            <span v-if="selectedFeed">{{ selectedFeed.title }}</span>
+            <span v-else>All Vibes — The RSS Reader</span>
+          </h1>
+        </div>
         <div class="flex gap-4 items-center">
           <label class="flex items-center gap-2 text-sm">
             <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
@@ -115,6 +132,16 @@ const {
 // Article refs for scrolling
 const articleRefs = ref<any[]>([])
 
+// Reference to hamburger menu to track its open state
+const hamburgerMenuRef = ref<any>(null)
+const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+
+const toggleMenu = () => {
+  if (hamburgerMenuRef.value) {
+    hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
+  }
+}
+
 // Load feeds on mount
 onMounted(async () => {
   await fetchFeeds()
@@ -179,16 +206,16 @@ const navigateArticles = (direction: 'up' | 'down') => {
   if (direction === 'up' && currentIndex > 0) {
     const newArticle = displayedArticles.value[currentIndex - 1]
     handleSelectArticle(newArticle.id)
-    scrollToArticle(currentIndex - 1)
+    // scrollToArticle(currentIndex - 1)
   } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
     const newArticle = displayedArticles.value[currentIndex + 1]
     handleSelectArticle(newArticle.id)
-    scrollToArticle(currentIndex + 1)
+    // scrollToArticle(currentIndex + 1)
   } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
     // If nothing selected, select first article
     const firstArticle = displayedArticles.value[0]
     handleSelectArticle(firstArticle.id)
-    scrollToArticle(0)
+    // scrollToArticle(0)
   }
 }
 
