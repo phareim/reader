@@ -3,7 +3,7 @@
     <!-- Hamburger Button -->
     <button
       @click="isOpen = true"
-      class="fixed top-4 right-4 z-40 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
+      class="fixed top-4 left-4 z-40 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition-colors"
       aria-label="Open menu"
     >
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -21,14 +21,14 @@
     </Transition>
 
     <!-- Slide-in Menu -->
-    <Transition name="slide">
+    <Transition name="slide-left">
       <div
         v-if="isOpen"
-        class="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 overflow-y-auto"
+        class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 overflow-y-auto"
       >
         <!-- Menu Header -->
         <div class="flex items-center justify-between p-6 border-b">
-          <h2 class="text-xl font-bold">Menu</h2>
+          <h2 class="text-xl font-bold">Vibe Reader</h2>
           <button
             @click="isOpen = false"
             class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -63,17 +63,21 @@
             <p v-if="success" class="text-sm text-green-500">{{ success }}</p>
           </div>
 
-          <!-- Example Feeds -->
+          <!-- Feeds List -->
           <div class="space-y-3">
-            <h3 class="font-semibold text-gray-900">Quick Add</h3>
-            <div class="space-y-2">
+            <h3 class="font-semibold text-gray-900">Feeds ({{ feeds.length }})</h3>
+            <div v-if="feeds.length === 0" class="text-sm text-gray-500">No feeds yet</div>
+            <div v-else class="space-y-1">
               <button
-                v-for="feed in exampleFeeds"
-                :key="feed.url"
-                @click="quickAddFeed(feed.url)"
-                class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                v-for="feed in feeds"
+                :key="feed.id"
+                @click="selectFeed(feed.id)"
+                class="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
+                :class="selectedFeedId === feed.id ? 'bg-blue-100 text-blue-900' : 'text-gray-700 hover:bg-gray-100'"
               >
-                {{ feed.name }}
+                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4" />
+                <span class="flex-1 truncate">{{ feed.title }}</span>
+                <span v-if="feed.unreadCount > 0" class="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
               </button>
             </div>
           </div>
@@ -141,20 +145,18 @@ const syncLoading = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 
-const { addFeed, syncAll, feeds } = useFeeds()
+const { addFeed, syncAll, feeds, selectedFeedId } = useFeeds()
 const { unreadArticles } = useArticles()
-
-const exampleFeeds = [
-  { name: 'Hacker News', url: 'https://hnrss.org/frontpage' },
-  { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
-  { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
-  { name: 'Daring Fireball', url: 'https://daringfireball.net/feeds/main' }
-]
 
 const stats = computed(() => ({
   totalFeeds: feeds.value.length,
   unreadArticles: unreadArticles.value.length
 }))
+
+const selectFeed = (feedId: number) => {
+  selectedFeedId.value = feedId
+  isOpen.value = false // Close menu after selecting feed
+}
 
 const handleAddFeed = async () => {
   if (!newFeedUrl.value.trim()) return
@@ -177,11 +179,6 @@ const handleAddFeed = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const quickAddFeed = async (url: string) => {
-  newFeedUrl.value = url
-  await handleAddFeed()
 }
 
 const handleSyncAll = async () => {
@@ -229,14 +226,14 @@ onMounted(() => {
   opacity: 0;
 }
 
-/* Slide transition for menu */
-.slide-enter-active,
-.slide-leave-active {
+/* Slide transition for menu (from left) */
+.slide-left-enter-active,
+.slide-left-leave-active {
   transition: transform 0.3s ease;
 }
 
-.slide-enter-from,
-.slide-leave-to {
-  transform: translateX(100%);
+.slide-left-enter-from,
+.slide-left-leave-to {
+  transform: translateX(-100%);
 }
 </style>
