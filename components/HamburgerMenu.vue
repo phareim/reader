@@ -435,12 +435,12 @@ onMounted(() => {
 /* Smooth show/hide for the discover/add buttons */
 .fade-scale-enter-active,
 .fade-scale-leave-active {
-  transition: opacity 250ms ease, transform 250ms ease, max-height 250ms ease;
+  transition: opacity 4000ms ease, transform 300ms ease, max-height 300ms ease;
 }
 .fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
-  transform: translateY(-16px) scale(0.5);
+  transform: translateY(-6px) scale(0.5);
   max-height: 0; /* collapse */
 }
 .fade-scale-enter-to,

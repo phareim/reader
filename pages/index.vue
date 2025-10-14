@@ -150,10 +150,11 @@ const {
 } = useFeeds()
 
 const {
+  articles,
   selectedArticleId,
   selectedArticle,
   showUnreadOnly,
-  displayedArticles,
+  displayedArticles: _displayedArticles,
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
@@ -165,6 +166,16 @@ const {
   toggleSave,
   fetchSavedArticleIds
 } = useSavedArticles()
+
+// Override displayedArticles to ignore unread filter when viewing saved articles
+const displayedArticles = computed(() => {
+  // When viewing saved articles (feedId === -1), show all saved articles
+  if (selectedFeedId.value === -1) {
+    return articles.value
+  }
+  // Otherwise use the default filtering from useArticles
+  return _displayedArticles.value
+})
 
 // Separate state for expanded article (different from selected/highlighted)
 const expandedArticleId = ref<number | null>(null)
