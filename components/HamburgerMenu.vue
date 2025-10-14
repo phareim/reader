@@ -81,7 +81,7 @@
               <div
                 v-for="feed in feeds"
                 :key="feed.id"
-                class="flex items-center gap-1"
+                class="flex items-center gap-1 relative"
               >
                 <button
                   @click="selectFeed(feed.id)"
@@ -92,16 +92,48 @@
                   <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
                   <span v-if="feed.unreadCount > 0" class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
                 </button>
-                <button
-                  @click="handleDeleteFeed(feed.id, feed.title)"
-                  class="flex-shrink-0 p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                  title="Delete feed"
-                  aria-label="Delete feed"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+
+                <!-- Dropdown Button -->
+                <div class="relative">
+                  <button
+                    @click.stop="toggleFeedMenu(feed.id)"
+                    class="flex-shrink-0 p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    :class="{ 'bg-gray-100 dark:bg-gray-700': openFeedMenuId === feed.id }"
+                    title="Feed options"
+                    aria-label="Feed options"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  <!-- Dropdown Menu -->
+                  <Transition name="dropdown">
+                    <div
+                      v-if="openFeedMenuId === feed.id"
+                      class="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50"
+                    >
+                      <button
+                        @click="handleMarkFeedAsRead(feed.id)"
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-lg transition-colors flex items-center gap-2"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Mark all as read</span>
+                      </button>
+                      <button
+                        @click="handleDeleteFeed(feed.id, feed.title)"
+                        class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span>Delete feed</span>
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
               </div>
             </div>
           </div>
@@ -182,9 +214,10 @@ const syncLoading = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
+const openFeedMenuId = ref<number | null>(null)
 
 const { addFeed, syncAll, deleteFeed, feeds, selectedFeedId } = useFeeds()
-const { unreadArticles, showUnreadOnly } = useArticles()
+const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
 const { data: session, signOut } = useAuth()
 
 const stats = computed(() => ({
@@ -198,6 +231,26 @@ const toggleMenu = () => {
 
 const selectFeed = (feedId: number) => {
   selectedFeedId.value = feedId
+}
+
+const toggleFeedMenu = (feedId: number) => {
+  openFeedMenuId.value = openFeedMenuId.value === feedId ? null : feedId
+}
+
+const handleMarkFeedAsRead = async (feedId: number) => {
+  error.value = null
+  success.value = null
+  openFeedMenuId.value = null
+
+  try {
+    await markAllAsRead(feedId)
+    success.value = 'All articles marked as read!'
+    setTimeout(() => {
+      success.value = null
+    }, 3000)
+  } catch (err: any) {
+    error.value = 'Failed to mark all as read'
+  }
 }
 
 const handleDiscoverFeeds = async () => {
@@ -304,6 +357,8 @@ const handleSignOut = async () => {
 }
 
 const handleDeleteFeed = async (feedId: number, feedTitle: string) => {
+  openFeedMenuId.value = null
+
   if (!confirm(`Are you sure you want to delete "${feedTitle}"?\n\nThis will also delete all articles from this feed.`)) {
     return
   }
@@ -328,17 +383,30 @@ defineExpose({
   isOpen
 })
 
-// Close menu on Escape key
+// Close menu and dropdowns on Escape key and click outside
 onMounted(() => {
   const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && isOpen.value) {
-      isOpen.value = false
+    if (e.key === 'Escape') {
+      if (openFeedMenuId.value !== null) {
+        openFeedMenuId.value = null
+      } else if (isOpen.value) {
+        isOpen.value = false
+      }
     }
   }
+
+  const handleClickOutside = (e: MouseEvent) => {
+    if (openFeedMenuId.value !== null) {
+      openFeedMenuId.value = null
+    }
+  }
+
   window.addEventListener('keydown', handleEscape)
+  window.addEventListener('click', handleClickOutside)
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleEscape)
+    window.removeEventListener('click', handleClickOutside)
   })
 })
 </script>
@@ -360,5 +428,21 @@ onMounted(() => {
   opacity: 1;
   transform: translateY(0) scale(1);
   max-height: 120px; /* enough to fit the two-button row */
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-enter-to,
+.dropdown-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 </style>
