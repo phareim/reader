@@ -6,33 +6,17 @@
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
     >
         <!-- Menu Header -->
-        <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Vibe Reader</h2>
-        </div>
-
-        <!-- User Profile Section -->
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-          <div class="flex items-center gap-3">
-            <img
-              v-if="session?.user?.image"
-              :src="session.user.image"
-              :alt="session.user.name"
-              class="w-12 h-12 rounded-full border-2 border-white dark:border-gray-700 shadow-md"
-            />
-            <div v-else class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-xl shadow-md">
-              {{ session?.user?.name?.charAt(0) || '?' }}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-gray-900 dark:text-gray-100 truncate">{{ session?.user?.name }}</p>
-              <p class="text-xs text-gray-600 dark:text-gray-400 truncate">{{ session?.user?.email }}</p>
-            </div>
+          <img
+            v-if="session?.user?.image"
+            :src="session.user.image"
+            :alt="session.user.name"
+            class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600"
+          />
+          <div v-else class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+            {{ session?.user?.name?.charAt(0) || '?' }}
           </div>
-          <button
-            @click="handleSignOut"
-            class="w-full mt-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-red-200 dark:border-red-800"
-          >
-            Sign Out
-          </button>
         </div>
 
         <!-- Menu Content -->
@@ -44,21 +28,21 @@
               v-model="newFeedUrl"
               type="url"
               placeholder="Enter URL or RSS feed URL..."
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @keyup.enter="handleDiscoverOrAddFeed"
             />
             <div class="flex gap-2">
               <button
                 @click="handleDiscoverFeeds"
                 :disabled="!newFeedUrl.trim() || discovering"
-                class="flex-1 px-4 py-2 bg-purple-500 dark:bg-purple-600 text-white rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="flex-1 px-3 py-1.5 text-sm bg-purple-500 dark:bg-purple-600 text-white rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {{ discovering ? 'Discovering...' : 'Discover Feeds' }}
+                {{ discovering ? 'Discovering...' : 'Discover' }}
               </button>
               <button
                 @click="handleAddFeed"
                 :disabled="!newFeedUrl.trim() || loading"
-                class="flex-1 px-4 py-2 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="flex-1 px-3 py-1.5 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {{ loading ? 'Adding...' : 'Add Direct' }}
               </button>
@@ -83,25 +67,11 @@
             </div>
           </div>
 
-          <!-- View Options -->
-          <div class="space-y-3">
-            <h3 class="font-semibold text-gray-900 dark:text-gray-100">View Options</h3>
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors">
-                <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
-                <span>Unread only</span>
-              </label>
-              <button
-                @click="handleMarkAllRead"
-                class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Mark all as read</span>
-              </button>
-            </div>
-          </div>
+          <!-- Unread Filter -->
+          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors">
+            <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
+            <span>Unread only</span>
+          </label>
 
           <!-- Feeds List -->
           <div class="space-y-3">
@@ -185,6 +155,19 @@
               </div>
             </div>
           </div>
+
+          <!-- Sign Out Button -->
+          <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              @click="handleSignOut"
+              class="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </div>
   </div>
@@ -201,7 +184,7 @@ const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 
 const { addFeed, syncAll, deleteFeed, feeds, selectedFeedId } = useFeeds()
-const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
+const { unreadArticles, showUnreadOnly } = useArticles()
 const { data: session, signOut } = useAuth()
 
 const stats = computed(() => ({
@@ -318,22 +301,6 @@ const handleSyncAll = async () => {
 
 const handleSignOut = async () => {
   await signOut({ callbackUrl: '/login' })
-}
-
-const handleMarkAllRead = async () => {
-  error.value = null
-  success.value = null
-
-  try {
-    await markAllAsRead(selectedFeedId.value ?? undefined)
-    success.value = 'All articles marked as read!'
-
-    setTimeout(() => {
-      success.value = null
-    }, 3000)
-  } catch (err: any) {
-    error.value = 'Failed to mark all as read'
-  }
 }
 
 const handleDeleteFeed = async (feedId: number, feedTitle: string) => {
