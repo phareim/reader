@@ -3,6 +3,7 @@ import type { Feed } from '~/types'
 export const useFeeds = () => {
   const feeds = useState<Feed[]>('feeds', () => [])
   const selectedFeedId = useState<number | null>('selectedFeedId', () => null)
+  const selectedTag = useState<string | null>('selectedTag', () => null)
   const loading = useState<boolean>('feedsLoading', () => false)
   const error = useState<string | null>('feedsError', () => null)
 
@@ -13,6 +14,54 @@ export const useFeeds = () => {
   const totalUnreadCount = computed(() =>
     feeds.value.reduce((sum, feed) => sum + feed.unreadCount, 0)
   )
+
+  // Get all unique tags across all feeds
+  const allTags = computed(() => {
+    const tagSet = new Set<string>()
+    feeds.value.forEach(feed => {
+      feed.tags.forEach(tag => tagSet.add(tag))
+    })
+    return Array.from(tagSet).sort()
+  })
+
+  // Group feeds by tags
+  const feedsByTag = computed(() => {
+    const grouped: Record<string, Feed[]> = {}
+
+    feeds.value.forEach(feed => {
+      if (feed.tags.length === 0) {
+        // Untagged feeds go to inbox
+        if (!grouped['__inbox__']) {
+          grouped['__inbox__'] = []
+        }
+        grouped['__inbox__'].push(feed)
+      } else {
+        // Add feed to each of its tags
+        feed.tags.forEach(tag => {
+          if (!grouped[tag]) {
+            grouped[tag] = []
+          }
+          grouped[tag].push(feed)
+        })
+      }
+    })
+
+    return grouped
+  })
+
+  // Get feeds for currently selected tag
+  const selectedTagFeeds = computed(() => {
+    if (!selectedTag.value) return []
+    if (selectedTag.value === '__inbox__') {
+      return feeds.value.filter(f => f.tags.length === 0)
+    }
+    return feeds.value.filter(f => f.tags.includes(selectedTag.value))
+  })
+
+  // Get feed IDs for currently selected tag
+  const selectedTagFeedIds = computed(() => {
+    return selectedTagFeeds.value.map(f => f.id)
+  })
 
   const fetchFeeds = async () => {
     loading.value = true
@@ -64,6 +113,7 @@ export const useFeeds = () => {
       // Clear selection if deleted feed was selected
       if (selectedFeedId.value === id) {
         selectedFeedId.value = null
+        selectedTag.value = null
       }
     } catch (err: any) {
       error.value = err.message || 'Failed to delete feed'
@@ -135,7 +185,12 @@ export const useFeeds = () => {
   return {
     feeds: readonly(feeds),
     selectedFeedId,
+    selectedTag,
     selectedFeed,
+    selectedTagFeeds,
+    selectedTagFeedIds,
+    allTags,
+    feedsByTag,
     totalUnreadCount,
     loading: readonly(loading),
     error: readonly(error),

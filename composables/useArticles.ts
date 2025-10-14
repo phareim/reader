@@ -23,7 +23,7 @@ export const useArticles = () => {
     articles.value.filter(a => !a.isRead)
   )
 
-  const fetchArticles = async (feedId?: number) => {
+  const fetchArticles = async (feedId?: number, feedIds?: number[]) => {
     // Special case: feedId = -1 means fetch saved articles
     if (feedId === -1) {
       return fetchSavedArticles()
@@ -34,9 +34,14 @@ export const useArticles = () => {
 
     try {
       const params: any = { limit: 100 }
-      if (feedId !== undefined) {
+
+      // If feedIds array is provided (for tag-based fetching), use it
+      if (feedIds && feedIds.length > 0) {
+        params.feedIds = feedIds.join(',')
+      } else if (feedId !== undefined) {
         params.feedId = feedId
       }
+
       if (showUnreadOnly.value) {
         params.isRead = 'false'
       }

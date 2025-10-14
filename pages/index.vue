@@ -44,6 +44,10 @@
               />
               <span>{{ selectedFeed.title }}</span>
             </template>
+            <template v-else-if="selectedTag">
+              <span v-if="selectedTag === '__inbox__'">📥 Inbox</span>
+              <span v-else>#{{ selectedTag }}</span>
+            </template>
             <span v-else>All Vibes — The RSS Reader</span>
           </h1>
         </div>
@@ -142,7 +146,9 @@ definePageMeta({
 const {
   feeds,
   selectedFeedId,
+  selectedTag,
   selectedFeed,
+  selectedTagFeedIds,
   loading: feedsLoading,
   fetchFeeds,
   refreshFeed,
@@ -381,11 +387,16 @@ onMounted(async () => {
   })
 })
 
-// Watch for feed selection changes
-watch(selectedFeedId, async (feedId) => {
+// Watch for feed or tag selection changes
+watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
   if (feedId !== null) {
+    // Specific feed selected - fetch articles from that feed
     await fetchArticles(feedId)
+  } else if (tag !== null) {
+    // Tag selected but no specific feed - fetch articles from all feeds with this tag
+    await fetchArticles(undefined, selectedTagFeedIds.value)
   } else {
+    // No feed or tag selected - fetch all articles
     await fetchArticles()
   }
 })
@@ -394,6 +405,8 @@ watch(selectedFeedId, async (feedId) => {
 watch(showUnreadOnly, async () => {
   if (selectedFeedId.value !== null) {
     await fetchArticles(selectedFeedId.value)
+  } else if (selectedTag.value !== null) {
+    await fetchArticles(undefined, selectedTagFeedIds.value)
   } else {
     await fetchArticles()
   }

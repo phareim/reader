@@ -4,6 +4,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
 
   const feedId = query.feedId ? parseInt(query.feedId as string) : undefined
+  const feedIds = query.feedIds ? (query.feedIds as string).split(',').map(id => parseInt(id)) : undefined
   const isRead = query.isRead === 'true' ? true : query.isRead === 'false' ? false : undefined
   const isStarred = query.isStarred === 'true' ? true : undefined
   const limit = Math.min(parseInt(query.limit as string) || 50, 200)
@@ -12,9 +13,13 @@ export default defineEventHandler(async (event) => {
   try {
     const where: any = {}
 
-    if (feedId !== undefined) {
+    // Support both single feedId and multiple feedIds
+    if (feedIds !== undefined && feedIds.length > 0) {
+      where.feedId = { in: feedIds }
+    } else if (feedId !== undefined) {
       where.feedId = feedId
     }
+
     if (isRead !== undefined) {
       where.isRead = isRead
     }
