@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.output
+.nuxt
+.nitro
+dist
+
+# Database (will be created in container)
+data/
+*.db
+*.db-journal
+
+# Development files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+.fleet
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Misc
+*.md
+!README.md
+.cache
