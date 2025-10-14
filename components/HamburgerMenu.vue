@@ -83,6 +83,26 @@
             </div>
           </div>
 
+          <!-- View Options -->
+          <div class="space-y-3">
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100">View Options</h3>
+            <div class="space-y-2">
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors">
+                <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
+                <span>Unread only</span>
+              </label>
+              <button
+                @click="handleMarkAllRead"
+                class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Mark all as read</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Feeds List -->
           <div class="space-y-3">
             <h3 class="font-semibold text-gray-900 dark:text-gray-100">Feeds ({{ feeds.length }})</h3>
@@ -95,16 +115,16 @@
               >
                 <button
                   @click="selectFeed(feed.id)"
-                  class="flex-1 text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
+                  class="flex-1 min-w-0 text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
                   :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
                 >
-                  <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4" />
-                  <span class="flex-1 truncate">{{ feed.title }}</span>
-                  <span v-if="feed.unreadCount > 0" class="text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
+                  <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
+                  <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
+                  <span v-if="feed.unreadCount > 0" class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
                 </button>
                 <button
                   @click="handleDeleteFeed(feed.id, feed.title)"
-                  class="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  class="flex-shrink-0 p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                   title="Delete feed"
                   aria-label="Delete feed"
                 >
@@ -181,7 +201,7 @@ const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 
 const { addFeed, syncAll, deleteFeed, feeds, selectedFeedId } = useFeeds()
-const { unreadArticles } = useArticles()
+const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
 const { data: session, signOut } = useAuth()
 
 const stats = computed(() => ({
@@ -298,6 +318,22 @@ const handleSyncAll = async () => {
 
 const handleSignOut = async () => {
   await signOut({ callbackUrl: '/login' })
+}
+
+const handleMarkAllRead = async () => {
+  error.value = null
+  success.value = null
+
+  try {
+    await markAllAsRead(selectedFeedId.value ?? undefined)
+    success.value = 'All articles marked as read!'
+
+    setTimeout(() => {
+      success.value = null
+    }, 3000)
+  } catch (err: any) {
+    error.value = 'Failed to mark all as read'
+  }
 }
 
 const handleDeleteFeed = async (feedId: number, feedTitle: string) => {

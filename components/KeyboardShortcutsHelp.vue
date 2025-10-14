@@ -27,7 +27,7 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Navigation</h3>
             <div class="space-y-2">
               <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                <span class="text-gray-700 dark:text-gray-300">Next article</span>
+                <span class="text-gray-700 dark:text-gray-300">Next article (auto-open)</span>
                 <div class="flex gap-2">
                   <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">j</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>
@@ -35,7 +35,7 @@
                 </div>
               </div>
               <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                <span class="text-gray-700 dark:text-gray-300">Previous article</span>
+                <span class="text-gray-700 dark:text-gray-300">Previous article (auto-open)</span>
                 <div class="flex gap-2">
                   <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">k</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>
@@ -73,7 +73,7 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Article Actions</h3>
             <div class="space-y-2">
               <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                <span class="text-gray-700 dark:text-gray-300">Open/expand selected article</span>
+                <span class="text-gray-700 dark:text-gray-300">Toggle open/close article</span>
                 <div class="flex gap-2">
                   <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">o</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>

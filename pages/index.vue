@@ -20,9 +20,11 @@
             class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
             aria-label="Toggle menu"
           >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path v-if="!menuIsOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-              <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg v-if="!menuIsOpen" class="w-6 h-6" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill="currentColor" fill-rule="evenodd" d="M4.167 3C3.522 3 3 3.522 3 4.167v11.666C3 16.478 3.522 17 4.167 17H7V3zM8 3v14h7.833c.645 0 1.167-.522 1.167-1.167V4.167C17 3.522 16.478 3 15.833 3zM2 4.167C2 2.97 2.97 2 4.167 2h11.666C17.03 2 18 2.97 18 4.167v11.666C18 17.03 17.03 18 15.833 18H4.167A2.167 2.167 0 0 1 2 15.833z" clip-rule="evenodd" />
+            </svg>
+            <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
@@ -39,19 +41,6 @@
             <span v-else>All Vibes — The RSS Reader</span>
           </h1>
         </div>
-        <div class="flex gap-4 items-center">
-          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
-            Unread only
-          </label>
-          <button
-            v-if="displayedArticles.length > 0"
-            @click="handleMarkAllRead"
-            class="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-          >
-            Mark all read
-          </button>
-        </div>
       </div>
 
       <!-- Articles List (Full Width) -->
@@ -67,7 +56,7 @@
             class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors"
             :class="{
               'ring-2 ring-blue-400 dark:ring-blue-500 ring-inset': selectedArticleId === article.id && expandedArticleId !== article.id,
-              'ring-2 ring-blue-500 dark:ring-blue-400 ring-inset bg-blue-50 dark:bg-blue-900/20': expandedArticleId === article.id
+              'ring-2 ring-blue-500 dark:ring-blue-600 ring-inset bg-blue-50 dark:bg-gray-800/70': expandedArticleId === article.id
             }"
             @click="handleOpenArticle(article.id)"
           >
@@ -77,7 +66,7 @@
                 <div class="flex-1 min-w-0">
                   <h2
                     class="text-lg mb-1"
-                    :class="article.isRead ? 'font-normal text-gray-700 dark:text-gray-400' : 'font-bold text-gray-900 dark:text-gray-100'"
+                    :class="article.isRead ? 'font-normal text-gray-700 dark:text-gray-300' : 'font-bold text-gray-900 dark:text-gray-100'"
                   >
                     {{ article.title }}
                   </h2>
@@ -103,7 +92,7 @@
 
             <!-- Article Content (Expanded Inline) -->
             <Transition name="expand">
-              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60">
                 <div
                   v-if="article.content"
                   class="prose prose-sm dark:prose-invert max-w-none mt-4"
@@ -230,10 +219,10 @@ onMounted(async () => {
       if (selectedArticleId.value === null && displayedArticles.value.length > 0) {
         // Select and open first article if none selected
         selectedArticleId.value = displayedArticles.value[0].id
-        await handleOpenArticle(displayedArticles.value[0].id)
+        await handleOpenArticle(displayedArticles.value[0].id, false)
       } else if (selectedArticleId.value !== null) {
-        // Open selected article
-        await handleOpenArticle(selectedArticleId.value)
+        // Toggle the currently selected article
+        await handleOpenArticle(selectedArticleId.value, true)
       }
       return
     }
@@ -366,24 +355,30 @@ watch(displayedArticles, () => {
   }
 })
 
-// Navigate articles (highlight without opening)
-const navigateArticles = (direction: 'up' | 'down') => {
+// Navigate articles (auto-open)
+const navigateArticles = async (direction: 'up' | 'down') => {
   const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
+  let newArticleId: number | null = null
 
   if (direction === 'up' && currentIndex > 0) {
-    selectedArticleId.value = displayedArticles.value[currentIndex - 1].id
+    newArticleId = displayedArticles.value[currentIndex - 1].id
   } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
-    selectedArticleId.value = displayedArticles.value[currentIndex + 1].id
+    newArticleId = displayedArticles.value[currentIndex + 1].id
   } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
     // If nothing selected, select first article
-    selectedArticleId.value = displayedArticles.value[0].id
+    newArticleId = displayedArticles.value[0].id
+  }
+
+  if (newArticleId !== null) {
+    selectedArticleId.value = newArticleId
+    await handleOpenArticle(newArticleId, false) // Don't toggle, always open
   }
 }
 
 // Open/expand article and mark as read
-const handleOpenArticle = async (id: number) => {
-  // Toggle if clicking the same expanded article
-  if (expandedArticleId.value === id) {
+const handleOpenArticle = async (id: number, toggle = true) => {
+  // Toggle if clicking the same expanded article (only when toggle is true)
+  if (toggle && expandedArticleId.value === id) {
     expandedArticleId.value = null
   } else {
     expandedArticleId.value = id
