@@ -109,6 +109,29 @@ export const useFeeds = () => {
     }
   }
 
+  const updateFeedTags = async (id: number, tags: string[]) => {
+    try {
+      const response = await $fetch<{ success: boolean; tags: string[] }>(
+        `/api/feeds/${id}/tags`,
+        {
+          method: 'PATCH',
+          body: { tags }
+        }
+      )
+
+      // Update local state
+      const feedIndex = feeds.value.findIndex(f => f.id === id)
+      if (feedIndex !== -1) {
+        feeds.value[feedIndex].tags = response.tags
+      }
+
+      return response
+    } catch (err: any) {
+      error.value = err.data?.message || err.message || 'Failed to update feed tags'
+      throw err
+    }
+  }
+
   return {
     feeds: readonly(feeds),
     selectedFeedId,
@@ -120,6 +143,7 @@ export const useFeeds = () => {
     addFeed,
     deleteFeed,
     refreshFeed,
-    syncAll
+    syncAll,
+    updateFeedTags
   }
 }

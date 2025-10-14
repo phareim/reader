@@ -4,6 +4,7 @@ export interface Feed {
   url: string
   siteUrl?: string | null
   faviconUrl?: string | null
+  tags: string[]
   unreadCount: number
   lastFetchedAt?: string | null
   lastError?: string | null

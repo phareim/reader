@@ -47,6 +47,7 @@ export default defineEventHandler(async (event) => {
         url: feed.url,
         siteUrl: feed.siteUrl,
         faviconUrl: feed.faviconUrl,
+        tags: JSON.parse(feed.tags || '[]'),
         unreadCount: feed._count.articles,
         lastFetchedAt: feed.lastFetchedAt?.toISOString(),
         lastError: feed.lastError,

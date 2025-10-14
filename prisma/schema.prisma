@@ -65,6 +65,7 @@ model Feed {
   description     String?
   siteUrl         String?
   faviconUrl      String?
+  tags            String    @default("[]")
   lastFetchedAt   DateTime?
   lastError       String?
   errorCount      Int       @default(0)

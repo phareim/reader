@@ -98,12 +98,23 @@
               >
                 <button
                   @click="selectFeed(feed.id)"
-                  class="flex-1 min-w-0 text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
+                  class="flex-1 min-w-0 text-left px-3 py-2 text-sm rounded-lg transition-colors"
                   :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
                 >
-                  <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
-                  <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
-                  <span v-if="feed.unreadCount > 0" class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
+                  <div class="flex items-center gap-2">
+                    <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
+                    <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
+                    <span v-if="feed.unreadCount > 0" class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">{{ feed.unreadCount }}</span>
+                  </div>
+                  <div v-if="feed.tags && feed.tags.length > 0" class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      v-for="tag in feed.tags"
+                      :key="tag"
+                      class="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                    >
+                      #{{ tag }}
+                    </span>
+                  </div>
                 </button>
 
                 <!-- Dropdown Button -->
@@ -124,7 +135,7 @@
                   <Transition name="dropdown">
                     <div
                       v-if="openFeedMenuId === feed.id"
-                      class="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50"
+                      class="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50"
                     >
                       <button
                         @click="handleMarkFeedAsRead(feed.id)"
@@ -135,9 +146,42 @@
                         </svg>
                         <span>Mark all as read</span>
                       </button>
+
+                      <!-- Tags Management -->
+                      <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-600">
+                        <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Tags</div>
+
+                        <!-- Current Tags -->
+                        <div v-if="feed.tags && feed.tags.length > 0" class="flex flex-wrap gap-1 mb-2">
+                          <button
+                            v-for="tag in feed.tags"
+                            :key="tag"
+                            @click="handleRemoveTag(feed.id, tag)"
+                            class="group flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                            title="Click to remove"
+                          >
+                            <span>#{{ tag }}</span>
+                            <svg class="w-3 h-3 opacity-50 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div v-else class="text-xs text-gray-500 dark:text-gray-400 mb-2">No tags yet</div>
+
+                        <!-- Add Tag Input -->
+                        <input
+                          v-model="newTag"
+                          @keyup.enter="handleAddTag(feed.id)"
+                          @click.stop
+                          type="text"
+                          placeholder="Add tag (press Enter)"
+                          class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </div>
+
                       <button
                         @click="handleDeleteFeed(feed.id, feed.title)"
-                        class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2"
+                        class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-gray-600"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -221,6 +265,7 @@
 <script setup lang="ts">
 const isOpen = ref(false)
 const newFeedUrl = ref('')
+const newTag = ref('')
 const loading = ref(false)
 const discovering = ref(false)
 const syncLoading = ref(false)
@@ -229,7 +274,7 @@ const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 const openFeedMenuId = ref<number | null>(null)
 
-const { addFeed, syncAll, deleteFeed, feeds, selectedFeedId } = useFeeds()
+const { addFeed, syncAll, deleteFeed, updateFeedTags, feeds, selectedFeedId } = useFeeds()
 const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
 const { savedArticleIds } = useSavedArticles()
 const { data: session, signOut } = useAuth()
@@ -395,6 +440,57 @@ const handleDeleteFeed = async (feedId: number, feedTitle: string) => {
     }, 3000)
   } catch (err: any) {
     error.value = err.data?.message || err.message || 'Failed to delete feed'
+  }
+}
+
+const handleAddTag = async (feedId: number) => {
+  const tag = newTag.value.trim().replace(/^#/, '') // Remove leading # if present
+  if (!tag) return
+
+  const feed = feeds.value.find(f => f.id === feedId)
+  if (!feed) return
+
+  // Check if tag already exists
+  if (feed.tags.includes(tag)) {
+    error.value = 'Tag already exists'
+    setTimeout(() => {
+      error.value = null
+    }, 2000)
+    return
+  }
+
+  error.value = null
+  success.value = null
+
+  try {
+    await updateFeedTags(feedId, [...feed.tags, tag])
+    newTag.value = ''
+    success.value = 'Tag added!'
+
+    setTimeout(() => {
+      success.value = null
+    }, 2000)
+  } catch (err: any) {
+    error.value = err.data?.message || err.message || 'Failed to add tag'
+  }
+}
+
+const handleRemoveTag = async (feedId: number, tagToRemove: string) => {
+  const feed = feeds.value.find(f => f.id === feedId)
+  if (!feed) return
+
+  error.value = null
+  success.value = null
+
+  try {
+    await updateFeedTags(feedId, feed.tags.filter(t => t !== tagToRemove))
+    success.value = 'Tag removed!'
+
+    setTimeout(() => {
+      success.value = null
+    }, 2000)
+  } catch (err: any) {
+    error.value = err.data?.message || err.message || 'Failed to remove tag'
   }
 }
 
