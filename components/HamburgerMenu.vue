@@ -6,7 +6,7 @@
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
     >
         <!-- Menu Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between px-6 py-4 h-16 border-b border-gray-200 dark:border-gray-700">
           <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Vibe Reader</h2>
           <img
             v-if="session?.user?.image"
@@ -20,33 +20,34 @@
         </div>
 
         <!-- Menu Content -->
-        <div class="p-6 space-y-6">
+        <div class="p-2 space-y-3">
           <!-- Add Feed Section -->
-          <div class="space-y-3">
-            <h3 class="font-semibold text-gray-900 dark:text-gray-100">Add Feed</h3>
+          <div class="space-y-2">
             <input
               v-model="newFeedUrl"
               type="url"
-              placeholder="Enter URL or RSS feed URL..."
+              placeholder="Enter URL (feed or website)"
               class="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @keyup.enter="handleDiscoverOrAddFeed"
             />
-            <div class="flex gap-2">
-              <button
-                @click="handleDiscoverFeeds"
-                :disabled="!newFeedUrl.trim() || discovering"
-                class="flex-1 px-3 py-1.5 text-sm bg-purple-500 dark:bg-purple-600 text-white rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {{ discovering ? 'Discovering...' : 'Discover' }}
-              </button>
-              <button
-                @click="handleAddFeed"
-                :disabled="!newFeedUrl.trim() || loading"
-                class="flex-1 px-3 py-1.5 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {{ loading ? 'Adding...' : 'Add Direct' }}
-              </button>
-            </div>
+            <Transition name="fade-scale">
+              <div v-if="newFeedUrl.trim() !== ''" class="flex gap-2 items-center justify-between w-full">
+                <button
+                  @click="handleDiscoverFeeds"
+                  :disabled="!newFeedUrl.trim() || discovering"
+                  class="flex-1 px-3 py-1.5 text-sm bg-purple-500 dark:bg-purple-600 text-white rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {{ discovering ? 'Discovering...' : 'Discover' }}
+                </button>
+                <button
+                  @click="handleAddFeed"
+                  :disabled="!newFeedUrl.trim() || loading"
+                  class="flex-1 px-3 py-1.5 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {{ loading ? 'Adding...' : 'Add Direct' }}
+                </button>
+              </div>
+            </Transition>
             <p v-if="error" class="text-sm text-red-500 dark:text-red-400">{{ error }}</p>
             <p v-if="success" class="text-sm text-green-500 dark:text-green-400">{{ success }}</p>
 
@@ -67,17 +68,16 @@
             </div>
           </div>
 
-          <!-- Unread Filter -->
-          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors">
-            <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
-            <span>Unread only</span>
-          </label>
-
           <!-- Feeds List -->
           <div class="space-y-3">
-            <h3 class="font-semibold text-gray-900 dark:text-gray-100">Feeds ({{ feeds.length }})</h3>
+            <h3 class="font-semibold text-gray-900 dark:text-gray-100 flex items-center justify-between">Feeds ({{ feeds.length }})
+              <label class="space-x-2 text-sm text-gray-700 dark:text-gray-300">
+            <input v-model="showUnreadOnly" type="checkbox"/>
+            <span class="truncate">Show unread only</span>
+          </label>
+            </h3>
             <div v-if="feeds.length === 0" class="text-sm text-gray-500 dark:text-gray-400">No feeds yet</div>
-            <div v-else class="space-y-1">
+            <div v-else class="space-y-0">
               <div
                 v-for="feed in feeds"
                 :key="feed.id"
@@ -342,3 +342,21 @@ onMounted(() => {
   })
 })
 </script>
+
+<style scoped>
+/* Smooth show/hide for the discover/add buttons */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.5);
+}
+.fade-scale-enter-to,
+.fade-scale-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+</style>

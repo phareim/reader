@@ -12,7 +12,7 @@
       :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
     >
       <!-- Header -->
-      <div class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+      <div class="bg-white h-16 dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <!-- Hamburger Button -->
           <button
@@ -28,7 +28,7 @@
             </svg>
           </button>
 
-          <h1 class="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
+          <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
             <template v-if="selectedFeed">
               <img
                 v-if="selectedFeed.faviconUrl"
