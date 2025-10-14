@@ -23,41 +23,31 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Get article ID from route params
+  const articleId = parseInt(getRouterParam(event, 'id') || '')
+  if (isNaN(articleId)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid article ID'
+    })
+  }
+
   try {
-    const feeds = await prisma.feed.findMany({
+    // Delete saved article
+    await prisma.savedArticle.deleteMany({
       where: {
-        userId: user.id
-      },
-      include: {
-        _count: {
-          select: {
-            articles: {
-              where: { isRead: false }
-            }
-          }
-        }
-      },
-      orderBy: { createdAt: 'asc' }
+        userId: user.id,
+        articleId: articleId
+      }
     })
 
     return {
-      feeds: feeds.map(feed => ({
-        id: feed.id,
-        title: feed.title,
-        url: feed.url,
-        siteUrl: feed.siteUrl,
-        faviconUrl: feed.faviconUrl,
-        unreadCount: feed._count.articles,
-        lastFetchedAt: feed.lastFetchedAt?.toISOString(),
-        lastError: feed.lastError,
-        errorCount: feed.errorCount,
-        isActive: feed.isActive
-      }))
+      success: true
     }
   } catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch feeds',
+      statusMessage: 'Failed to unsave article',
       message: error.message
     })
   }

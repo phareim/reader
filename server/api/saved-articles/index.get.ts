@@ -24,40 +24,43 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const feeds = await prisma.feed.findMany({
+    // Fetch all saved articles for the user
+    const savedArticles = await prisma.savedArticle.findMany({
       where: {
         userId: user.id
       },
       include: {
-        _count: {
-          select: {
-            articles: {
-              where: { isRead: false }
-            }
+        article: {
+          include: {
+            feed: true
           }
         }
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: {
+        savedAt: 'desc'
+      }
     })
 
     return {
-      feeds: feeds.map(feed => ({
-        id: feed.id,
-        title: feed.title,
-        url: feed.url,
-        siteUrl: feed.siteUrl,
-        faviconUrl: feed.faviconUrl,
-        unreadCount: feed._count.articles,
-        lastFetchedAt: feed.lastFetchedAt?.toISOString(),
-        lastError: feed.lastError,
-        errorCount: feed.errorCount,
-        isActive: feed.isActive
+      articles: savedArticles.map(saved => ({
+        id: saved.article.id,
+        feedId: saved.article.feedId,
+        feedTitle: saved.article.feed.title,
+        title: saved.article.title,
+        url: saved.article.url,
+        author: saved.article.author,
+        content: saved.article.content,
+        summary: saved.article.summary,
+        publishedAt: saved.article.publishedAt?.toISOString(),
+        isRead: saved.article.isRead,
+        savedAt: saved.savedAt.toISOString(),
+        savedId: saved.id
       }))
     }
   } catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch feeds',
+      statusMessage: 'Failed to fetch saved articles',
       message: error.message
     })
   }

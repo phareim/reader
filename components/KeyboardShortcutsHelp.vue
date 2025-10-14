@@ -98,6 +98,10 @@
                 <span class="text-gray-700 dark:text-gray-300">View original (open in new tab)</span>
                 <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">v</kbd>
               </div>
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span class="text-gray-700 dark:text-gray-300">Save/unsave selected article</span>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">s</kbd>
+              </div>
             </div>
           </div>
 

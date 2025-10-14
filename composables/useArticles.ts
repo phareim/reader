@@ -24,6 +24,11 @@ export const useArticles = () => {
   )
 
   const fetchArticles = async (feedId?: number) => {
+    // Special case: feedId = -1 means fetch saved articles
+    if (feedId === -1) {
+      return fetchSavedArticles()
+    }
+
     loading.value = true
     error.value = null
 
@@ -44,6 +49,21 @@ export const useArticles = () => {
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch articles'
       console.error('Error fetching articles:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const fetchSavedArticles = async () => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await $fetch<{ articles: Article[] }>('/api/saved-articles')
+      articles.value = response.articles
+    } catch (err: any) {
+      error.value = err.message || 'Failed to fetch saved articles'
+      console.error('Error fetching saved articles:', err)
     } finally {
       loading.value = false
     }

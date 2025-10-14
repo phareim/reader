@@ -1,7 +1,29 @@
 import prisma from '~/server/utils/db'
 import { parseFeed } from '~/server/utils/feedParser'
+import { getServerSession } from '#auth'
 
 export default defineEventHandler(async (event) => {
+  // Get authenticated user
+  const session = await getServerSession(event)
+  if (!session || !session.user?.email) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
+  }
+
+  // Get user from database
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email }
+  })
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'User not found'
+    })
+  }
+
   const body = await readBody(event)
   const { url } = body
 
@@ -14,9 +36,14 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Check if feed already exists
+    // Check if user already has this feed
     const existingFeed = await prisma.feed.findUnique({
-      where: { url }
+      where: {
+        userId_url: {
+          userId: user.id,
+          url
+        }
+      }
     })
 
     if (existingFeed) {
@@ -33,6 +60,7 @@ export default defineEventHandler(async (event) => {
     // Create feed in database
     const feed = await prisma.feed.create({
       data: {
+        userId: user.id,
         url,
         title: parsedFeed.title,
         description: parsedFeed.description,
