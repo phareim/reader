@@ -56,8 +56,78 @@
       <!-- Articles List (Full Width) -->
       <div class="max-w-5xl mx-auto py-4">
         <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
-        <div v-else-if="displayedArticles.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-8">
-          No articles to display. Open the menu to add feeds!
+        <div v-else-if="displayedArticles.length === 0" class="px-6 py-8">
+          <div v-if="feeds.length === 0" class="text-center text-gray-500 dark:text-gray-400">
+            No feeds yet. Open the menu to add feeds!
+          </div>
+          <div v-else class="max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">
+              All caught up! 🎉
+            </h2>
+            <p class="text-center text-gray-600 dark:text-gray-400 mb-8">
+              You've read everything in this view. Here's what's waiting for you:
+            </p>
+
+            <div class="space-y-3">
+              <!-- Tags with unread articles -->
+              <div
+                v-for="tag in allTags"
+                :key="tag"
+                v-show="getTagUnreadCount(tag) > 0"
+              >
+                <button
+                  @click="handleSelectTag(tag)"
+                  class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="text-2xl">#</span>
+                    <span class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ tag }}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ getTagUnreadCount(tag) }} unread</span>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Inbox with unread articles -->
+              <div v-if="feedsByTag['__inbox__'] && getInboxUnreadCount() > 0">
+                <button
+                  @click="handleSelectTag('__inbox__')"
+                  class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
+                >
+                  <div class="flex items-center gap-3">
+                    <span class="text-2xl">📥</span>
+                    <span class="text-lg font-medium text-gray-900 dark:text-gray-100">Inbox</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ getInboxUnreadCount() }} unread</span>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              <!-- If no unread at all -->
+              <div v-if="totalUnreadCount === 0" class="text-center py-8">
+                <p class="text-gray-500 dark:text-gray-400 mb-4">
+                  No unread articles anywhere!
+                </p>
+                <button
+                  @click="handleSyncAll"
+                  class="px-6 py-3 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Refresh All Feeds</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div v-else class="space-y-0">
           <div
@@ -149,6 +219,9 @@ const {
   selectedTag,
   selectedFeed,
   selectedTagFeedIds,
+  allTags,
+  feedsByTag,
+  totalUnreadCount,
   loading: feedsLoading,
   fetchFeeds,
   refreshFeed,
@@ -437,6 +510,10 @@ const navigateArticles = async (direction: 'up' | 'down') => {
     newArticleId = displayedArticles.value[currentIndex - 1].id
   } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
     newArticleId = displayedArticles.value[currentIndex + 1].id
+  } else if (direction === 'down' && currentIndex === displayedArticles.value.length - 1) {
+    // At the last article and pressing down - mark all as read
+    await handleMarkAllRead()
+    return
   } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
     // If nothing selected, select first article
     newArticleId = displayedArticles.value[0].id
@@ -475,9 +552,46 @@ const handleMarkAsRead = async () => {
 
 const handleMarkAllRead = async () => {
   try {
-    await markAllAsRead(selectedFeedId.value ?? undefined)
+    if (selectedFeedId.value !== null) {
+      // Mark all in specific feed
+      await markAllAsRead(selectedFeedId.value)
+    } else if (selectedTag.value !== null) {
+      // Mark all in tag - need to mark all articles from feeds with this tag
+      // We can do this by marking all displayed articles as read
+      for (const article of displayedArticles.value) {
+        if (!article.isRead) {
+          await markAsRead(article.id, true)
+        }
+      }
+    } else {
+      // Mark all articles
+      await markAllAsRead()
+    }
   } catch (error) {
     console.error('Failed to mark all as read:', error)
+  }
+}
+
+const getTagUnreadCount = (tag: string) => {
+  const tagFeeds = feedsByTag.value[tag] || []
+  return tagFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
+}
+
+const getInboxUnreadCount = () => {
+  const inboxFeeds = feedsByTag.value['__inbox__'] || []
+  return inboxFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
+}
+
+const handleSelectTag = (tag: string) => {
+  selectedTag.value = tag
+  selectedFeedId.value = null
+}
+
+const handleSyncAll = async () => {
+  try {
+    await syncAll()
+  } catch (error) {
+    console.error('Failed to sync all feeds:', error)
   }
 }
 
