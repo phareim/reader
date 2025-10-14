@@ -31,7 +31,7 @@
               @keyup.enter="handleDiscoverOrAddFeed"
             />
             <Transition name="fade-scale">
-              <div v-if="newFeedUrl.trim() !== ''" class="flex gap-2 items-center justify-between w-full">
+              <div v-if="newFeedUrl.trim() !== ''" class="flex gap-2 items-center justify-between w-full overflow-hidden">
                 <button
                   @click="handleDiscoverFeeds"
                   :disabled="!newFeedUrl.trim() || discovering"
@@ -347,16 +347,18 @@ onMounted(() => {
 /* Smooth show/hide for the discover/add buttons */
 .fade-scale-enter-active,
 .fade-scale-leave-active {
-  transition: opacity 250ms ease, transform 250ms ease;
+  transition: opacity 250ms ease, transform 250ms ease, max-height 250ms ease;
 }
 .fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
   transform: translateY(-16px) scale(0.5);
+  max-height: 0; /* collapse */
 }
 .fade-scale-enter-to,
 .fade-scale-leave-from {
   opacity: 1;
   transform: translateY(0) scale(1);
+  max-height: 120px; /* enough to fit the two-button row */
 }
 </style>
