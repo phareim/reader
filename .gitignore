@@ -28,3 +28,6 @@ logs
 .env.*
 !.env.example
 prod.env
+
+# workfiled not intended for git
+QUALITY_CHECK.md
