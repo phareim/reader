@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -12,12 +12,12 @@
       :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
     >
       <!-- Header -->
-      <div class="bg-white border-b px-6 py-4 flex items-center justify-between">
+      <div class="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <!-- Hamburger Button -->
           <button
             @click="toggleMenu"
-            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
             aria-label="Toggle menu"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,7 +26,7 @@
             </svg>
           </button>
 
-          <h1 class="text-2xl font-bold flex items-center gap-3">
+          <h1 class="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
             <template v-if="selectedFeed">
               <img
                 v-if="selectedFeed.faviconUrl"
@@ -40,14 +40,14 @@
           </h1>
         </div>
         <div class="flex gap-4 items-center">
-          <label class="flex items-center gap-2 text-sm">
+          <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input v-model="showUnreadOnly" type="checkbox" class="rounded" />
             Unread only
           </label>
           <button
             v-if="displayedArticles.length > 0"
             @click="handleMarkAllRead"
-            class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            class="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
           >
             Mark all read
           </button>
@@ -56,18 +56,18 @@
 
       <!-- Articles List (Full Width) -->
       <div class="max-w-5xl mx-auto py-4">
-        <div v-if="articlesLoading" class="text-center text-gray-500 py-8">Loading...</div>
-        <div v-else-if="displayedArticles.length === 0" class="text-center text-gray-500 py-8">
+        <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
+        <div v-else-if="displayedArticles.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-8">
           No articles to display. Open the menu to add feeds!
         </div>
         <div v-else class="space-y-0">
           <div
             v-for="article in displayedArticles"
             :key="article.id"
-            class="border-b bg-white hover:bg-gray-50 cursor-pointer transition-colors"
+            class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors"
             :class="{
-              'ring-2 ring-blue-400 ring-inset': selectedArticleId === article.id && expandedArticleId !== article.id,
-              'ring-2 ring-blue-500 ring-inset bg-blue-50': expandedArticleId === article.id
+              'ring-2 ring-blue-400 dark:ring-blue-500 ring-inset': selectedArticleId === article.id && expandedArticleId !== article.id,
+              'ring-2 ring-blue-500 dark:ring-blue-400 ring-inset bg-blue-50 dark:bg-blue-900/20': expandedArticleId === article.id
             }"
             @click="handleOpenArticle(article.id)"
           >
@@ -77,22 +77,22 @@
                 <div class="flex-1 min-w-0">
                   <h2
                     class="text-lg mb-1"
-                    :class="article.isRead ? 'font-normal text-gray-700' : 'font-bold text-gray-900'"
+                    :class="article.isRead ? 'font-normal text-gray-700 dark:text-gray-400' : 'font-bold text-gray-900 dark:text-gray-100'"
                   >
                     {{ article.title }}
                   </h2>
-                  <div class="text-sm text-gray-500">
+                  <div class="text-sm text-gray-500 dark:text-gray-400">
                     <span v-if="!selectedFeed">{{ article.feedTitle }} • </span>
                     {{ formatDate(article.publishedAt) }}
                     <span v-if="article.author"> • {{ article.author }}</span>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span v-if="!article.isRead" class="text-blue-500 text-2xl leading-none">•</span>
+                  <span v-if="!article.isRead" class="text-blue-500 dark:text-blue-400 text-2xl leading-none">•</span>
                   <a
                     :href="article.url"
                     target="_blank"
-                    class="text-blue-500 hover:text-blue-700 text-sm"
+                    class="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm"
                     @click.stop
                   >
                     Open →
@@ -103,13 +103,13 @@
 
             <!-- Article Content (Expanded Inline) -->
             <Transition name="expand">
-              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t bg-gray-50">
+              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <div
                   v-if="article.content"
-                  class="prose prose-sm max-w-none mt-4"
+                  class="prose prose-sm dark:prose-invert max-w-none mt-4"
                   v-html="article.content"
                 ></div>
-                <div v-else-if="article.summary" class="text-gray-700 mt-4">
+                <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300 mt-4">
                   {{ article.summary }}
                 </div>
               </div>
