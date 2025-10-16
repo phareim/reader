@@ -4,7 +4,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 import prisma from '~/server/utils/db'
 
 export default NuxtAuthHandler({
-  secret: process.env.AUTH_SECRET || 'replace-this-with-a-real-secret-in-production',
+  secret: process.env.AUTH_SECRET,
 
   adapter: PrismaAdapter(prisma),
 

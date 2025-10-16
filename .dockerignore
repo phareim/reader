@@ -16,6 +16,7 @@ data/
 .env
 .env.*
 !.env.example
+prod.env
 
 # Git
 .git

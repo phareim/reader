@@ -1,0 +1,11 @@
+  {
+    "hosting": {
+      "rewrites": [{
+        "source": "**",
+        "run": {
+          "serviceId": "vibe-reader",
+          "region": "europe-west1"
+        }
+      }]
+    }
+  }

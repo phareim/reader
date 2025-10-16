@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Firebase Cloud Run Deployment Script for Vibe Reader
+# Project: the-librarian-9b852
 # Region: europe-west1
 
 set -e
@@ -12,11 +13,12 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
+PROJECT_ID="the-librarian-9b852"
 SERVICE_NAME="vibe-reader"
 REGION="europe-west1"
 PLATFORM="managed"
 
-echo -e "${GREEN}🚀 Deploying Vibe Reader to Cloud Run (${REGION})${NC}\n"
+echo -e "${GREEN}🚀 Deploying Vibe Reader to Cloud Run${NC}\n"
 
 # Check if gcloud is installed
 if ! command -v gcloud &> /dev/null; then
@@ -31,12 +33,9 @@ if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q
     gcloud auth login
 fi
 
-# Get project ID
-PROJECT_ID=$(gcloud config get-value project)
-if [ -z "$PROJECT_ID" ]; then
-    echo -e "${RED}Error: No project set. Run: gcloud config set project YOUR_PROJECT_ID${NC}"
-    exit 1
-fi
+# Set the project
+echo -e "${YELLOW}Setting project to ${PROJECT_ID}...${NC}"
+gcloud config set project ${PROJECT_ID}
 
 echo -e "${GREEN}Project: ${PROJECT_ID}${NC}"
 echo -e "${GREEN}Service: ${SERVICE_NAME}${NC}"
@@ -52,8 +51,9 @@ fi
 
 echo -e "\n${YELLOW}Building and deploying...${NC}\n"
 
-# Deploy to Cloud Run
+# Deploy to Cloud Run with environment variables
 gcloud run deploy ${SERVICE_NAME} \
+    --project ${PROJECT_ID} \
     --source . \
     --region ${REGION} \
     --platform ${PLATFORM} \
@@ -66,23 +66,26 @@ gcloud run deploy ${SERVICE_NAME} \
     --set-env-vars "NODE_ENV=production"
 
 # Get the service URL
-SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --region ${REGION} --format 'value(status.url)')
+SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} --project ${PROJECT_ID} --region ${REGION} --format 'value(status.url)')
 
 echo -e "\n${GREEN}✅ Deployment complete!${NC}"
 echo -e "${GREEN}Service URL: ${SERVICE_URL}${NC}\n"
 
 echo -e "${YELLOW}⚠️  IMPORTANT: Set environment variables${NC}"
-echo -e "Run the following commands:\n"
-echo -e "  ${GREEN}# Generate AUTH_SECRET${NC}"
-echo -e "  openssl rand -base64 32\n"
+echo -e "Run the following command with your actual values:\n"
 echo -e "  ${GREEN}# Set environment variables${NC}"
-echo -e "  gcloud run services update ${SERVICE_NAME} --region ${REGION} \\"
-echo -e "    --set-env-vars=\"AUTH_SECRET=YOUR_SECRET_HERE\" \\"
-echo -e "    --set-env-vars=\"AUTH_ORIGIN=${SERVICE_URL}\" \\"
+echo -e "  gcloud run services update ${SERVICE_NAME} \\"
+echo -e "    --project ${PROJECT_ID} \\"
+echo -e "    --region ${REGION} \\"
+echo -e "    --set-env-vars=\"AUTH_SECRET=YOUR_GENERATED_SECRET\" \\"
+echo -e "    --set-env-vars=\"AUTH_ORIGIN=https://your-app.web.app\" \\"
 echo -e "    --set-env-vars=\"GOOGLE_CLIENT_ID=YOUR_CLIENT_ID\" \\"
-echo -e "    --set-env-vars=\"GOOGLE_CLIENT_SECRET=YOUR_CLIENT_SECRET\"\n"
+echo -e "    --set-env-vars=\"GOOGLE_CLIENT_SECRET=YOUR_CLIENT_SECRET\" \\"
+echo -e "    --set-env-vars=\"DATABASE_URL=file:/app/data/reader.db\" \\"
+echo -e "    --set-env-vars=\"FETCH_TIMEOUT=30000\" \\"
+echo -e "    --set-env-vars=\"MAX_ARTICLES_PER_FEED=200\"\n"
 
 echo -e "${YELLOW}📝 Don't forget to:${NC}"
-echo -e "  1. Update Google OAuth redirect URI to: ${SERVICE_URL}/api/auth/callback/google"
-echo -e "  2. Set the environment variables above"
-echo -e "  3. Test the deployment at: ${SERVICE_URL}\n"
+echo -e "  1. Update Google OAuth redirect URIs in Google Console"
+echo -e "  2. Set the environment variables above with your actual values"
+echo -e "  3. Test the deployment\n"

@@ -2,9 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (including dev dependencies for build)
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy application code
 COPY . .
@@ -21,13 +21,11 @@ RUN mkdir -p /app/data && chmod 777 /app/data
 # Expose port
 EXPOSE 8080
 
-# Cloud Run uses PORT environment variable
-ENV NUXT_HOST=0.0.0.0
-ENV NUXT_PORT=8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD node -e "require('http').get('http://localhost:8080/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+# Cloud Run provides PORT environment variable dynamically
+# Nuxt will use it via HOST and PORT env vars
+ENV HOST=0.0.0.0
+ENV PORT=8080
 
 # Start the application
-CMD ["node", ".output/server/index.mjs"]
+# Cloud Run will override PORT at runtime
+CMD ["sh", "-c", "node .output/server/index.mjs"]

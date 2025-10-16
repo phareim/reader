@@ -2,6 +2,10 @@
 
 Deploy Vibe Reader to Google Cloud Run (Europe West 1).
 
+**Project**: `the-librarian-9b852`
+**Region**: `europe-west1` (Belgium)
+**Service**: `vibe-reader`
+
 ## Prerequisites
 
 1. **Google Cloud Account** with billing enabled
@@ -30,9 +34,8 @@ curl https://sdk.cloud.google.com | bash
 # Login to Google Cloud
 gcloud auth login
 
-# Set your project (create one if needed)
-gcloud projects create vibe-reader-prod --name="Vibe Reader"
-gcloud config set project vibe-reader-prod
+# Set your project
+gcloud config set project the-librarian-9b852
 
 # Enable required APIs
 gcloud services enable run.googleapis.com
@@ -69,23 +72,26 @@ After deployment, set your secrets:
 
 ```bash
 # Replace with your actual values
-gcloud run services update vibe-reader --region europe-west1 \
+gcloud run services update vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
   --set-env-vars="AUTH_SECRET=YOUR_GENERATED_SECRET_HERE" \
-  --set-env-vars="AUTH_ORIGIN=https://your-service-url.run.app" \
-  --set-env-vars="GOOGLE_CLIENT_ID=your-google-client-id" \
-  --set-env-vars="GOOGLE_CLIENT_SECRET=your-google-client-secret" \
+  --set-env-vars="AUTH_ORIGIN=https://your-app-url.web.app" \
+  --set-env-vars="GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID" \
+  --set-env-vars="GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET" \
   --set-env-vars="DATABASE_URL=file:/app/data/reader.db" \
   --set-env-vars="FETCH_TIMEOUT=30000" \
-  --set-env-vars="MAX_ARTICLES_PER_FEED=500"
+  --set-env-vars="MAX_ARTICLES_PER_FEED=200"
 ```
 
 ### Step 6: Update Google OAuth
 
-1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
+1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials?project=the-librarian-9b852)
 2. Select your OAuth 2.0 Client ID
 3. Add to **Authorized redirect URIs**:
    ```
-   https://your-service-url.run.app/api/auth/callback/google
+   https://your-app-url.web.app/api/auth/callback/google
+   https://your-cloud-run-url.run.app/api/auth/callback/google
    ```
 4. Save
 
@@ -167,19 +173,27 @@ Now every push to `main` auto-deploys! 🎉
 ### Issue: Container fails to start
 **Check logs**:
 ```bash
-gcloud run services logs read vibe-reader --region europe-west1
+gcloud run services logs read vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1
 ```
 
 ### Issue: "AUTH_NO_ORIGIN" error
-**Fix**: Ensure `AUTH_ORIGIN` is set to your Cloud Run URL (without trailing slash)
+**Fix**: Ensure `AUTH_ORIGIN` is set to your production URL (without trailing slash)
 
 ### Issue: OAuth login redirects to localhost
-**Fix**: Update Google OAuth authorized redirect URIs with production URL
+**Fix**: Update Google OAuth authorized redirect URIs with your production URLs (both Firebase Hosting and Cloud Run)
 
 ### Issue: Database resets on deploy
 **Solution**: Use Cloud Run volumes for persistence:
 ```bash
-gcloud run services update vibe-reader --region europe-west1 \
+# Create bucket first
+gsutil mb -p the-librarian-9b852 -l europe-west1 gs://vibe-reader-data
+
+# Update service
+gcloud run services update vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
   --add-volume=name=data,type=cloud-storage,bucket=vibe-reader-data \
   --add-volume-mount=volume=data,mount-path=/app/data
 ```
@@ -187,7 +201,9 @@ gcloud run services update vibe-reader --region europe-west1 \
 ### Issue: Cold starts are slow
 **Solution**: Set minimum instances:
 ```bash
-gcloud run services update vibe-reader --region europe-west1 \
+gcloud run services update vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
   --min-instances=1
 ```
 (Note: This increases cost but eliminates cold starts)
@@ -196,23 +212,39 @@ gcloud run services update vibe-reader --region europe-west1 \
 
 ```bash
 # View service details
-gcloud run services describe vibe-reader --region europe-west1
+gcloud run services describe vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1
 
-# View logs
-gcloud run services logs read vibe-reader --region europe-west1 --limit=50
+# View logs (streaming)
+gcloud run services logs tail vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1
+
+# View logs (last 50 lines)
+gcloud run services logs read vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
+  --limit=50
 
 # Update environment variable
-gcloud run services update vibe-reader --region europe-west1 \
+gcloud run services update vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
   --set-env-vars="KEY=VALUE"
 
 # Scale configuration
-gcloud run services update vibe-reader --region europe-west1 \
+gcloud run services update vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1 \
   --memory=1Gi \
   --cpu=2 \
   --max-instances=20
 
 # Delete service
-gcloud run services delete vibe-reader --region europe-west1
+gcloud run services delete vibe-reader \
+  --project the-librarian-9b852 \
+  --region europe-west1
 ```
 
 ## 🌍 Other Regions

@@ -1,14 +1,15 @@
 # Cloud Build configuration for automatic deployments
+# Project: the-librarian-9b852
 # Triggered on push to main branch (optional - configure in Cloud Build triggers)
 
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/vibe-reader:$COMMIT_SHA', '.']
+    args: ['build', '-t', 'gcr.io/the-librarian-9b852/vibe-reader:$COMMIT_SHA', '.']
 
   # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/vibe-reader:$COMMIT_SHA']
+    args: ['push', 'gcr.io/the-librarian-9b852/vibe-reader:$COMMIT_SHA']
 
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -18,15 +19,17 @@ steps:
       - 'deploy'
       - 'vibe-reader'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/vibe-reader:$COMMIT_SHA'
+      - 'gcr.io/the-librarian-9b852/vibe-reader:$COMMIT_SHA'
       - '--region'
       - 'europe-west1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--project'
+      - 'the-librarian-9b852'
 
 images:
-  - 'gcr.io/$PROJECT_ID/vibe-reader:$COMMIT_SHA'
+  - 'gcr.io/the-librarian-9b852/vibe-reader:$COMMIT_SHA'
 
 options:
   machineType: 'N1_HIGHCPU_8'

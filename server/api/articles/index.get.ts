@@ -1,6 +1,28 @@
 import prisma from '~/server/utils/db'
+import { getServerSession } from '#auth'
 
 export default defineEventHandler(async (event) => {
+  // Get authenticated user
+  const session = await getServerSession(event)
+  if (!session || !session.user?.email) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
+  }
+
+  // Get user from database
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email }
+  })
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'User not found'
+    })
+  }
+
   const query = getQuery(event)
 
   const feedId = query.feedId ? parseInt(query.feedId as string) : undefined
@@ -11,7 +33,11 @@ export default defineEventHandler(async (event) => {
   const offset = parseInt(query.offset as string) || 0
 
   try {
-    const where: any = {}
+    const where: any = {
+      feed: {
+        userId: user.id
+      }
+    }
 
     // Support both single feedId and multiple feedIds
     if (feedIds !== undefined && feedIds.length > 0) {
