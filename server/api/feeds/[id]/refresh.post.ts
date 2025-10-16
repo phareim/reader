@@ -1,7 +1,28 @@
+import { getServerSession } from '#auth'
 import prisma from '~/server/utils/db'
 import { parseFeed } from '~/server/utils/feedParser'
 
 export default defineEventHandler(async (event) => {
+  const session = await getServerSession(event)
+  if (!session || !session.user?.email) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true }
+  })
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'User not found'
+    })
+  }
+
   const id = parseInt(getRouterParam(event, 'id') || '')
 
   if (isNaN(id)) {
@@ -12,8 +33,11 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const feed = await prisma.feed.findUnique({
-      where: { id }
+    const feed = await prisma.feed.findFirst({
+      where: {
+        id,
+        userId: user.id
+      }
     })
 
     if (!feed) {
@@ -23,10 +47,8 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Parse the feed
     const parsedFeed = await parseFeed(feed.url)
 
-    // Update feed metadata
     await prisma.feed.update({
       where: { id },
       data: {
@@ -40,11 +62,9 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Add new articles
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    // Insert articles one by one to handle duplicates (SQLite doesn't support skipDuplicates in createMany)
     let newArticles = 0
     for (const item of articlesToAdd) {
       try {
@@ -62,7 +82,6 @@ export default defineEventHandler(async (event) => {
         })
         newArticles++
       } catch (error: any) {
-        // Ignore duplicate key errors (P2002)
         if (error.code !== 'P2002') {
           throw error
         }
@@ -74,15 +93,42 @@ export default defineEventHandler(async (event) => {
       newArticles
     }
   } catch (error: any) {
-    // Update feed with error
-    await prisma.feed.update({
-      where: { id },
-      data: {
-        lastError: error.message,
-        errorCount: { increment: 1 },
-        isActive: { set: false } // Disable feed if errorCount >= 10
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.feed.findFirst({
+        where: {
+          id,
+          userId: user.id
+        },
+        select: { errorCount: true }
+      })
+
+      if (!current) {
+        return
       }
-    }).catch(() => {}) // Ignore error if feed was deleted
+
+      const nextErrorCount = current.errorCount + 1
+
+      await tx.feed.updateMany({
+        where: {
+          id,
+          userId: user.id
+        },
+        data: {
+          lastError: error.message,
+          errorCount: nextErrorCount
+        }
+      })
+
+      if (nextErrorCount >= 10) {
+        await tx.feed.updateMany({
+          where: {
+            id,
+            userId: user.id
+          },
+          data: { isActive: false }
+        })
+      }
+    }).catch(() => {})
 
     throw createError({
       statusCode: 500,

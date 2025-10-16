@@ -1,8 +1,8 @@
-import prisma from '~/server/utils/db'
+import { Prisma } from '@prisma/client'
 import { getServerSession } from '#auth'
+import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
-  // Get authenticated user
   const session = await getServerSession(event)
   if (!session || !session.user?.email) {
     throw createError({
@@ -11,9 +11,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get user from database
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
+    where: { email: session.user.email },
+    select: { id: true }
   })
 
   if (!user) {
@@ -24,24 +24,46 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { feedId } = body
+  const { feedId } = body ?? {}
+
+  let targetFeedId: number | undefined
+
+  if (feedId !== undefined) {
+    targetFeedId = Number(feedId)
+
+    if (Number.isNaN(targetFeedId)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'feedId must be a number'
+      })
+    }
+
+    const feed = await prisma.feed.findFirst({
+      where: {
+        id: targetFeedId,
+        userId: user.id
+      },
+      select: { id: true }
+    })
+
+    if (!feed) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Feed not found'
+      })
+    }
+  }
 
   try {
-    const where: any = {
+    const where: Prisma.ArticleWhereInput = {
       isRead: false,
       feed: {
         userId: user.id
       }
     }
 
-    if (feedId !== undefined) {
-      if (typeof feedId !== 'number') {
-        throw createError({
-          statusCode: 400,
-          statusMessage: 'feedId must be a number'
-        })
-      }
-      where.feedId = feedId
+    if (targetFeedId !== undefined) {
+      where.feedId = targetFeedId
     }
 
     const result = await prisma.article.updateMany({

@@ -1,3 +1,5 @@
+import type { Feed } from '@prisma/client'
+import { getServerSession } from '#auth'
 import prisma from '~/server/utils/db'
 import { parseFeed } from '~/server/utils/feedParser'
 
@@ -9,13 +11,15 @@ interface SyncResult {
   error?: string
 }
 
-async function syncFeed(feedId: number, feedUrl: string, feedTitle: string): Promise<SyncResult> {
+async function syncFeed(feed: Pick<Feed, 'id' | 'url' | 'title' | 'userId'>): Promise<SyncResult> {
   try {
-    const parsedFeed = await parseFeed(feedUrl)
+    const parsedFeed = await parseFeed(feed.url)
 
-    // Update feed metadata
-    await prisma.feed.update({
-      where: { id: feedId },
+    await prisma.feed.updateMany({
+      where: {
+        id: feed.id,
+        userId: feed.userId
+      },
       data: {
         title: parsedFeed.title,
         description: parsedFeed.description,
@@ -27,17 +31,15 @@ async function syncFeed(feedId: number, feedUrl: string, feedTitle: string): Pro
       }
     })
 
-    // Add new articles
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    // Insert articles one by one to handle duplicates (SQLite doesn't support skipDuplicates in createMany)
     let articlesAdded = 0
     for (const item of articlesToAdd) {
       try {
         await prisma.article.create({
           data: {
-            feedId,
+            feedId: feed.id,
             guid: item.guid,
             title: item.title,
             url: item.url,
@@ -57,28 +59,52 @@ async function syncFeed(feedId: number, feedUrl: string, feedTitle: string): Pro
     }
 
     return {
-      feedId,
-      feedTitle,
+      feedId: feed.id,
+      feedTitle: feed.title,
       success: true,
       newArticles: articlesAdded
     }
   } catch (error: any) {
-    // Update feed with error
-    const currentFeed = await prisma.feed.findUnique({ where: { id: feedId } })
-    const newErrorCount = (currentFeed?.errorCount || 0) + 1
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.feed.findFirst({
+        where: {
+          id: feed.id,
+          userId: feed.userId
+        },
+        select: { errorCount: true }
+      })
 
-    await prisma.feed.update({
-      where: { id: feedId },
-      data: {
-        lastError: error.message,
-        errorCount: newErrorCount,
-        isActive: newErrorCount < 10 // Disable after 10 consecutive failures
+      if (!current) {
+        return
       }
-    }).catch(() => {}) // Ignore if feed was deleted
+
+      const nextErrorCount = current.errorCount + 1
+
+      await tx.feed.updateMany({
+        where: {
+          id: feed.id,
+          userId: feed.userId
+        },
+        data: {
+          lastError: error.message,
+          errorCount: nextErrorCount
+        }
+      })
+
+      if (nextErrorCount >= 10) {
+        await tx.feed.updateMany({
+          where: {
+            id: feed.id,
+            userId: feed.userId
+          },
+          data: { isActive: false }
+        })
+      }
+    }).catch(() => {})
 
     return {
-      feedId,
-      feedTitle,
+      feedId: feed.id,
+      feedTitle: feed.title,
       success: false,
       error: error.message
     }
@@ -86,10 +112,38 @@ async function syncFeed(feedId: number, feedUrl: string, feedTitle: string): Pro
 }
 
 export default defineEventHandler(async (event) => {
+  const session = await getServerSession(event)
+  if (!session || !session.user?.email) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true }
+  })
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'User not found'
+    })
+  }
+
   try {
-    // Get all active feeds
     const feeds = await prisma.feed.findMany({
-      where: { isActive: true }
+      where: {
+        userId: user.id,
+        isActive: true
+      },
+      select: {
+        id: true,
+        url: true,
+        title: true,
+        userId: true
+      }
     })
 
     if (feeds.length === 0) {
@@ -104,14 +158,13 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Sync feeds with concurrency limit of 5
     const concurrencyLimit = 5
     const results: SyncResult[] = []
 
     for (let i = 0; i < feeds.length; i += concurrencyLimit) {
       const batch = feeds.slice(i, i + concurrencyLimit)
       const batchResults = await Promise.allSettled(
-        batch.map(feed => syncFeed(feed.id, feed.url, feed.title))
+        batch.map(feed => syncFeed(feed))
       )
 
       results.push(...batchResults.map((r, idx) =>

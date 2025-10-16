@@ -1,8 +1,8 @@
-import prisma from '~/server/utils/db'
+import { Prisma } from '@prisma/client'
 import { getServerSession } from '#auth'
+import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
-  // Get authenticated user
   const session = await getServerSession(event)
   if (!session || !session.user?.email) {
     throw createError({
@@ -11,9 +11,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get user from database
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
+    where: { email: session.user.email },
+    select: { id: true }
   })
 
   if (!user) {
@@ -25,30 +25,84 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
 
-  const feedId = query.feedId ? parseInt(query.feedId as string) : undefined
-  const feedIds = query.feedIds ? (query.feedIds as string).split(',').map(id => parseInt(id)) : undefined
+  const feedIdParam = query.feedId as string | undefined
+  const feedIdsParam = query.feedIds as string | undefined
   const isRead = query.isRead === 'true' ? true : query.isRead === 'false' ? false : undefined
   const isStarred = query.isStarred === 'true' ? true : undefined
   const limit = Math.min(parseInt(query.limit as string) || 50, 200)
   const offset = parseInt(query.offset as string) || 0
 
   try {
-    const where: any = {
+    const where: Prisma.ArticleWhereInput = {
       feed: {
         userId: user.id
       }
     }
 
-    // Support both single feedId and multiple feedIds
-    if (feedIds !== undefined && feedIds.length > 0) {
-      where.feedId = { in: feedIds }
-    } else if (feedId !== undefined) {
-      where.feedId = feedId
+    if (feedIdParam !== undefined) {
+      const parsedFeedId = Number(feedIdParam)
+
+      if (Number.isNaN(parsedFeedId)) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Invalid feed ID'
+        })
+      }
+
+      const feed = await prisma.feed.findFirst({
+        where: {
+          id: parsedFeedId,
+          userId: user.id
+        },
+        select: { id: true }
+      })
+
+      if (!feed) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: 'Feed not found'
+        })
+      }
+
+      where.feedId = parsedFeedId
+    } else if (feedIdsParam) {
+      const requestedFeedIds = feedIdsParam
+        .split(',')
+        .map(id => Number(id.trim()))
+        .filter(id => !Number.isNaN(id))
+
+      if (requestedFeedIds.length === 0) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Invalid feed IDs'
+        })
+      }
+
+      const ownedFeedIds = await prisma.feed.findMany({
+        where: {
+          id: { in: requestedFeedIds },
+          userId: user.id
+        },
+        select: { id: true }
+      })
+
+      const allowedFeedIds = ownedFeedIds.map(feed => feed.id)
+
+      if (allowedFeedIds.length === 0) {
+        return {
+          articles: [],
+          total: 0,
+          hasMore: false
+        }
+      }
+
+      where.feedId = { in: allowedFeedIds }
     }
 
     if (isRead !== undefined) {
       where.isRead = isRead
     }
+
     if (isStarred !== undefined) {
       where.isStarred = isStarred
     }
@@ -92,6 +146,10 @@ export default defineEventHandler(async (event) => {
       hasMore: offset + articles.length < total
     }
   } catch (error: any) {
+    if (error.statusCode) {
+      throw error
+    }
+
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to fetch articles',
