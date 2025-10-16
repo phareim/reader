@@ -32,5 +32,13 @@ export default defineNuxtConfig({
       trustHost: true
     },
     globalAppMiddleware: false
+  },
+
+  vite: {
+    resolve: {
+      alias: {
+        'next-auth/core': 'next-auth/core'
+      }
+    }
   }
 })
