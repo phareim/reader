@@ -2,8 +2,6 @@
 const normalizeOrigin = (origin?: string | null) => origin?.replace(/\/+$/, '')
 const envOrigin = process.env.AUTH_ORIGIN || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
 const AUTH_ORIGIN = normalizeOrigin(envOrigin)
-const AUTH_PATH = '/api/auth'
-const AUTH_BASE_URL = AUTH_ORIGIN ? `${AUTH_ORIGIN}${AUTH_PATH}` : undefined
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -25,11 +23,9 @@ export default defineNuxtConfig({
   },
 
   auth: {
-    baseURL: AUTH_BASE_URL,
-    originEnvKey: 'AUTH_ORIGIN',
+    baseURL: '/api/auth',
     provider: {
-      type: 'authjs',
-      trustHost: true
+      type: 'authjs'
     },
     globalAppMiddleware: false
   },
