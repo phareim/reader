@@ -50,7 +50,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Built with Nuxt
    npm run dev
    ```
 
-6. Open http://localhost:3002 in your browser.
+6. Open http://localhost:3000 in your browser.
 
 ### Example Feeds
 
@@ -134,7 +134,7 @@ reader/
 
 ## Configuration
 
-Set the following environment variables (locally via `.env.local`, in production via Vercel project settings):
+Set the following environment variables:
 
 ```bash
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
@@ -176,29 +176,20 @@ npx prisma migrate reset
 
 ## Phase 2 Roadmap
 
-- [ ] Keyboard shortcuts (j/k navigation)
+- ✅  Keyboard shortcuts (j/k navigation)
 - [ ] Three-pane Google Reader-style layout
-- [ ] Folders/categories for feeds
+- ✅  Tags for feeds
 - [ ] Full-text search
 - [ ] OPML import/export
-- [ ] Dark mode
+- ✅  Dark mode
 - [ ] Automated background sync
 - [ ] Mobile-responsive design improvements
 
-## Troubleshooting
-
-- **Port already in use** — Nuxt automatically increments (3000 → 3001 → 3002...).
-- **Database issues** — Run `npx prisma migrate reset` to rebuild the schema against your Postgres database.
-- **Feed won’t load** — Ensure you’re using a direct RSS/Atom URL and check both the server logs and browser console for errors.
-
 ## Contributing
 
-Suggestions and bug reports are welcome! Open an issue or PR.
+Suggestions and bug reports are welcome. Find me at [X](https://x.com/phareim) on [BlueSky](https://bsky.app/profile/phareim.no).
 
-## License
-
-ISC
 
 ## Acknowledgments
 
-Inspired by the legendary Google Reader (RIP 2013). Built as a learning project and personal tool.
+Inspired by the legendary [Google Reader](https://en.wikipedia.org/wiki/Google_Reader) (RIP 2013).
