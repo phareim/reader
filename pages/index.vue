@@ -56,150 +56,32 @@
       <!-- Articles List (Full Width) -->
       <div class="max-w-5xl mx-auto py-4">
         <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
-        <div v-else-if="displayedArticles.length === 0" class="px-6 py-8">
-          <div v-if="feeds.length === 0" class="text-center text-gray-500 dark:text-gray-400">
-            No feeds yet. Open the menu to add feeds!
-          </div>
-          <div v-else class="max-w-2xl mx-auto">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">
-              All caught up! 🎉
-            </h2>
-            <p class="text-center text-gray-600 dark:text-gray-400 mb-8">
-              You've read everything in this view. Here's what's waiting for you:
-            </p>
 
-            <div class="space-y-3">
-              <!-- Tags with unread articles -->
-              <div
-                v-for="tag in allTags"
-                :key="tag"
-                v-show="getTagUnreadCount(tag) > 0"
-              >
-                <button
-                  @click="handleSelectTag(tag)"
-                  class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
-                >
-                  <div class="flex items-center gap-3">
-                    <span class="text-2xl">#</span>
-                    <span class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ tag }}</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ getTagUnreadCount(tag) }} unread</span>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
+        <!-- Empty State Component -->
+        <EmptyState
+          v-else-if="displayedArticles.length === 0"
+          :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'"
+          :tags-with-unread="tagsWithUnreadCounts"
+          :inbox-unread-count="getInboxUnreadCount()"
+          :total-unread-count="totalUnreadCount"
+          :has-unread-in-other-views="hasUnreadInOtherViews"
+          @select-tag="handleSelectTag"
+          @sync-all="handleSyncAll"
+        />
 
-              <!-- Inbox with unread articles -->
-              <div v-if="feedsByTag['__inbox__'] && getInboxUnreadCount() > 0">
-                <button
-                  @click="handleSelectTag('__inbox__')"
-                  class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
-                >
-                  <div class="flex items-center gap-3">
-                    <span class="text-2xl">📥</span>
-                    <span class="text-lg font-medium text-gray-900 dark:text-gray-100">Inbox</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ getInboxUnreadCount() }} unread</span>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
-
-              <!-- If no unread at all -->
-              <div v-if="totalUnreadCount === 0" class="text-center py-8">
-                <p class="text-gray-500 dark:text-gray-400 mb-4">
-                  No unread articles anywhere!
-                </p>
-                <button
-                  @click="handleSyncAll"
-                  class="px-6 py-3 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>Refresh All Feeds</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Article List -->
         <div v-else class="space-y-0">
-          <div
+          <ArticleListItem
             v-for="article in displayedArticles"
             :key="article.id"
-            class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors"
-            :class="{
-              'ring-2 ring-blue-400 dark:ring-blue-500 ring-inset': selectedArticleId === article.id && expandedArticleId !== article.id,
-              'ring-2 ring-blue-500 dark:ring-blue-600 ring-inset bg-blue-50 dark:bg-gray-800/70': expandedArticleId === article.id
-            }"
-            @click="handleOpenArticle(article.id)"
-          >
-            <!-- Article Header -->
-            <div class="px-6 py-4">
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex-1 min-w-0">
-                  <h2
-                    class="text-lg mb-1"
-                    :class="article.isRead ? 'font-normal text-gray-700 dark:text-gray-300' : 'font-bold text-gray-900 dark:text-gray-100'"
-                  >
-                    {{ article.title }}
-                  </h2>
-                  <div class="text-sm text-gray-500 dark:text-gray-400">
-                    <span v-if="!selectedFeed">{{ article.feedTitle }} • </span>
-                    {{ formatDate(article.publishedAt) }}
-                    <span v-if="article.author"> • {{ article.author }}</span>
-                  </div>
-                </div>
-                <div class="flex items-center gap-3">
-                  <span v-if="!article.isRead" class="text-blue-500 dark:text-blue-400 text-2xl leading-none">•</span>
-
-                  <!-- Bookmark/Save Button -->
-                  <button
-                    @click.stop="toggleSaveArticle(article.id)"
-                    class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                    :class="isSaved(article.id) ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'"
-                    :title="isSaved(article.id) ? 'Unsave article' : 'Save article'"
-                  >
-                    <svg v-if="isSaved(article.id)" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-                    </svg>
-                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                    </svg>
-                  </button>
-
-                  <a
-                    :href="article.url"
-                    target="_blank"
-                    class="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm"
-                    @click.stop
-                  >
-                    Open →
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <!-- Article Content (Expanded Inline) -->
-            <Transition name="expand">
-              <div v-if="expandedArticleId === article.id" class="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60">
-                <div
-                  v-if="article.content"
-                  class="prose prose-sm dark:prose-invert max-w-none mt-4"
-                  v-html="article.content"
-                ></div>
-                <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300 mt-4">
-                  {{ article.summary }}
-                </div>
-              </div>
-            </Transition>
-          </div>
+            :article="article"
+            :is-selected="selectedArticleId === article.id"
+            :is-expanded="expandedArticleId === article.id"
+            :is-saved="isSaved(article.id)"
+            :show-feed-title="!selectedFeed"
+            @open="handleOpenArticle"
+            @toggle-save="toggleSaveArticle"
+          />
         </div>
       </div>
     </div>
@@ -207,8 +89,6 @@
 </template>
 
 <script setup lang="ts">
-import { formatDistanceToNow } from 'date-fns'
-
 definePageMeta({
   auth: true
 })
@@ -595,33 +475,17 @@ const handleSyncAll = async () => {
   }
 }
 
-const formatDate = (dateStr: string | null | undefined) => {
-  if (!dateStr) return 'Unknown date'
-  try {
-    return formatDistanceToNow(new Date(dateStr), { addSuffix: true })
-  } catch {
-    return 'Unknown date'
-  }
-}
+// Computed properties for EmptyState component
+const tagsWithUnreadCounts = computed(() => {
+  return allTags.value
+    .map(tag => ({
+      name: tag,
+      unreadCount: getTagUnreadCount(tag)
+    }))
+    .filter(tag => tag.unreadCount > 0)
+})
+
+const hasUnreadInOtherViews = computed(() => {
+  return tagsWithUnreadCounts.value.length > 0 || getInboxUnreadCount() > 0
+})
 </script>
-
-<style scoped>
-/* Expand transition for article content */
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-.expand-enter-from,
-.expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-.expand-enter-to,
-.expand-leave-from {
-  max-height: 10000px;
-  opacity: 1;
-}
-</style>
