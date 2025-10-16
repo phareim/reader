@@ -1,6 +1,27 @@
+import { getServerSession } from '#auth'
 import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
+  const session = await getServerSession(event)
+  if (!session || !session.user?.email) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { id: true }
+  })
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'User not found'
+    })
+  }
+
   const id = parseInt(getRouterParam(event, 'id') || '')
   const body = await readBody(event)
   const { isRead } = body
@@ -19,6 +40,23 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const article = await prisma.article.findFirst({
+    where: {
+      id,
+      feed: {
+        userId: user.id
+      }
+    },
+    select: { id: true }
+  })
+
+  if (!article) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Article not found'
+    })
+  }
+
   try {
     await prisma.article.update({
       where: { id },
@@ -30,13 +68,6 @@ export default defineEventHandler(async (event) => {
 
     return { success: true }
   } catch (error: any) {
-    if (error.code === 'P2025') {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'Article not found'
-      })
-    }
-
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to update article',
