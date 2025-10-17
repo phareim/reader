@@ -13,18 +13,16 @@
     >
       <!-- Sticky Header -->
       <div class="sticky top-0 z-20 bg-white h-16 dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4 flex-1 min-w-0">
+        <div class="flex items-center gap-1 flex-1 min-w-0">
           <!-- Hamburger Button -->
           <button
+            v-if="!menuIsOpen"
             @click="toggleMenu"
             class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-900 dark:text-gray-100 flex-shrink-0"
             aria-label="Toggle menu"
           >
-            <svg v-if="!menuIsOpen" class="w-6 h-6" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg class="w-6 h-6" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path fill="currentColor" fill-rule="evenodd" d="M4.167 3C3.522 3 3 3.522 3 4.167v11.666C3 16.478 3.522 17 4.167 17H7V3zM8 3v14h7.833c.645 0 1.167-.522 1.167-1.167V4.167C17 3.522 16.478 3 15.833 3zM2 4.167C2 2.97 2.97 2 4.167 2h11.666C17.03 2 18 2.97 18 4.167v11.666C18 17.03 17.03 18 15.833 18H4.167A2.167 2.167 0 0 1 2 15.833z" clip-rule="evenodd" />
-            </svg>
-            <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
@@ -32,7 +30,7 @@
           <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100 min-w-0 flex-1">
             <Transition name="fade-title" mode="out-in">
               <!-- Show current article title when scrolled -->
-              <div v-if="currentScrolledArticle" class="flex items-center gap-3 min-w-0 flex-1" :key="'article-' + currentScrolledArticle.id">
+              <div v-if="currentScrolledArticle" class="flex items-center gap-1 min-w-0 flex-1" :key="'article-' + currentScrolledArticle.id">
                 <span class="truncate">
                   <img
                     v-if="selectedFeed && selectedFeed.faviconUrl"
@@ -40,7 +38,12 @@
                     :alt="selectedFeed.title"
                     class="w-8 h-8 inline-block"
                   />
-                  <span v-if="selectedTag" class="pl-2 text-gray-500 dark:text-gray-400">#{{ selectedTag }}</span>
+                  <span v-else-if="selectedFeedId === -1">
+                    <svg class="w-7 h-7 text-yellow-500 dark:text-yellow-400 flex-shrink-0 inline-block" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                    </svg>
+                  </span>
+                  <span v-else-if="selectedTag" class="pl-2 text-gray-500 dark:text-gray-400">#{{ selectedTag }}</span>
                   <span class="truncate pl-2">{{ currentScrolledArticle.title }}</span>
                 </span>
               </div>
