@@ -5,13 +5,13 @@
       class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-50 flex items-center justify-center p-4"
       @click.self="close"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         <!-- Header -->
-        <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+        <div class="sticky top-0 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
           <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h2>
           <button
             @click="close"
-            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,33 +26,33 @@
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Navigation</h3>
             <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Next article (auto-open)</span>
                 <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">j</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">j</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↓</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↓</kbd>
                 </div>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Previous article (auto-open)</span>
                 <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">k</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">k</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↑</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↑</kbd>
                 </div>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Go to all feeds</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
                 <span class="text-gray-400 dark:text-gray-500 mx-2">then</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">i</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">i</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Go to all articles</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
                 <span class="text-gray-400 dark:text-gray-500 mx-2">then</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
               </div>
             </div>
           </div>
@@ -61,9 +61,9 @@
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Menu</h3>
             <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Toggle menu</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">m</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">m</kbd>
               </div>
             </div>
           </div>
@@ -72,35 +72,35 @@
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Article Actions</h3>
             <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Toggle open/close article</span>
                 <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">o</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">o</kbd>
                   <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Enter</kbd>
+                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Enter</kbd>
                 </div>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Close expanded article</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Esc</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Esc</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Mark selected as read (without opening)</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">e</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">e</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Mark selected as unread</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
                 <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">u</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">u</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">View original (open in new tab)</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">v</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">v</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Save/unsave selected article</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">s</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">s</kbd>
               </div>
             </div>
           </div>
@@ -109,21 +109,21 @@
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Bulk Actions</h3>
             <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Mark all visible as read</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
                 <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Refresh current feed</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Refresh all feeds</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
                 <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
               </div>
             </div>
           </div>
@@ -132,16 +132,16 @@
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Help</h3>
             <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
                 <span class="text-gray-700 dark:text-gray-300">Show this help dialog</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-gray-100">?</kbd>
+                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">?</kbd>
               </div>
             </div>
           </div>
 
           <!-- Footer Note -->
-          <div class="pt-4 text-sm text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-gray-700">
-            Press <kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono text-gray-900 dark:text-gray-100">Esc</kbd> or click outside to close
+          <div class="pt-4 text-sm text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-zinc-800">
+            Press <kbd class="px-2 py-0.5 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-xs font-mono text-gray-900 dark:text-gray-100">Esc</kbd> or click outside to close
           </div>
         </div>
       </div>

@@ -2,13 +2,13 @@
   <div>
     <!-- Slide-in Menu -->
     <div
-      class="fixed top-0 left-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl z-30 overflow-y-auto transition-transform duration-300 ease-in-out"
+      class="fixed top-0 left-0 h-full w-80 bg-white dark:bg-zinc-900 shadow-2xl z-30 overflow-y-auto transition-transform duration-300 ease-in-out"
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'">
       <!-- Menu Header -->
-      <div class="flex items-center justify-between px-6 py-4 h-16 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-6 py-4 h-16 border-b border-gray-200 dark:border-zinc-800">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Vibe Reader</h2>
         <img v-if="session?.user?.image" :src="session.user.image" :alt="session.user.name"
-          class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+          class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-zinc-700" />
         <div v-else
           class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
           {{ session?.user?.name?.charAt(0) || '?' }}
@@ -20,7 +20,7 @@
         <!-- Add Feed Section -->
         <div class="space-y-2">
           <input v-model="newFeedUrl" type="url" placeholder="Enter URL (feed or website)"
-            class="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             @keyup.enter="handleDiscoverOrAddFeed" />
           <Transition name="fade-scale">
             <div v-if="newFeedUrl.trim() !== ''" class="flex gap-2 items-center justify-between w-full overflow-hidden">
@@ -43,7 +43,7 @@
             <h4 class="text-sm font-semibold text-purple-900 dark:text-purple-300">Discovered Feeds:</h4>
             <div class="space-y-1">
               <button v-for="(feed, index) in discoveredFeeds" :key="index" @click="addDiscoveredFeed(feed.url)"
-                class="w-full text-left px-3 py-2 text-sm bg-white dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded border border-purple-200 dark:border-purple-700 transition-colors">
+                class="w-full text-left px-3 py-2 text-sm bg-white dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded border border-purple-200 dark:border-purple-700 transition-colors">
                 <div class="font-medium text-purple-900 dark:text-purple-300">{{ feed.title }}</div>
                 <div class="text-xs text-purple-600 dark:text-purple-400 truncate">{{ feed.url }}</div>
               </button>
@@ -54,7 +54,7 @@
         <!-- Saved Articles -->
         <button @click="selectSavedArticles"
           class="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
-          :class="selectedFeedId === -1 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
+          :class="selectedFeedId === -1 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
           <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
             <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
           </svg>
@@ -83,9 +83,9 @@
               <!-- Tag Header (Collapsible) -->
               <div
                 class="w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
-                :class="selectedTag === tag && selectedFeedId === null ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                :class="selectedTag === tag && selectedFeedId === null ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                 <button @click.stop="toggleTagFolderOnly(tag)"
-                  class="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
+                  class="p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
                   <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has(tag) }" fill="none"
                     stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -105,7 +105,7 @@
                   <div v-for="feed in feedsByTag[tag]" :key="feed.id" class="flex items-center gap-1 relative">
                     <button @click="selectFeed(feed.id, tag)"
                       class="flex-1 min-w-0 text-left px-3 py-1.5 text-sm rounded transition-colors flex items-center gap-2"
-                      :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                      :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                       <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
                       <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
                       <span v-if="feed.unreadCount > 0"
@@ -117,8 +117,8 @@
                     <!-- Dropdown Button -->
                     <div class="relative">
                       <button @click.stop="toggleFeedMenu(feed.id)"
-                        class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                        :class="{ 'bg-gray-100 dark:bg-gray-700': openFeedMenuId === feed.id }">
+                        class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                        :class="{ 'bg-gray-100 dark:bg-zinc-800': openFeedMenuId === feed.id }">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
@@ -127,9 +127,9 @@
                       <!-- Dropdown Menu -->
                       <Transition name="dropdown">
                         <div v-if="openFeedMenuId === feed.id"
-                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
                           <button @click="handleMarkFeedAsRead(feed.id)"
-                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-lg transition-colors flex items-center gap-2">
+                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-t-lg transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -138,7 +138,7 @@
                           </button>
 
                           <!-- Tags Management -->
-                          <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-600">
+                          <div class="px-4 py-2 border-t border-gray-200 dark:border-zinc-700">
                             <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Tags</div>
 
                             <!-- Current Tags -->
@@ -160,11 +160,11 @@
                             <!-- Add Tag Input -->
                             <input v-model="newTag" @keyup.enter="handleAddTag(feed.id)" @click.stop type="text"
                               placeholder="Add tag (press Enter)"
-                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
+                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
                           </div>
 
                           <button @click="handleDeleteFeed(feed.id, feed.title)"
-                            class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-gray-600">
+                            class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -182,12 +182,12 @@
             <!-- Inbox Section (Untagged Feeds) -->
             <div v-if="feedsByTag['__inbox__'] && feedsByTag['__inbox__'].length > 0"
               v-show="!showUnreadOnly || getInboxUnreadCount() > 0"
-              class="space-y-0 border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
+              class="space-y-0 border-t border-gray-200 dark:border-zinc-800 pt-2 mt-2">
               <div
                 class="w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
-                :class="selectedTag === '__inbox__' && selectedFeedId === null ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                :class="selectedTag === '__inbox__' && selectedFeedId === null ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                 <button @click.stop="toggleTagFolderOnly('__inbox__')"
-                  class="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors">
+                  class="p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
                   <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has('__inbox__') }"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -196,7 +196,7 @@
                 <button @click="selectTag('__inbox__')" class="flex-1 text-left">
                   📥 Inbox
                 </button>
-                <span class="text-xs bg-gray-500 dark:bg-gray-600 text-white px-2 py-0.5 rounded-full">
+                <span class="text-xs bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full">
                   {{ getInboxUnreadCount() }}
                 </span>
               </div>
@@ -207,7 +207,7 @@
                   <div v-for="feed in feedsByTag['__inbox__']" :key="feed.id" class="flex items-center gap-1 relative">
                     <button @click="selectFeed(feed.id, '__inbox__')"
                       class="flex-1 min-w-0 text-left px-3 py-1.5 text-sm rounded transition-colors flex items-center gap-2"
-                      :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                      :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                       <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
                       <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
                       <span v-if="feed.unreadCount > 0"
@@ -219,8 +219,8 @@
                     <!-- Dropdown Button -->
                     <div class="relative">
                       <button @click.stop="toggleFeedMenu(feed.id)"
-                        class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                        :class="{ 'bg-gray-100 dark:bg-gray-700': openFeedMenuId === feed.id }">
+                        class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                        :class="{ 'bg-gray-100 dark:bg-zinc-800': openFeedMenuId === feed.id }">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
@@ -229,9 +229,9 @@
                       <!-- Dropdown Menu (Same as above) -->
                       <Transition name="dropdown">
                         <div v-if="openFeedMenuId === feed.id"
-                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
                           <button @click="handleMarkFeedAsRead(feed.id)"
-                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-t-lg transition-colors flex items-center gap-2">
+                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-t-lg transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -240,7 +240,7 @@
                           </button>
 
                           <!-- Tags Management -->
-                          <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-600">
+                          <div class="px-4 py-2 border-t border-gray-200 dark:border-zinc-700">
                             <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Tags</div>
 
                             <!-- Current Tags -->
@@ -262,11 +262,11 @@
                             <!-- Add Tag Input -->
                             <input v-model="newTag" @keyup.enter="handleAddTag(feed.id)" @click.stop type="text"
                               placeholder="Add tag (press Enter)"
-                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
+                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
                           </div>
 
                           <button @click="handleDeleteFeed(feed.id, feed.title)"
-                            class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-gray-600">
+                            class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -284,12 +284,12 @@
         </div>
 
         <!-- Menu Divider -->
-        <hr class="border-gray-200 dark:border-gray-700">
+        <hr class="border-gray-200 dark:border-zinc-800">
 
         <!-- Other Menu Items -->
         <div class="space-y-2">
           <button @click="handleSyncAll" :disabled="syncLoading"
-            class="w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2">
+            class="w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" :class="{ 'animate-spin': syncLoading }" fill="none" stroke="currentColor"
               viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -300,7 +300,7 @@
         </div>
 
         <!-- Stats Section -->
-        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="pt-4 border-t border-gray-200 dark:border-zinc-800">
           <div class="text-sm text-gray-500 dark:text-gray-400 space-y-1">
             <div class="flex justify-between">
               <span>Total Feeds:</span>
@@ -314,7 +314,7 @@
         </div>
 
         <!-- Sign Out Button - Only show when logged in -->
-        <div v-if="session?.user" class="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div v-if="session?.user" class="pt-4 border-t border-gray-200 dark:border-zinc-800">
           <button @click="handleSignOut"
             class="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,7 +326,7 @@
         </div>
 
         <!-- Sign In Link - Only show when logged out -->
-        <div v-else class="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div v-else class="pt-4 border-t border-gray-200 dark:border-zinc-800">
           <NuxtLink to="/login"
             class="block w-full text-left px-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

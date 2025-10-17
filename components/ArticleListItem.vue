@@ -1,11 +1,11 @@
 <template>
   <div
-    class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer transition-colors"
+    class="border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer transition-colors"
     :class="{
       /* Modern left accent for selection */
-      'border-l-4 border-blue-500 bg-blue-50 dark:bg-gray-700/50 shadow-sm': isSelected && !isExpanded,
+      'border-l-4 border-blue-500 bg-blue-50 dark:bg-zinc-800/50 shadow-sm': isSelected && !isExpanded,
       /* Strong accent when expanded */
-      'border-l-4 border-blue-600 bg-white dark:bg-gray-800 shadow': isExpanded
+      'border-l-4 border-blue-600 bg-white dark:bg-zinc-900 shadow': isExpanded
     }"
     @click="$emit('open', article.id)"
   >
@@ -31,7 +31,7 @@
           <!-- Bookmark/Save Button -->
           <button
             @click.stop="$emit('toggle-save', article.id)"
-            class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+            class="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
             :class="isSaved ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'"
             :title="isSaved ? 'Unsave article' : 'Save article'"
           >
@@ -57,7 +57,7 @@
 
     <!-- Article Content (Expanded Inline) -->
     <Transition name="expand">
-      <div v-if="isExpanded" class="px-6 pb-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60">
+      <div v-if="isExpanded" class="px-6 pb-6 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950/60">
         <div
           v-if="article.content"
           class="prose prose-sm dark:prose-invert max-w-none mt-4"

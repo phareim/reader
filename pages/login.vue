@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-zinc-950 dark:to-zinc-900 flex items-center justify-center p-4">
     <div class="max-w-md w-full">
       <!-- Logo/Title Card -->
       <div class="text-center mb-8">
@@ -8,14 +8,14 @@
       </div>
 
       <!-- Login Card -->
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-8">
         <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6 text-center">Sign in to continue</h2>
 
         <!-- Google Sign In Button -->
         <button
           @click="signInWithGoogle"
           :disabled="loading"
-          class="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white dark:bg-zinc-800 border-2 border-gray-300 dark:border-zinc-700 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-700 hover:border-gray-400 dark:hover:border-zinc-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg class="w-5 h-5" viewBox="0 0 24 24">
             <path

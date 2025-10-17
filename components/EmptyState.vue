@@ -16,7 +16,7 @@
         <div v-for="tag in tagsWithUnread" :key="tag.name">
           <button
             @click="$emit('select-tag', tag.name)"
-            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
+            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left"
           >
             <div class="flex items-center gap-3">
               <span class="text-2xl">#</span>
@@ -35,7 +35,7 @@
         <div v-if="inboxUnreadCount > 0">
           <button
             @click="$emit('select-tag', '__inbox__')"
-            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors text-left"
+            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left"
           >
             <div class="flex items-center gap-3">
               <span class="text-2xl">📥</span>
