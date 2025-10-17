@@ -1,5 +1,5 @@
 <template>
-  <div class="relative">
+  <div ref="containerRef" class="relative">
     <input
       ref="inputRef"
       v-model="inputValue"
@@ -8,7 +8,6 @@
       class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent"
       @input="handleInput"
       @keydown="handleKeydown"
-      @blur="handleBlur"
       @focus="handleFocus"
     />
 
@@ -59,6 +58,11 @@ const inputValue = ref('')
 const showSuggestions = ref(false)
 const selectedIndex = ref(0)
 
+// Close dropdown when clicking outside
+const containerRef = useClickOutside(() => {
+  showSuggestions.value = false
+})
+
 // Filter suggestions based on input
 const filteredSuggestions = computed(() => {
   const input = inputValue.value.trim().toLowerCase()
@@ -94,13 +98,6 @@ const handleFocus = () => {
   if (inputValue.value.length >= 3) {
     showSuggestions.value = true
   }
-}
-
-const handleBlur = () => {
-  // Delay to allow click on suggestion
-  setTimeout(() => {
-    showSuggestions.value = false
-  }, 200)
 }
 
 const handleKeydown = (e: KeyboardEvent) => {

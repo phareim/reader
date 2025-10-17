@@ -122,7 +122,7 @@
                   <!-- Tag Dropdown Menu -->
                   <Transition name="dropdown">
                     <div v-if="openTagMenuId === tag"
-                      class="absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
+                      class="dropdown-menu-container absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
                       <button @click="handleMarkTagAsRead(tag)"
                         class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,7 +164,7 @@
                       <!-- Dropdown Menu -->
                       <Transition name="dropdown">
                         <div v-if="openFeedMenuId === feed.id"
-                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
+                          class="dropdown-menu-container absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
                           <button @click="handleMarkFeedAsRead(feed.id)"
                             class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-t-lg transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@
                       <!-- Dropdown Menu (Same as above) -->
                       <Transition name="dropdown">
                         <div v-if="openFeedMenuId === feed.id"
-                          class="absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
+                          class="dropdown-menu-container absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
                           <button @click="handleMarkFeedAsRead(feed.id)"
                             class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-t-lg transition-colors flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -390,6 +390,25 @@ onMounted(() => {
   if (session.value?.user) {
     fetchTags()
   }
+
+  // Close dropdowns when clicking outside
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement
+
+    // Check if click is outside any dropdown
+    const isOutsideDropdowns = !target.closest('.dropdown-menu-container')
+
+    if (isOutsideDropdowns) {
+      openFeedMenuId.value = null
+      openTagMenuId.value = null
+    }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside)
+
+  onUnmounted(() => {
+    document.removeEventListener('mousedown', handleClickOutside)
+  })
 })
 
 // Computed property to provide tags with counts for autocomplete
