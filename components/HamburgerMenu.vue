@@ -61,25 +61,63 @@
         </div>
 
         <!-- Saved Articles -->
-        <button @click="selectSavedArticles"
-          class="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2"
-          :class="selectedFeedId === -1 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-          <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-          </svg>
-          <span class="flex-1">Saved Articles</span>
-          <span v-if="savedCount > 0"
-            class="flex-shrink-0 text-xs bg-yellow-500 dark:bg-yellow-600 text-white px-2 py-0.5 rounded-full">{{
-            savedCount }}</span>
-        </button>
+        <div class="space-y-1">
+          <h3 class="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+            </svg>
+            <button @click="selectSavedArticles"
+              class="flex-1 text-left hover:text-yellow-600 dark:hover:text-yellow-300 transition-colors"
+              :class="selectedFeedId === -1 && selectedTag === null ? 'text-yellow-600 dark:text-yellow-300' : ''">
+              Saved Articles
+            </button>
+            <span v-if="totalSavedCount > 0"
+              class="flex-shrink-0 text-xs bg-yellow-500 dark:bg-yellow-600 text-white px-2 py-0.5 rounded-full">{{
+              totalSavedCount }}</span>
+          </h3>
+
+          <!-- Saved Articles Tags -->
+          <div v-if="savedArticleTags.length > 0" class="ml-6 space-y-0">
+            <div v-for="tag in savedArticleTags" :key="'saved-' + tag" class="space-y-0">
+              <!-- Tag Header -->
+              <div
+                class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
+                :class="selectedTag === tag && selectedFeedId === -1 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+                <button @click="selectSavedTag(tag)" class="flex-1 text-left truncate">
+                  #{{ tag }}
+                </button>
+                <span class="text-xs bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full">
+                  {{ getSavedTagCount(tag) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Untagged Saved Articles -->
+            <div v-if="getSavedTagCount('__inbox__') > 0">
+              <button @click="selectSavedTag('__saved_untagged__')"
+                class="w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors"
+                :class="selectedTag === '__saved_untagged__' && selectedFeedId === -1 ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+                <span class="flex-1 text-left">📥 Untagged</span>
+                <span class="text-xs bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full">
+                  {{ getSavedTagCount('__inbox__') }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- Feeds List -->
         <div class="space-y-3">
-          <h3 class="font-semibold text-gray-900 dark:text-gray-100 flex items-center justify-between">
-            Feeds ({{ feeds.length }})
-            <label class="space-x-2 text-sm text-gray-700 dark:text-gray-300">
+          <h3 class="font-semibold text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 flex-shrink-0 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
+              </svg>
+              <span>Feeds</span>
+            </div>
+            <label class="flex items-center gap-2 text-sm font-normal text-gray-700 dark:text-gray-300">
               <input v-model="showUnreadOnly" type="checkbox" />
-              <span class="truncate">Show unread only</span>
+              <span class="truncate">Unread only</span>
             </label>
           </h3>
 
@@ -378,17 +416,20 @@ const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>
 const openFeedMenuId = ref<number | null>(null)
 const openTagMenuId = ref<string | null>(null)
 const openTags = ref<Set<string>>(new Set())
+const openSavedTags = ref<Set<string>>(new Set())
 
 const { addFeed, syncAll, deleteFeed, updateFeedTags, feeds, selectedFeedId, selectedTag, allTags, feedsByTag } = useFeeds()
 const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
 const { savedArticleIds } = useSavedArticles()
+const { savedArticlesByTag, savedArticleTags, totalSavedCount, fetchSavedArticlesByTag, getSavedTagCount } = useSavedArticlesByTag()
 const { tags, fetchTags } = useTags()
 const { data: session, signOut } = useAuth()
 
-// Fetch tags on mount for autocomplete
+// Fetch tags and saved articles on mount for autocomplete
 onMounted(() => {
   if (session.value?.user) {
     fetchTags()
+    fetchSavedArticlesByTag()
   }
 
   // Close dropdowns when clicking outside
@@ -458,6 +499,20 @@ const getInboxUnreadCount = () => {
 
 const selectSavedArticles = () => {
   selectedFeedId.value = -1
+  selectedTag.value = null
+}
+
+const selectSavedTag = (tag: string) => {
+  selectedFeedId.value = -1
+  selectedTag.value = tag
+}
+
+const toggleSavedTagFolderOnly = (tag: string) => {
+  if (openSavedTags.value.has(tag)) {
+    openSavedTags.value.delete(tag)
+  } else {
+    openSavedTags.value.add(tag)
+  }
 }
 
 const toggleFeedMenu = (feedId: number) => {

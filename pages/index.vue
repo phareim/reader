@@ -130,6 +130,10 @@ const {
   fetchTags
 } = useTags()
 
+const {
+  fetchSavedArticlesByTag
+} = useSavedArticlesByTag()
+
 // Override displayedArticles to ignore unread filter when viewing saved articles
 const displayedArticles = computed(() => {
   // When viewing saved articles (feedId === -1), show all saved articles
@@ -168,6 +172,8 @@ const toggleMenu = () => {
 const toggleSaveArticle = async (articleId: number) => {
   try {
     await toggleSave(articleId)
+    // Refresh saved articles organization
+    await fetchSavedArticlesByTag()
   } catch (error) {
     console.error('Failed to toggle save:', error)
   }
@@ -185,8 +191,11 @@ const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
 
   try {
     await updateSavedArticleTags(savedArticleId, tags)
-    // Only refresh tag counts, not the entire article list
-    await fetchTags()
+    // Refresh tag counts and saved articles organization
+    await Promise.all([
+      fetchTags(),
+      fetchSavedArticlesByTag()
+    ])
   } catch (error) {
     console.error('Failed to update tags:', error)
     // Revert optimistic update on error
@@ -202,7 +211,8 @@ onMounted(async () => {
     await Promise.all([
       fetchFeeds(),
       fetchSavedArticleIds(),
-      fetchTags()
+      fetchTags(),
+      fetchSavedArticlesByTag()
     ])
   }
 })
@@ -213,14 +223,27 @@ watch(() => session.value?.user, async (user) => {
     await Promise.all([
       fetchFeeds(),
       fetchSavedArticleIds(),
-      fetchTags()
+      fetchTags(),
+      fetchSavedArticlesByTag()
     ])
   }
 })
 
 // Watch for feed or tag selection changes
 watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
-  if (feedId !== null) {
+  if (feedId === -1) {
+    // Saved articles selected
+    if (tag && tag !== '__saved_untagged__') {
+      // Filter saved articles by tag
+      await fetchArticles(-1, undefined, tag)
+    } else if (tag === '__saved_untagged__') {
+      // Show untagged saved articles (we'll need to handle this in the API)
+      await fetchArticles(-1, undefined, '__inbox__')
+    } else {
+      // Show all saved articles
+      await fetchArticles(-1)
+    }
+  } else if (feedId !== null) {
     // Specific feed selected - fetch articles from that feed
     await fetchArticles(feedId)
   } else if (tag !== null) {

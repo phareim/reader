@@ -24,11 +24,37 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // Get optional tag filter from query params
+    const query = getQuery(event)
+    const tagFilter = query.tag as string | undefined
+
+    // Build where clause
+    const whereClause: any = {
+      userId: user.id
+    }
+
+    // If tag filter is provided, only return saved articles with that tag
+    if (tagFilter) {
+      if (tagFilter === '__inbox__') {
+        // Special case: show untagged saved articles
+        whereClause.tags = {
+          none: {}
+        }
+      } else {
+        // Filter by specific tag
+        whereClause.tags = {
+          some: {
+            tag: {
+              name: tagFilter
+            }
+          }
+        }
+      }
+    }
+
     // Fetch all saved articles for the user
     const savedArticles = await prisma.savedArticle.findMany({
-      where: {
-        userId: user.id
-      },
+      where: whereClause,
       include: {
         article: {
           include: {
