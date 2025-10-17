@@ -15,7 +15,9 @@
       :article="article"
       :is-saved="isSaved"
       :show-feed-title="showFeedTitle"
+      :all-tags-with-counts="allTagsWithCounts"
       @toggle-save="$emit('toggle-save', article.id)"
+      @update-tags="(savedArticleId, tags) => $emit('update-tags', savedArticleId, tags)"
     />
 
     <!-- Article Content (Expanded Inline) -->
@@ -55,13 +57,17 @@ interface Props {
   isExpanded: boolean
   isSaved: boolean
   showFeedTitle?: boolean
+  allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  allTagsWithCounts: () => []
+})
 
 defineEmits<{
   open: [id: number]
   'toggle-save': [id: number]
+  'update-tags': [savedArticleId: number, tags: string[]]
 }>()
 </script>
 

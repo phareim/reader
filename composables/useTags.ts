@@ -158,8 +158,18 @@ export const useTags = () => {
     }
   }
 
+  // Computed property for tags with counts (for components)
+  const allTagsWithCounts = computed(() => {
+    return tags.value.map(tag => ({
+      name: tag.name,
+      feedCount: tag.feedCount,
+      savedArticleCount: tag.savedArticleCount
+    }))
+  })
+
   return {
     tags: readonly(tags),
+    allTagsWithCounts,
     loading: readonly(loading),
     error: readonly(error),
     fetchTags,

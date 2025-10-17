@@ -79,12 +79,14 @@ interface Feed {
 interface Props {
   menuIsOpen: boolean
   currentArticle: Article | null
-  selectedFeed: Feed | null
+  selectedFeed?: Feed | null
   selectedFeedId: number | null
   selectedTag: string | null
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  selectedFeed: null
+})
 
 defineEmits<{
   'toggle-menu': []

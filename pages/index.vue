@@ -71,8 +71,10 @@
               :is-expanded="expandedArticleId === article.id"
               :is-saved="isSaved(article.id)"
               :show-feed-title="!selectedFeed"
+              :all-tags-with-counts="allTagsWithCounts"
               @open="handleOpenArticle"
               @toggle-save="toggleSaveArticle"
+              @update-tags="handleUpdateTags"
             />
           </div>
         </template>
@@ -122,6 +124,12 @@ const {
   fetchSavedArticleIds
 } = useSavedArticles()
 
+const {
+  allTagsWithCounts,
+  updateSavedArticleTags,
+  fetchTags
+} = useTags()
+
 // Override displayedArticles to ignore unread filter when viewing saved articles
 const displayedArticles = computed(() => {
   // When viewing saved articles (feedId === -1), show all saved articles
@@ -165,12 +173,36 @@ const toggleSaveArticle = async (articleId: number) => {
   }
 }
 
+// Update tags for a saved article
+const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
+  // Find the article with this savedId and optimistically update its tags
+  const article = articles.value.find(a => a.savedId === savedArticleId)
+  const previousTags = article?.tags || []
+
+  if (article) {
+    article.tags = tags
+  }
+
+  try {
+    await updateSavedArticleTags(savedArticleId, tags)
+    // Only refresh tag counts, not the entire article list
+    await fetchTags()
+  } catch (error) {
+    console.error('Failed to update tags:', error)
+    // Revert optimistic update on error
+    if (article) {
+      article.tags = previousTags
+    }
+  }
+}
+
 // Load feeds and saved articles on mount (only if logged in)
 onMounted(async () => {
   if (session.value?.user) {
     await Promise.all([
       fetchFeeds(),
-      fetchSavedArticleIds()
+      fetchSavedArticleIds(),
+      fetchTags()
     ])
   }
 })
@@ -180,7 +212,8 @@ watch(() => session.value?.user, async (user) => {
   if (user) {
     await Promise.all([
       fetchFeeds(),
-      fetchSavedArticleIds()
+      fetchSavedArticleIds(),
+      fetchTags()
     ])
   }
 })
