@@ -1,5 +1,6 @@
 <template>
   <div
+    :data-article-id="article.id"
     class="border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer transition-colors"
     :class="{
       /* Modern left accent for selection */

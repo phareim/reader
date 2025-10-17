@@ -11,13 +11,13 @@
       class="min-h-screen transition-all duration-300 ease-in-out"
       :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
     >
-      <!-- Header -->
-      <div class="bg-white h-16 dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
+      <!-- Sticky Header -->
+      <div class="sticky top-0 z-20 bg-white h-16 dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4 flex-1 min-w-0">
           <!-- Hamburger Button -->
           <button
             @click="toggleMenu"
-            class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
+            class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-900 dark:text-gray-100 flex-shrink-0"
             aria-label="Toggle menu"
           >
             <svg v-if="!menuIsOpen" class="w-6 h-6" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -28,27 +28,45 @@
             </svg>
           </button>
 
-          <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100">
-            <template v-if="selectedFeedId === -1">
-              <svg class="w-7 h-7 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-              </svg>
-              <span>Saved Articles</span>
-            </template>
-            <template v-else-if="selectedFeed">
-              <img
-                v-if="selectedFeed.faviconUrl"
-                :src="selectedFeed.faviconUrl"
-                :alt="selectedFeed.title"
-                class="w-8 h-8"
-              />
-              <span>{{ selectedFeed.title }}</span>
-            </template>
-            <template v-else-if="selectedTag">
-              <span v-if="selectedTag === '__inbox__'">📥 Inbox</span>
-              <span v-else>#{{ selectedTag }}</span>
-            </template>
-            <span v-else>All Vibes — The RSS Reader</span>
+          <!-- Dynamic Title -->
+          <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100 min-w-0 flex-1">
+            <Transition name="fade-title" mode="out-in">
+              <!-- Show current article title when scrolled -->
+              <div v-if="currentScrolledArticle" class="flex items-center gap-3 min-w-0 flex-1" :key="'article-' + currentScrolledArticle.id">
+                <span class="truncate">
+                  <img
+                    v-if="selectedFeed.faviconUrl"
+                    :src="selectedFeed.faviconUrl"
+                    :alt="selectedFeed.title"
+                    class="w-8 h-8 inline-block"
+                  />
+                  <span class="truncate pl-2">{{ currentScrolledArticle.title }}</span>
+                </span>
+              </div>
+              <!-- Show default context title -->
+              <div v-else class="flex items-center gap-3 min-w-0 flex-1" key="default">
+                <template v-if="selectedFeedId === -1">
+                  <svg class="w-7 h-7 text-yellow-500 dark:text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                  <span class="truncate">Saved Articles</span>
+                </template>
+                <template v-else-if="selectedFeed">
+                  <img
+                    v-if="selectedFeed.faviconUrl"
+                    :src="selectedFeed.faviconUrl"
+                    :alt="selectedFeed.title"
+                    class="w-8 h-8 flex-shrink-0"
+                  />
+                  <span class="truncate">{{ selectedFeed.title }}</span>
+                </template>
+                <template v-else-if="selectedTag">
+                  <span v-if="selectedTag === '__inbox__'" class="truncate">📥 Inbox</span>
+                  <span v-else class="truncate">#{{ selectedTag }}</span>
+                </template>
+                <span v-else class="truncate">All Vibes — The RSS Reader</span>
+              </div>
+            </Transition>
           </h1>
         </div>
       </div>
@@ -165,6 +183,9 @@ const displayedArticles = computed(() => {
 
 // Separate state for expanded article (different from selected/highlighted)
 const expandedArticleId = ref<number | null>(null)
+
+// Track current article in sticky header based on scroll position
+const currentScrolledArticle = ref<any>(null)
 
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
@@ -363,8 +384,34 @@ onMounted(async () => {
 
   window.addEventListener('keydown', handleKeydown)
 
+  // Scroll handler to update sticky header with current article
+  const handleScroll = () => {
+    const headerHeight = 64 // h-16 = 4rem = 64px
+    const scrollThreshold = headerHeight + 10 // Add small buffer
+
+    // Find which article is currently at the top of the viewport
+    let foundArticle = null
+
+    for (const article of displayedArticles.value) {
+      const element = document.querySelector(`[data-article-id="${article.id}"]`)
+      if (element) {
+        const rect = element.getBoundingClientRect()
+        // Check if article title has scrolled past the header
+        if (rect.top < scrollThreshold && rect.bottom > headerHeight) {
+          foundArticle = article
+          break
+        }
+      }
+    }
+
+    currentScrolledArticle.value = foundArticle
+  }
+
+  window.addEventListener('scroll', handleScroll, { passive: true })
+
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown)
+    window.removeEventListener('scroll', handleScroll)
     clearTimeout(lastKeyTimeout.value)
   })
 })
@@ -528,3 +575,27 @@ const hasUnreadInOtherViews = computed(() => {
   return tagsWithUnreadCounts.value.length > 0 || getInboxUnreadCount() > 0
 })
 </script>
+
+<style scoped>
+/* Smooth fade transition for sticky header title */
+.fade-title-enter-active,
+.fade-title-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-title-enter-from {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.fade-title-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.fade-title-enter-to,
+.fade-title-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
