@@ -194,10 +194,14 @@
                             </div>
                             <div v-else class="text-xs text-gray-500 dark:text-gray-400 mb-2">No tags yet</div>
 
-                            <!-- Add Tag Input -->
-                            <input v-model="newTag" @keyup.enter="handleAddTag(feed.id)" @click.stop type="text"
-                              placeholder="Add tag (press Enter)"
-                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
+                            <!-- Add Tag Input with Autocomplete -->
+                            <TagInput
+                              placeholder="Add tag (3+ chars for suggestions)"
+                              :existing-tags="feed.tags"
+                              :all-tags="allTagsWithCounts"
+                              @add-tag="(tag) => handleAddTag(feed.id, tag)"
+                              @click.stop
+                            />
                           </div>
 
                           <button @click="handleDeleteFeed(feed.id, feed.title)"
@@ -296,10 +300,14 @@
                             </div>
                             <div v-else class="text-xs text-gray-500 dark:text-gray-400 mb-2">No tags yet</div>
 
-                            <!-- Add Tag Input -->
-                            <input v-model="newTag" @keyup.enter="handleAddTag(feed.id)" @click.stop type="text"
-                              placeholder="Add tag (press Enter)"
-                              class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent" />
+                            <!-- Add Tag Input with Autocomplete -->
+                            <TagInput
+                              placeholder="Add tag (3+ chars for suggestions)"
+                              :existing-tags="feed.tags"
+                              :all-tags="allTagsWithCounts"
+                              @add-tag="(tag) => handleAddTag(feed.id, tag)"
+                              @click.stop
+                            />
                           </div>
 
                           <button @click="handleDeleteFeed(feed.id, feed.title)"
@@ -361,7 +369,6 @@
 <script setup lang="ts">
 const isOpen = ref(false)
 const newFeedUrl = ref('')
-const newTag = ref('')
 const loading = ref(false)
 const discovering = ref(false)
 const syncLoading = ref(false)
@@ -375,7 +382,18 @@ const openTags = ref<Set<string>>(new Set())
 const { addFeed, syncAll, deleteFeed, updateFeedTags, feeds, selectedFeedId, selectedTag, allTags, feedsByTag } = useFeeds()
 const { unreadArticles, showUnreadOnly, markAllAsRead } = useArticles()
 const { savedArticleIds } = useSavedArticles()
+const { tags, fetchTags } = useTags()
 const { data: session, signOut } = useAuth()
+
+// Fetch tags on mount for autocomplete
+onMounted(() => {
+  if (session.value?.user) {
+    fetchTags()
+  }
+})
+
+// Computed property to provide tags with counts for autocomplete
+const allTagsWithCounts = computed(() => tags.value || [])
 
 const savedCount = computed(() => savedArticleIds.value.size)
 
@@ -595,15 +613,15 @@ const handleDeleteFeed = async (feedId: number, feedTitle: string) => {
   }
 }
 
-const handleAddTag = async (feedId: number) => {
-  const tag = newTag.value.trim().replace(/^#/, '') // Remove leading # if present
-  if (!tag) return
+const handleAddTag = async (feedId: number, tag: string) => {
+  const cleanTag = tag.trim().replace(/^#/, '') // Remove leading # if present
+  if (!cleanTag) return
 
   const feed = feeds.value.find(f => f.id === feedId)
   if (!feed) return
 
   // Check if tag already exists
-  if (feed.tags.includes(tag)) {
+  if (feed.tags.includes(cleanTag)) {
     error.value = 'Tag already exists'
     setTimeout(() => {
       error.value = null
@@ -615,9 +633,11 @@ const handleAddTag = async (feedId: number) => {
   success.value = null
 
   try {
-    await updateFeedTags(feedId, [...feed.tags, tag])
-    newTag.value = ''
+    await updateFeedTags(feedId, [...feed.tags, cleanTag])
     success.value = 'Tag added!'
+
+    // Refresh tags list to update counts for autocomplete
+    await fetchTags()
 
     setTimeout(() => {
       success.value = null
