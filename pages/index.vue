@@ -54,7 +54,7 @@
       </div>
 
       <!-- Articles List (Full Width) -->
-      <div class="max-w-5xl mx-auto py-4">
+      <div class="py-0">
         <!-- Not Logged In State -->
         <div v-if="!session?.user" class="flex flex-col items-center justify-center py-20 px-4">
           <div class="max-w-md text-center space-y-6">
@@ -63,7 +63,7 @@
             </svg>
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome to Vibe Reader</h2>
             <p class="text-gray-600 dark:text-gray-400">
-              Your personal RSS reader for staying up to date with your favorite content.
+              Your personal RSS reader for staying up to date.
             </p>
             <NuxtLink
               to="/login"

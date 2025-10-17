@@ -63,14 +63,16 @@
 
     <!-- Article Content (Expanded Inline) -->
     <Transition name="expand">
-      <div v-if="isExpanded" class="px-16 pb-6 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950/60">
-        <div
-          v-if="article.content"
-          class="prose prose-md dark:prose-invert max-w-none mt-4 font-spectral"
-          v-html="article.content"
-        ></div>
-        <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300 mt-4 font-spectral prose prose-md dark:prose-invert max-w-none">
-          {{ article.summary }}
+      <div v-if="isExpanded" class="border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950/60 py-6">
+        <div class="max-w-3xl mx-auto px-6">
+          <div
+            v-if="article.content"
+            class="prose prose-md dark:prose-invert max-w-none font-spectral"
+            v-html="article.content"
+          ></div>
+          <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300 font-spectral prose prose-md dark:prose-invert max-w-none">
+            {{ article.summary }}
+          </div>
         </div>
       </div>
     </Transition>
