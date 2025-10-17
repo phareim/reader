@@ -35,7 +35,7 @@
               <div v-if="currentScrolledArticle" class="flex items-center gap-3 min-w-0 flex-1" :key="'article-' + currentScrolledArticle.id">
                 <span class="truncate">
                   <img
-                    v-if="selectedFeed.faviconUrl"
+                    v-if="selectedFeed && selectedFeed.faviconUrl"
                     :src="selectedFeed.faviconUrl"
                     :alt="selectedFeed.title"
                     class="w-8 h-8 inline-block"
