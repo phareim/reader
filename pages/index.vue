@@ -117,7 +117,7 @@
 
           <!-- Article List -->
           <div v-else class="space-y-0">
-            <ArticleListItem
+            <Article
               v-for="article in displayedArticles"
               :key="article.id"
               :article="article"
