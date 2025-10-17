@@ -40,6 +40,7 @@
                     :alt="selectedFeed.title"
                     class="w-8 h-8 inline-block"
                   />
+                  <span v-if="selectedTag" class="pl-2 text-gray-500 dark:text-gray-400">#{{ selectedTag }}</span>
                   <span class="truncate pl-2">{{ currentScrolledArticle.title }}</span>
                 </span>
               </div>
@@ -184,8 +185,11 @@ const displayedArticles = computed(() => {
 // Separate state for expanded article (different from selected/highlighted)
 const expandedArticleId = ref<number | null>(null)
 
-// Track current article in sticky header based on scroll position
-const currentScrolledArticle = ref<any>(null)
+// Show expanded article in sticky header
+const currentScrolledArticle = computed(() => {
+  if (expandedArticleId.value === null) return null
+  return displayedArticles.value.find(a => a.id === expandedArticleId.value) || null
+})
 
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
@@ -384,34 +388,8 @@ onMounted(async () => {
 
   window.addEventListener('keydown', handleKeydown)
 
-  // Scroll handler to update sticky header with current article
-  const handleScroll = () => {
-    const headerHeight = 64 // h-16 = 4rem = 64px
-    const scrollThreshold = headerHeight + 10 // Add small buffer
-
-    // Find which article is currently at the top of the viewport
-    let foundArticle = null
-
-    for (const article of displayedArticles.value) {
-      const element = document.querySelector(`[data-article-id="${article.id}"]`)
-      if (element) {
-        const rect = element.getBoundingClientRect()
-        // Check if article title has scrolled past the header
-        if (rect.top < scrollThreshold && rect.bottom > headerHeight) {
-          foundArticle = article
-          break
-        }
-      }
-    }
-
-    currentScrolledArticle.value = foundArticle
-  }
-
-  window.addEventListener('scroll', handleScroll, { passive: true })
-
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown)
-    window.removeEventListener('scroll', handleScroll)
     clearTimeout(lastKeyTimeout.value)
   })
 })
