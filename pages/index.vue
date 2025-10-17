@@ -82,6 +82,7 @@
 </template>
 
 <script setup lang="ts">
+import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 definePageMeta({
   auth: false
 })
@@ -147,9 +148,7 @@ const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
 // Reference to help dialog
 const helpDialogRef = ref<any>(null)
 
-// Track last key for g-combinations
-const lastKey = ref<string | null>(null)
-const lastKeyTimeout = ref<any>(null)
+// Keyboard shortcuts are registered via composable
 
 const toggleMenu = () => {
   if (hamburgerMenuRef.value) {
@@ -174,173 +173,6 @@ onMounted(async () => {
       fetchSavedArticleIds()
     ])
   }
-
-  // Keyboard shortcuts handler
-  const handleKeydown = async (e: KeyboardEvent) => {
-    // Ignore if typing in an input field
-    const target = e.target as HTMLElement
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-      return
-    }
-
-    // Ignore if help dialog is open (except for Escape)
-    if (helpDialogRef.value?.isOpen && e.key !== 'Escape') {
-      return
-    }
-
-    const key = e.key
-    const shiftKey = e.shiftKey
-
-    // Track key for g-combinations
-    if (key === 'g') {
-      lastKey.value = 'g'
-      clearTimeout(lastKeyTimeout.value)
-      lastKeyTimeout.value = setTimeout(() => {
-        lastKey.value = null
-      }, 1000)
-      return
-    }
-
-    // Handle g-combinations
-    if (lastKey.value === 'g') {
-      lastKey.value = null
-      clearTimeout(lastKeyTimeout.value)
-
-      if (key === 'i' || key === 'a') {
-        // g+i or g+a: Go to all feeds
-        selectedFeedId.value = null
-        return
-      }
-      return
-    }
-
-    // Navigation: j/k or arrow keys
-    if (key === 'j' || key === 'ArrowDown') {
-      e.preventDefault()
-      navigateArticles('down')
-      return
-    }
-    if (key === 'k' || key === 'ArrowUp') {
-      e.preventDefault()
-      navigateArticles('up')
-      return
-    }
-
-    // Open/close article: o, Enter
-    if (key === 'o' || key === 'Enter') {
-      e.preventDefault()
-      if (selectedArticleId.value === null && displayedArticles.value.length > 0) {
-        // Select and open first article if none selected
-        selectedArticleId.value = displayedArticles.value[0].id
-        await handleOpenArticle(displayedArticles.value[0].id, false)
-      } else if (selectedArticleId.value !== null) {
-        // Toggle the currently selected article
-        await handleOpenArticle(selectedArticleId.value, true)
-      }
-      return
-    }
-
-    // Close expanded article: Escape
-    if (key === 'Escape') {
-      e.preventDefault()
-      if (expandedArticleId.value !== null) {
-        expandedArticleId.value = null
-      }
-      return
-    }
-
-    // Mark as read without opening: e
-    if (key === 'e' && !shiftKey) {
-      e.preventDefault()
-      await handleMarkAsRead()
-      return
-    }
-
-    // Toggle menu: m
-    if (key === 'm' && !shiftKey) {
-      e.preventDefault()
-      toggleMenu()
-      return
-    }
-
-    // Save/unsave article: s
-    if (key === 's' && !shiftKey) {
-      e.preventDefault()
-      if (selectedArticleId.value !== null) {
-        await toggleSaveArticle(selectedArticleId.value)
-      }
-      return
-    }
-
-    // Mark as unread: Shift+U
-    if (key === 'U' && shiftKey) {
-      e.preventDefault()
-      if (selectedArticleId.value !== null) {
-        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-        if (article && article.isRead) {
-          await markAsRead(selectedArticleId.value, false)
-        }
-      }
-      return
-    }
-
-    // View original: v
-    if (key === 'v') {
-      e.preventDefault()
-      if (selectedArticleId.value !== null) {
-        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-        if (article) {
-          window.open(article.url, '_blank')
-        }
-      }
-      return
-    }
-
-    // Mark all as read: Shift+E
-    if (key === 'E' && shiftKey) {
-      e.preventDefault()
-      await handleMarkAllRead()
-      return
-    }
-
-    // Refresh current feed: r
-    if (key === 'r' && !shiftKey) {
-      e.preventDefault()
-      if (selectedFeedId.value !== null) {
-        try {
-          await refreshFeed(selectedFeedId.value)
-        } catch (error) {
-          console.error('Failed to refresh feed:', error)
-        }
-      }
-      return
-    }
-
-    // Refresh all feeds: Shift+R
-    if (key === 'R' && shiftKey) {
-      e.preventDefault()
-      try {
-        await syncAll()
-      } catch (error) {
-        console.error('Failed to sync all feeds:', error)
-      }
-      return
-    }
-
-    // Show help: ?
-    if (key === '?' || (key === '/' && shiftKey)) {
-      e.preventDefault()
-      helpDialogRef.value?.open()
-      return
-    }
-  }
-
-  window.addEventListener('keydown', handleKeydown)
-
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeydown)
-    clearTimeout(lastKeyTimeout.value)
-  })
 })
 
 // Watch for session changes to fetch data when user logs in
@@ -394,29 +226,7 @@ watch(displayedArticles, () => {
   }
 })
 
-// Navigate articles (auto-open)
-const navigateArticles = async (direction: 'up' | 'down') => {
-  const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
-  let newArticleId: number | null = null
-
-  if (direction === 'up' && currentIndex > 0) {
-    newArticleId = displayedArticles.value[currentIndex - 1].id
-  } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
-    newArticleId = displayedArticles.value[currentIndex + 1].id
-  } else if (direction === 'down' && currentIndex === displayedArticles.value.length - 1) {
-    // At the last article and pressing down - mark all as read
-    await handleMarkAllRead()
-    return
-  } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
-    // If nothing selected, select first article
-    newArticleId = displayedArticles.value[0].id
-  }
-
-  if (newArticleId !== null) {
-    selectedArticleId.value = newArticleId
-    await handleOpenArticle(newArticleId, false) // Don't toggle, always open
-  }
-}
+// Navigation moved into keyboard shortcuts composable
 
 // Open/expand article and mark as read
 const handleOpenArticle = async (id: number, toggle = true) => {
@@ -500,5 +310,22 @@ const tagsWithUnreadCounts = computed(() => {
 
 const hasUnreadInOtherViews = computed(() => {
   return tagsWithUnreadCounts.value.length > 0 || getInboxUnreadCount() > 0
+})
+
+// Register global keyboard shortcuts
+useKeyboardShortcuts({
+  helpDialogRef,
+  toggleMenu,
+  selectedArticleId,
+  expandedArticleId,
+  displayedArticles,
+  selectedFeedId,
+  markAsRead,
+  refreshFeed,
+  syncAll,
+  toggleSaveArticle,
+  handleOpenArticle,
+  handleMarkAsRead,
+  handleMarkAllRead
 })
 </script>

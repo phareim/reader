@@ -35,6 +35,11 @@ export default defineEventHandler(async (event) => {
               where: { isRead: false }
             }
           }
+        },
+        tags: {
+          include: {
+            tag: true
+          }
         }
       },
       orderBy: { createdAt: 'asc' }
@@ -47,7 +52,7 @@ export default defineEventHandler(async (event) => {
         url: feed.url,
         siteUrl: feed.siteUrl,
         faviconUrl: feed.faviconUrl,
-        tags: JSON.parse(feed.tags || '[]'),
+        tags: feed.tags.map(ft => ft.tag.name),
         unreadCount: feed._count.articles,
         lastFetchedAt: feed.lastFetchedAt?.toISOString(),
         lastError: feed.lastError,

@@ -1,13 +1,13 @@
 /**
- * PATCH /api/feeds/[id]/tags
- * Update tags for a feed (replaces all tags with new ones)
+ * PATCH /api/saved-articles/[id]/tags
+ * Update tags for a saved article (replaces all tags with new ones)
  */
 
 import { getServerSession } from '#auth'
 import prisma from '~/server/utils/db'
 import { z } from 'zod'
 
-const updateFeedTagsSchema = z.object({
+const updateSavedArticleTagsSchema = z.object({
   tags: z.array(z.string().min(1).max(50).trim())
 })
 
@@ -31,16 +31,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const feedId = parseInt(event.context.params?.id || '')
-  if (isNaN(feedId)) {
+  const savedArticleId = parseInt(event.context.params?.id || '')
+  if (isNaN(savedArticleId)) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid feed ID'
+      statusMessage: 'Invalid saved article ID'
     })
   }
 
   const body = await readBody(event)
-  const validation = updateFeedTagsSchema.safeParse(body)
+  const validation = updateSavedArticleTagsSchema.safeParse(body)
 
   if (!validation.success) {
     throw createError({
@@ -52,29 +52,29 @@ export default defineEventHandler(async (event) => {
 
   const { tags: tagNames } = validation.data
 
-  // Verify feed belongs to user
-  const feed = await prisma.feed.findFirst({
+  // Verify saved article belongs to user
+  const savedArticle = await prisma.savedArticle.findFirst({
     where: {
-      id: feedId,
+      id: savedArticleId,
       userId: user.id
     }
   })
 
-  if (!feed) {
+  if (!savedArticle) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Feed not found'
+      statusMessage: 'Saved article not found'
     })
   }
 
   // Use a transaction to ensure consistency
   await prisma.$transaction(async (tx) => {
-    // 1. Delete all existing FeedTag associations for this feed
-    await tx.feedTag.deleteMany({
-      where: { feedId }
+    // 1. Delete all existing SavedArticleTag associations
+    await tx.savedArticleTag.deleteMany({
+      where: { savedArticleId }
     })
 
-    // 2. Create or find tags and create new FeedTag associations
+    // 2. Create or find tags and create new SavedArticleTag associations
     for (const tagName of tagNames) {
       // Find or create the tag
       const tag = await tx.tag.upsert({
@@ -91,19 +91,19 @@ export default defineEventHandler(async (event) => {
         update: {} // No update needed if it exists
       })
 
-      // Create the FeedTag association
-      await tx.feedTag.create({
+      // Create the SavedArticleTag association
+      await tx.savedArticleTag.create({
         data: {
-          feedId,
+          savedArticleId,
           tagId: tag.id
         }
       })
     }
   })
 
-  // Fetch the updated feed with tags
-  const updatedFeed = await prisma.feed.findUnique({
-    where: { id: feedId },
+  // Fetch the updated saved article with tags
+  const updatedSavedArticle = await prisma.savedArticle.findUnique({
+    where: { id: savedArticleId },
     include: {
       tags: {
         include: {
@@ -115,6 +115,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     success: true,
-    tags: updatedFeed?.tags.map(ft => ft.tag.name) || []
+    tags: updatedSavedArticle?.tags.map(sat => sat.tag.name) || []
   }
 })

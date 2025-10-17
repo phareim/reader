@@ -34,6 +34,11 @@ export default defineEventHandler(async (event) => {
           include: {
             feed: true
           }
+        },
+        tags: {
+          include: {
+            tag: true
+          }
         }
       },
       orderBy: {
@@ -54,7 +59,8 @@ export default defineEventHandler(async (event) => {
         publishedAt: saved.article.publishedAt?.toISOString(),
         isRead: saved.article.isRead,
         savedAt: saved.savedAt.toISOString(),
-        savedId: saved.id
+        savedId: saved.id,
+        tags: saved.tags.map(sat => sat.tag.name)
       }))
     }
   } catch (error: any) {
