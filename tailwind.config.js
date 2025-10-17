@@ -14,7 +14,23 @@ module.exports = {
         gray: {
           850: '#1a1d23',
         }
-      }
+      },
+      fontFamily: {
+        'sans': ['Spectral', 'serif'],
+        'spectral': ['Spectral', 'serif'],
+      },
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            fontFamily: 'Spectral, serif',
+            h1: { fontFamily: 'Spectral, serif' },
+            h2: { fontFamily: 'Spectral, serif' },
+            h3: { fontFamily: 'Spectral, serif' },
+            h4: { fontFamily: 'Spectral, serif' },
+            'blockquote p': { fontFamily: 'Spectral, serif' },
+          },
+        },
+      }),
     },
   },
   plugins: [
