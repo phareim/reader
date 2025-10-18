@@ -1,7 +1,8 @@
 <template>
   <div
+    :id="`article-${article.id}`"
     :data-article-id="article.id"
-    class="border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer transition-colors"
+    class="border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 cursor-pointer transition-colors scroll-mt-16"
     :class="{
       /* Modern left accent for selection */
       'border-l-4 border-blue-500 bg-blue-50 dark:bg-zinc-800/50 shadow-sm': isSelected && !isExpanded,
@@ -12,6 +13,7 @@
   >
     <!-- Article Header -->
     <ArticleHeader
+      :is-expanded="isExpanded"
       :article="article"
       :is-saved="isSaved"
       :show-feed-title="showFeedTitle"

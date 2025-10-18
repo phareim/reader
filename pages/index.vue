@@ -296,6 +296,13 @@ const handleOpenArticle = async (id: number, toggle = true) => {
     if (article && !article.isRead) {
       await markAsRead(id, true)
     }
+
+    // Scroll to the article with smooth animation
+    await nextTick()
+    const articleElement = document.getElementById(`article-${id}`)
+    if (articleElement) {
+      articleElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" })
+    }
   }
 }
 
@@ -385,3 +392,9 @@ useKeyboardShortcuts({
   handleMarkAllRead
 })
 </script>
+
+<style scoped>
+Article {
+  transition: transform 0.3s ease;
+}
+</style>

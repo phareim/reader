@@ -1,10 +1,12 @@
 <template>
-  <div class="px-6 py-4">
+  <div class="px-6"
+  :class="isExpanded ? 'py-2' : 'py-4'"
+  >
     <div class="flex items-start justify-between gap-4">
       <div class="flex-1 min-w-0">
         <h2
-          class="text-lg mb-1 font-spectral"
-          :class="article.isRead ? 'font-normal text-gray-700 dark:text-gray-300' : 'font-bold text-gray-900 dark:text-gray-100'"
+          class="mb-1 font-spectral truncate text-lg"
+          :class="titleClasses()"
         >
           {{ article.title }}
         </h2>
@@ -121,6 +123,7 @@ interface Article {
 
 interface Props {
   article: Article
+  isExpanded: boolean
   isSaved: boolean
   showFeedTitle?: boolean
   allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
@@ -185,9 +188,27 @@ const formatDate = (date?: string) => {
     return 'Unknown date'
   }
 }
+
+const titleClasses = () => {
+  let returnValue = 'font-spectral truncate'
+  if (props.article.isRead) {
+    returnValue += ' font-normal text-gray-700 dark:text-gray-300'
+  } else {
+    returnValue += ' font-bold text-gray-900 dark:text-gray-100'
+  }
+  if (props.isExpanded) {
+    returnValue += ' text-sm'
+  }else {
+    returnValue += ' text-lg'
+  }
+  return returnValue
+}
 </script>
 
 <style scoped>
+h2 {
+  transition: font-size 0.15s ease-in-out;
+}
 /* Dropdown transition */
 .dropdown-enter-active,
 .dropdown-leave-active {
