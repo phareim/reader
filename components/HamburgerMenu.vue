@@ -71,24 +71,44 @@
               :class="selectedFeedId === -1 && selectedTag === null ? 'text-yellow-600 dark:text-yellow-300' : ''">
               Saved Articles
             </button>
-            <span v-if="totalSavedCount > 0"
-              class="flex-shrink-0 text-xs bg-yellow-500 dark:bg-yellow-600 text-white px-2 py-0.5 rounded-full">{{
-              totalSavedCount }}</span>
           </h3>
 
           <!-- Saved Articles Tags -->
           <div v-if="savedArticleTags.length > 0" class="ml-6 space-y-0">
             <div v-for="tag in savedArticleTags" :key="'saved-' + tag" class="space-y-0">
               <!-- Tag Header -->
-              <div
-                class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
-                :class="selectedTag === tag && selectedFeedId === -1 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-                <button @click="selectSavedTag(tag)" class="flex-1 text-left truncate">
-                  #{{ tag }}
-                </button>
-                <span class="text-xs bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full">
-                  {{ getSavedTagCount(tag) }}
-                </span>
+              <div class="flex items-center gap-1 relative">
+                <div
+                  class="flex-1 min-w-0 flex items-center py-1.5 text-sm font-medium rounded transition-colors group"
+                  :class="selectedTag === tag && selectedFeedId === -1 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+                  <button @click="selectSavedTag(tag)" class="flex-1 text-left truncate pl-2 pr-2">
+                    #{{ tag }}
+                  </button>
+                  <span class="flex-shrink-0 text-xs bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
+                    {{ getSavedTagCount(tag) }}
+                  </span>
+                </div>
+
+                <!-- Dropdown Button -->
+                <div class="relative">
+                  <button @click.stop="toggleSavedTagMenu(tag)"
+                    class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                    :class="{ 'bg-gray-100 dark:bg-zinc-800': openSavedTagMenuId === tag }">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  <!-- Dropdown Menu (placeholder for future actions) -->
+                  <Transition name="dropdown">
+                    <div v-if="openSavedTagMenuId === tag"
+                      class="dropdown-menu-container absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
+                      <div class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+                        No actions available yet
+                      </div>
+                    </div>
+                  </Transition>
+                </div>
               </div>
             </div>
 
@@ -113,7 +133,11 @@
               <svg class="w-5 h-5 flex-shrink-0 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
               </svg>
-              <span>Feeds</span>
+              <button @click="selectAllFeeds"
+                class="hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                :class="selectedFeedId === null && selectedTag === null ? 'text-blue-600 dark:text-blue-300' : ''">
+                Feeds
+              </button>
             </div>
             <label class="flex items-center gap-2 text-sm font-normal text-gray-700 dark:text-gray-300">
               <input v-model="showUnreadOnly" type="checkbox" />
@@ -130,19 +154,19 @@
               <!-- Tag Header (Collapsible) -->
               <div class="flex items-center gap-1 relative">
                 <div
-                  class="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
+                  class="flex-1 min-w-0 flex items-center py-1.5 text-sm font-medium rounded transition-colors group"
                   :class="selectedTag === tag && selectedFeedId === null ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                   <button @click.stop="toggleTagFolderOnly(tag)"
-                    class="p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
+                    class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
                     <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has(tag) }" fill="none"
                       stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
-                  <button @click="selectTag(tag)" class="flex-1 text-left">
+                  <button @click="selectTag(tag)" class="flex-1 text-left pl-1 pr-2">
                     #{{ tag }}
                   </button>
-                  <span class="text-xs bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full">
+                  <span class="flex-shrink-0 text-xs bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
                     {{ getTagUnreadCount(tag) }}
                   </span>
                 </div>
@@ -179,13 +203,15 @@
                 <div v-if="openTags.has(tag)" class="ml-4 space-y-0">
                   <div v-for="feed in feedsByTag[tag]" :key="feed.id" class="flex items-center gap-1 relative">
                     <button @click="selectFeed(feed.id, tag)"
-                      class="flex-1 min-w-0 text-left px-3 py-1.5 text-sm rounded transition-colors flex items-center gap-2"
+                      class="flex-1 min-w-0 text-left py-1.5 text-sm rounded transition-colors flex items-center"
                       :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-                      <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
+                      <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
+                      <span v-else class="w-4 ml-3 mr-2"></span>
                       <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
-                      <span v-if="feed.unreadCount > 0"
-                        class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                        {{ feed.unreadCount }}
+                      <span
+                        class="flex-shrink-0 text-xs text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center"
+                        :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
+                        {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                       </span>
                     </button>
 
@@ -263,19 +289,19 @@
               v-show="!showUnreadOnly || getInboxUnreadCount() > 0"
               class="space-y-0 border-t border-gray-200 dark:border-zinc-800 pt-2 mt-2">
               <div
-                class="w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded transition-colors group"
+                class="w-full flex items-center py-1.5 text-sm font-medium rounded transition-colors group"
                 :class="selectedTag === '__inbox__' && selectedFeedId === null ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                 <button @click.stop="toggleTagFolderOnly('__inbox__')"
-                  class="p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
+                  class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
                   <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has('__inbox__') }"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
-                <button @click="selectTag('__inbox__')" class="flex-1 text-left">
+                <button @click="selectTag('__inbox__')" class="flex-1 text-left pl-1 pr-2">
                   📥 Inbox
                 </button>
-                <span class="text-xs bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full">
+                <span class="flex-shrink-0 text-xs bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
                   {{ getInboxUnreadCount() }}
                 </span>
               </div>
@@ -285,13 +311,15 @@
                 <div v-if="openTags.has('__inbox__')" class="ml-4 space-y-0">
                   <div v-for="feed in feedsByTag['__inbox__']" :key="feed.id" class="flex items-center gap-1 relative">
                     <button @click="selectFeed(feed.id, '__inbox__')"
-                      class="flex-1 min-w-0 text-left px-3 py-1.5 text-sm rounded transition-colors flex items-center gap-2"
+                      class="flex-1 min-w-0 text-left py-1.5 text-sm rounded transition-colors flex items-center"
                       :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-                      <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0" />
+                      <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
+                      <span v-else class="w-4 ml-3 mr-2"></span>
                       <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
-                      <span v-if="feed.unreadCount > 0"
-                        class="flex-shrink-0 text-xs bg-blue-500 dark:bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                        {{ feed.unreadCount }}
+                      <span
+                        class="flex-shrink-0 text-xs text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center"
+                        :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
+                        {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                       </span>
                     </button>
 
@@ -415,6 +443,7 @@ const success = ref<string | null>(null)
 const discoveredFeeds = ref<Array<{ url: string; title: string; type: string }>>([])
 const openFeedMenuId = ref<number | null>(null)
 const openTagMenuId = ref<string | null>(null)
+const openSavedTagMenuId = ref<string | null>(null)
 const openTags = ref<Set<string>>(new Set())
 const openSavedTags = ref<Set<string>>(new Set())
 
@@ -442,6 +471,7 @@ onMounted(() => {
     if (isOutsideDropdowns) {
       openFeedMenuId.value = null
       openTagMenuId.value = null
+      openSavedTagMenuId.value = null
     }
   }
 
@@ -497,6 +527,11 @@ const getInboxUnreadCount = () => {
   return inboxFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
 }
 
+const selectAllFeeds = () => {
+  selectedFeedId.value = null
+  selectedTag.value = null
+}
+
 const selectSavedArticles = () => {
   selectedFeedId.value = -1
   selectedTag.value = null
@@ -521,6 +556,10 @@ const toggleFeedMenu = (feedId: number) => {
 
 const toggleTagMenu = (tag: string) => {
   openTagMenuId.value = openTagMenuId.value === tag ? null : tag
+}
+
+const toggleSavedTagMenu = (tag: string) => {
+  openSavedTagMenuId.value = openSavedTagMenuId.value === tag ? null : tag
 }
 
 const handleMarkFeedAsRead = async (feedId: number) => {
