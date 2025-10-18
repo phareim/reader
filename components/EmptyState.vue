@@ -8,7 +8,7 @@
     <!-- All caught up -->
     <div v-else-if="type === 'all-caught-up'" class="max-w-2xl mx-auto">
       <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-12 text-center">
-        All caught up! 🎉
+        You have <span class="font-bold">{{totalUnreadCount}} unread</span> articles
       </h2>
 
       <div class="space-y-3" v-show="hasUnreadInOtherViews">
