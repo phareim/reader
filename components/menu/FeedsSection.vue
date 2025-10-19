@@ -7,7 +7,7 @@
         </svg>
         <button @click="selectAllFeeds"
           class="hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-          :class="selectedFeedId === null && selectedTag === null ? 'text-blue-600 dark:text-blue-300' : ''">
+          :class="selectedFeedId === -2 && selectedTag === null ? 'text-blue-600 dark:text-blue-300' : ''">
           Feeds
         </button>
       </div>
@@ -240,7 +240,8 @@ const getInboxUnreadCount = () => {
 }
 
 const selectAllFeeds = () => {
-  selectedFeedId.value = null
+  // Use -2 as a special value to indicate "overview mode"
+  selectedFeedId.value = -2
   selectedTag.value = null
 }
 

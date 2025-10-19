@@ -66,6 +66,13 @@
           </button>
         </div>
       </div>
+
+      <!-- Add Feed Section -->
+      <div class="mt-8 pt-8 space-y-8">
+        <FeedUrlInput size="large" @success="handleFeedSuccess" @error="handleFeedError" />
+        <p v-if="feedError" class="mt-2 text-sm text-red-500 dark:text-red-400">{{ feedError }}</p>
+        <p v-if="feedSuccess" class="mt-2 text-sm text-green-500 dark:text-green-400">{{ feedSuccess }}</p>
+      </div>
     </div>
   </div>
 </template>
@@ -95,4 +102,23 @@ defineEmits<{
   'select-tag': [tag: string]
   'sync-all': []
 }>()
+
+const feedError = ref<string | null>(null)
+const feedSuccess = ref<string | null>(null)
+
+const handleFeedSuccess = (message: string) => {
+  feedError.value = null
+  feedSuccess.value = message
+  setTimeout(() => {
+    feedSuccess.value = null
+  }, 3000)
+}
+
+const handleFeedError = (message: string) => {
+  feedSuccess.value = null
+  feedError.value = message
+  setTimeout(() => {
+    feedError.value = null
+  }, 3000)
+}
 </script>

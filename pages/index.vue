@@ -49,9 +49,9 @@
         <template v-else>
           <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
 
-          <!-- Empty State Component -->
+          <!-- Empty State Component (shown when no articles OR in overview mode) -->
           <EmptyState
-            v-else-if="displayedArticles.length === 0"
+            v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
             :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'"
             :tags-with-unread="tagsWithUnreadCounts"
             :inbox-unread-count="getInboxUnreadCount()"
@@ -234,7 +234,10 @@ watch(() => session.value?.user, async (user) => {
 
 // Watch for feed or tag selection changes
 watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
-  if (feedId === -1) {
+  if (feedId === -2) {
+    // Overview mode - don't fetch articles, just show the EmptyState
+    return
+  } else if (feedId === -1) {
     // Saved articles selected
     if (tag && tag !== '__saved_untagged__') {
       // Filter saved articles by tag

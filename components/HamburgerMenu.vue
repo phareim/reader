@@ -6,7 +6,7 @@
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'">
 
       <!-- Menu Header -->
-      <MenuHeader @close="isOpen = false" />
+      <MenuHeader @close="isOpen = false" @select-all-feeds="selectAllFeeds" />
 
       <!-- Scrollable Menu Content -->
       <div class="flex-1 overflow-y-auto p-2 space-y-3">
@@ -57,6 +57,12 @@ onMounted(() => {
 const selectSavedTag = (tag: string) => {
   selectedFeedId.value = -1
   selectedTag.value = tag
+}
+
+const selectAllFeeds = () => {
+  // Use -2 as a special value to indicate "overview mode"
+  selectedFeedId.value = -2
+  selectedTag.value = null
 }
 
 const handleSuccess = (message: string) => {
