@@ -147,6 +147,9 @@ const displayedArticles = computed(() => {
 // Separate state for expanded article (different from selected/highlighted)
 const expandedArticleId = ref<number | null>(null)
 
+// Flag to prevent accidental clicks during keyboard navigation
+const isKeyboardNavigating = ref(false)
+
 // Show expanded article in sticky header
 const currentScrolledArticle = computed(() => {
   if (expandedArticleId.value === null) return null
@@ -286,6 +289,11 @@ watch(displayedArticles, () => {
 
 // Open/expand article and mark as read
 const handleOpenArticle = async (id: number, toggle = true) => {
+  // Ignore if currently in keyboard navigation mode (prevents accidental triggers)
+  if (isKeyboardNavigating.value && !toggle) {
+    return
+  }
+
   // Toggle if clicking the same expanded article (only when toggle is true)
   if (toggle && expandedArticleId.value === id) {
     expandedArticleId.value = null
@@ -322,13 +330,24 @@ const handleMarkAllRead = async () => {
       // Mark all in specific feed
       await markAllAsRead(selectedFeedId.value)
     } else if (selectedTag.value !== null) {
-      // Mark all in tag - need to mark all articles from feeds with this tag
-      // We can do this by marking all displayed articles as read
-      for (const article of displayedArticles.value) {
-        if (!article.isRead) {
-          await markAsRead(article.id, true)
-        }
-      }
+      // Mark all in tag - optimistically update all at once, then call API for each
+      const articlesToMark = displayedArticles.value.filter(a => !a.isRead)
+
+      // Optimistically update all articles at once
+      articlesToMark.forEach(article => {
+        article.isRead = true
+        article.readAt = new Date().toISOString()
+      })
+
+      // Then make API calls in background without awaiting each one
+      Promise.all(articlesToMark.map(article =>
+        markAsRead(article.id, true).catch(err => {
+          // Revert on error
+          article.isRead = false
+          article.readAt = null
+          console.error('Failed to mark article as read:', err)
+        })
+      ))
     } else {
       // Mark all articles
       await markAllAsRead()
@@ -383,6 +402,8 @@ useKeyboardShortcuts({
   expandedArticleId,
   displayedArticles,
   selectedFeedId,
+  showUnreadOnly,
+  isKeyboardNavigating,
   markAsRead,
   refreshFeed,
   syncAll,

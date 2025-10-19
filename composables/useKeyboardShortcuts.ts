@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref, type Ref, type ComputedRef } from 'vue'
+import { onMounted, onUnmounted, ref, nextTick, type Ref, type ComputedRef } from 'vue'
 import type { Article } from '~/types'
 
 type Direction = 'up' | 'down'
@@ -18,6 +18,8 @@ interface UseKeyboardShortcutsOptions {
   expandedArticleId: Ref<number | null>
   displayedArticles: ComputedRef<readonly Article[]>
   selectedFeedId: Ref<number | null>
+  showUnreadOnly: Ref<boolean>
+  isKeyboardNavigating: Ref<boolean>
 
   // Data actions
   markAsRead: (id: number, isRead: boolean) => Promise<void>
@@ -28,7 +30,6 @@ interface UseKeyboardShortcutsOptions {
   // Higher-level handlers
   handleOpenArticle: (id: number, toggle?: boolean) => Promise<void>
   handleMarkAsRead: () => Promise<void>
-  handleMarkAllRead: () => Promise<void>
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -39,20 +40,17 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     expandedArticleId,
     displayedArticles,
     selectedFeedId,
+    showUnreadOnly,
+    isKeyboardNavigating,
     markAsRead,
     refreshFeed,
     syncAll,
     toggleSaveArticle,
     handleOpenArticle,
-    handleMarkAsRead,
-    handleMarkAllRead
+    handleMarkAsRead
   } = options
 
-  // Track last key for g-combinations
-  const lastKey = ref<string | null>(null)
-  const lastKeyTimeout = ref<any>(null)
-
-  const navigateArticles = async (direction: Direction) => {
+  const navigateArticles = async (direction: Direction, autoExpand = false) => {
     const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
     let newArticleId: number | null = null
 
@@ -60,10 +58,12 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       newArticleId = displayedArticles.value[currentIndex - 1].id
     } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
       newArticleId = displayedArticles.value[currentIndex + 1].id
-    } else if (direction === 'down' && currentIndex === displayedArticles.value.length - 1) {
-      // At the last article and pressing down - mark all as read
-      await handleMarkAllRead()
-      // 
+    } else if (direction === 'down' && currentIndex === displayedArticles.value.length - 1) {      
+      if (autoExpand && showUnreadOnly.value) {
+          selectedArticleId.value = null
+          expandedArticleId.value = null
+      }
+      // For arrow keys, do nothing (stay on last article)
       return
     } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
       // If nothing selected, select first article
@@ -72,7 +72,18 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
     if (newArticleId !== null) {
       selectedArticleId.value = newArticleId
-      await handleOpenArticle(newArticleId, false) // Don't toggle, always open
+
+      if (autoExpand) {
+        // j/k keys: select and expand
+        await handleOpenArticle(newArticleId, false) // Don't toggle, always open
+      } else {
+        // Arrow keys: just select and scroll
+        await nextTick()
+        const articleElement = document.getElementById(`article-${newArticleId}`)
+        if (articleElement) {
+          articleElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
+        }
+      }
     }
   }
 
@@ -91,38 +102,31 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     const key = e.key
     const shiftKey = e.shiftKey
 
-    // Track key for g-combinations
-    if (key === 'g') {
-      lastKey.value = 'g'
-      clearTimeout(lastKeyTimeout.value)
-      lastKeyTimeout.value = setTimeout(() => {
-        lastKey.value = null
-      }, 1000)
-      return
-    }
-
-    // Handle g-combinations
-    if (lastKey.value === 'g') {
-      lastKey.value = null
-      clearTimeout(lastKeyTimeout.value)
-
-      if (key === 'i' || key === 'a') {
-        // g+i or g+a: Go to all feeds
-        selectedFeedId.value = null
-        return
-      }
-      return
-    }
-
-    // Navigation: j/k or arrow keys
-    if (key === 'j' || key === 'ArrowDown') {
+    // Navigation: j/k (auto-expand) or arrow keys (select only)
+    if (key === 'j') {
       e.preventDefault()
-      await navigateArticles('down')
+      await navigateArticles('down', true) // j expands
       return
     }
-    if (key === 'k' || key === 'ArrowUp') {
+    if (key === 'k') {
       e.preventDefault()
-      await navigateArticles('up')
+      await navigateArticles('up', true) // k expands
+      return
+    }
+    if (key === 'ArrowDown') {
+      e.preventDefault()
+      isKeyboardNavigating.value = true
+      await navigateArticles('down', false) // Arrow only selects
+      // Reset flag after a short delay to allow smooth scrolling to complete
+      setTimeout(() => { isKeyboardNavigating.value = false }, 500)
+      return
+    }
+    if (key === 'ArrowUp') {
+      e.preventDefault()
+      isKeyboardNavigating.value = true
+      await navigateArticles('up', false) // Arrow only selects
+      // Reset flag after a short delay to allow smooth scrolling to complete
+      setTimeout(() => { isKeyboardNavigating.value = false }, 500)
       return
     }
 
@@ -151,7 +155,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     }
 
     // Mark as read without opening: e
-    if (key === 'e' && !shiftKey) {
+    if (key === 'e') {
       e.preventDefault()
       await handleMarkAsRead()
       return
@@ -173,19 +177,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       return
     }
 
-    // Mark as unread: Shift+U
-    if (key === 'U' && shiftKey) {
-      e.preventDefault()
-      if (selectedArticleId.value !== null) {
-        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-        if (article && article.isRead) {
-          await markAsRead(selectedArticleId.value, false)
-        }
-      }
-      return
-    }
-
-    // View original: v
+    // View original
     if (key === 'o') {
       e.preventDefault()
       if (selectedArticleId.value !== null) {
@@ -196,38 +188,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       }
       return
     }
-
-    // Mark all as read: Shift+E
-    if (key === 'E' && shiftKey) {
-      e.preventDefault()
-      await handleMarkAllRead()
-      return
-    }
-
-    // Refresh current feed: r
-    if (key === 'r' && !shiftKey) {
-      e.preventDefault()
-      if (selectedFeedId.value !== null) {
-        try {
-          await refreshFeed(selectedFeedId.value)
-        } catch (error) {
-          console.error('Failed to refresh feed:', error)
-        }
-      }
-      return
-    }
-
-    // Refresh all feeds: Shift+R
-    if (key === 'R' && shiftKey) {
-      e.preventDefault()
-      try {
-        await syncAll()
-      } catch (error) {
-        console.error('Failed to sync all feeds:', error)
-      }
-      return
-    }
-
+    
     // Show help: ?
     if (key === '?' || (key === '/' && shiftKey)) {
       e.preventDefault()
@@ -242,7 +203,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleKeydown)
-    clearTimeout(lastKeyTimeout.value)
   })
 }
 
