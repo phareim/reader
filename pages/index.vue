@@ -348,9 +348,6 @@ const handleMarkAllRead = async () => {
           console.error('Failed to mark article as read:', err)
         })
       ))
-    } else {
-      // Mark all articles
-      await markAllAsRead()
     }
   } catch (error) {
     console.error('Failed to mark all as read:', error)
