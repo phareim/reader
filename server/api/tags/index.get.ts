@@ -3,28 +3,11 @@
  * Get all tags for the authenticated user
  */
 
-import { getServerSession } from '#auth'
+import { getAuthenticatedUser } from '~/server/utils/auth'
 import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session?.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
 
   const tags = await prisma.tag.findMany({
     where: {

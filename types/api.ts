@@ -81,3 +81,27 @@ export interface TagArticleResponse {
   success: boolean
   tags: string[]
 }
+
+export interface Tag {
+  id: number
+  name: string
+  color: string | null
+  createdAt: string
+  feedCount: number
+  savedArticleCount: number
+}
+
+export interface TagsResponse {
+  tags: Tag[]
+}
+
+export interface AddManualArticleResponse {
+  success: boolean
+  article: {
+    id: number
+    title: string
+    url: string
+    savedAt: string
+  }
+  tags: string[]
+}

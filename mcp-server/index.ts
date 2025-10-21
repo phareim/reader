@@ -20,7 +20,10 @@ import type {
   SavedArticlesResponse,
   SaveArticleResponse,
   UnsaveArticleResponse,
-  TagArticleResponse
+  TagArticleResponse,
+  TagsResponse,
+  AddManualArticleResponse,
+  Tag
 } from '../types/api.js'
 
 // Configuration
@@ -190,6 +193,46 @@ const tools: Tool[] = [
         }
       },
       required: ['savedArticleId', 'tags']
+    }
+  },
+  {
+    name: 'list_tags',
+    description: 'Get all tags currently used in the Reader. Shows tag names, colors, and usage counts.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'add_article',
+    description: 'Add a new article (not from RSS) to the Reader and save it. Use this when you find an interesting article to add to the user\'s reading list. The article will be automatically saved and can be tagged with existing tags.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'The article title'
+        },
+        url: {
+          type: 'string',
+          description: 'The article URL'
+        },
+        summary: {
+          type: 'string',
+          description: 'Optional: A brief summary or description of the article'
+        },
+        author: {
+          type: 'string',
+          description: 'Optional: The article author'
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional: Array of tag names to apply (use existing tags from list_tags)'
+        }
+      },
+      required: ['title', 'url']
     }
   }
 ]
@@ -388,6 +431,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text',
               text: `Article tagged successfully with: ${data.tags.join(', ')}`
+            }
+          ]
+        }
+      }
+
+      case 'list_tags': {
+        const data = await apiRequest<Tag[]>('/api/tags')
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(data, null, 2)
+            }
+          ]
+        }
+      }
+
+      case 'add_article': {
+        if (!args.title) {
+          throw new Error('title is required')
+        }
+        if (!args.url) {
+          throw new Error('url is required')
+        }
+
+        const requestBody: any = {
+          title: args.title,
+          url: args.url
+        }
+
+        if (args.summary) requestBody.summary = args.summary
+        if (args.author) requestBody.author = args.author
+        if (args.tags && Array.isArray(args.tags)) requestBody.tags = args.tags
+
+        const data = await apiRequest<AddManualArticleResponse>(
+          '/api/articles/manual',
+          {
+            method: 'POST',
+            body: JSON.stringify(requestBody)
+          }
+        )
+
+        let response = `Article added successfully!\n\nTitle: ${data.article.title}\nURL: ${data.article.url}\nSaved at: ${data.article.savedAt}`
+
+        if (data.tags && data.tags.length > 0) {
+          response += `\nTags: ${data.tags.join(', ')}`
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: response
             }
           ]
         }

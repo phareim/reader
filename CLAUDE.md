@@ -204,3 +204,122 @@ The app can discover feeds from:
 - Direct RSS/Atom feed URLs
 - Website URLs (looks for `<link>` tags pointing to feeds)
 - Returns multiple feeds if found (e.g., multiple RSS versions)
+
+## MCP Server Integration
+
+The project includes a Model Context Protocol (MCP) server that allows Claude Desktop to interact with your RSS reader. This enables conversational access to your feeds, articles, and saved content.
+
+### Architecture
+
+```
+Claude Desktop
+    ↓ (stdio via MCP protocol)
+MCP Server (mcp-server/index.ts)
+    ↓ (HTTP + X-MCP-Token header)
+Nuxt API (http://localhost:3000/api/*)
+    ↓
+Database (Prisma/PostgreSQL)
+```
+
+The MCP server:
+- Runs as a separate Node.js process launched by Claude Desktop
+- Communicates via stdin/stdout using the MCP protocol
+- Makes authenticated HTTP requests to your Reader API
+- Shares TypeScript types with the main app (types/api.ts)
+
+### Available MCP Tools (10 total)
+
+**Read Tools:**
+- `list_feeds` - Get all RSS feeds with unread counts and tags
+- `get_recent_articles` - Fetch articles with filters (feed, read status, limit)
+- `search_articles` - Search articles by criteria
+- `get_article` - Get full article content by ID
+- `get_saved_articles` - List saved articles (with optional tag filter)
+- `list_tags` - Get all tags with usage counts
+
+**Write Tools:**
+- `save_article` - Save an article for later reading
+- `unsave_article` - Remove article from saved
+- `tag_article` - Add/update tags on saved articles
+- `add_article` - Add manual article (not from RSS) with title, URL, and tags
+
+### Authentication
+
+The MCP server uses token-based authentication to bypass session cookies:
+
+**Server-side** (`server/utils/auth.ts`):
+- `getAuthenticatedUser()` checks for `X-MCP-Token` header first
+- Falls back to session authentication for browser requests
+- Both methods return the same authenticated user
+
+**Environment variables**:
+```bash
+MCP_TOKEN="random-hex-token"  # Generate with: openssl rand -hex 32
+MCP_USER_EMAIL="your-email@example.com"  # Your Reader login email
+```
+
+**Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "vibe-reader": {
+      "command": "node",
+      "args": [
+        "/path/to/reader/node_modules/.bin/tsx",
+        "/path/to/reader/mcp-server/index.ts"
+      ],
+      "env": {
+        "READER_API_URL": "http://localhost:3000",
+        "MCP_TOKEN": "your-token-here",
+        "MCP_USER_EMAIL": "your-email@example.com"
+      }
+    }
+  }
+}
+```
+
+### Running the MCP Server
+
+**Development:**
+```bash
+npm run mcp  # Runs tsx mcp-server/index.ts
+```
+
+**With Claude Desktop:**
+1. Configure `claude_desktop_config.json` with correct paths
+2. Restart Claude Desktop completely
+3. MCP tools appear automatically in Claude
+
+### Usage Examples
+
+Once connected, you can ask Claude:
+
+```
+"What are my recent unread articles?"
+"Show me articles from TechCrunch"
+"Save the article about renewable energy"
+"What tags do I have?"
+"Add this article to my Reader: [title] [url] and tag it with 'AI'"
+"Show me all saved articles tagged with 'machine-learning'"
+```
+
+### Special Features
+
+**Manual Article Addition:**
+- Articles added via `add_article` are stored in a special "Manual Additions" feed
+- This feed is auto-created on first manual article
+- Allows Claude to curate content for you from conversations
+
+**Tag Integration:**
+- Claude can see all your existing tags via `list_tags`
+- Can apply existing tags when adding articles
+- Maintains consistency with your organization system
+
+### Files
+
+- `mcp-server/index.ts` - Main MCP server implementation
+- `mcp-server/README.md` - Detailed setup and troubleshooting guide
+- `mcp-server/claude-desktop-config.json` - Configuration template
+- `server/utils/auth.ts` - Dual authentication helper (session + MCP token)
+- `server/api/articles/manual.post.ts` - Manual article addition endpoint
+- `types/api.ts` - Shared TypeScript types for API responses
