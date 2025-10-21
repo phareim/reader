@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "vibe-reader": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/your/reader/node_modules/.bin/tsx",
+        "/absolute/path/to/your/reader/mcp-server/index.ts"
+      ],
+      "env": {
+        "READER_API_URL": "http://localhost:3000"
+      }
+    }
+  }
+}

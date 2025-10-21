@@ -1,27 +1,9 @@
 import prisma from '~/server/utils/db'
-import { getServerSession } from '#auth'
+import { getAuthenticatedUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
-  // Get authenticated user
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  // Get user from database
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  // Get authenticated user (supports both session and MCP token)
+  const user = await getAuthenticatedUser(event)
 
   try {
     // Get optional tag filter from query params

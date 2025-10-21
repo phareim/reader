@@ -11,7 +11,8 @@
     "postinstall": "node scripts/patch-next-auth.js && nuxt prepare && prisma generate",
     "vercel-build": "prisma migrate deploy && nuxt build",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "mcp": "tsx mcp-server/index.ts"
   },
   "repository": {
     "type": "git",
@@ -27,12 +28,14 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",
     "@auth/prisma-adapter": "^2.11.0",
+    "@modelcontextprotocol/sdk": "^1.20.1",
     "@nuxtjs/tailwindcss": "^6.14.0",
     "@prisma/client": "^6.17.1",
     "@sidebase/nuxt-auth": "^0.9.4",
     "@tailwindcss/typography": "^0.5.19",
     "@vueuse/core": "^13.9.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "isomorphic-dompurify": "^2.28.0",
     "next-auth": "^4.24.11",
     "nuxt": "^3.17.7",
@@ -47,6 +50,7 @@
     "cookie": "^0.7.2"
   },
   "devDependencies": {
-    "patch-package": "^8.0.1"
+    "patch-package": "^8.0.1",
+    "tsx": "^4.20.6"
   }
 }
