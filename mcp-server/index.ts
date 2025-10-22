@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+CT#!/usr/bin/env node
 
 /**
  * Vibe Reader MCP Server
@@ -27,7 +27,7 @@ import type {
 } from '../types/api.js'
 
 // Configuration
-const API_BASE_URL = process.env.READER_API_URL || 'http://localhost:3001'
+const API_BASE_URL = process.env.READER_API_URL || 'http://localhost:3000'
 const MCP_TOKEN = process.env.MCP_TOKEN || '' // MCP authentication token
 
 /**
