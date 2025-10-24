@@ -65,6 +65,15 @@ const selectAllFeeds = () => {
   selectedTag.value = null
 }
 
+// Auto-close menu on mobile when feed/tag selection changes
+const isMobile = () => window.innerWidth < 768 // Tailwind md breakpoint
+
+watch([selectedFeedId, selectedTag], () => {
+  if (isMobile() && isOpen.value) {
+    isOpen.value = false
+  }
+})
+
 const handleSuccess = (message: string) => {
   error.value = null
   success.value = message
