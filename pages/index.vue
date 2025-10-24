@@ -19,10 +19,23 @@
         :selected-feed-id="selectedFeedId"
         :selected-tag="selectedTag"
         @toggle-menu="toggleMenu"
+        @mark-all-read="handleMarkAllRead"
+        @refresh-feed="handleRefreshFeed"
+        @sync-all="handleSyncAll"
+        @view-saved="handleViewSaved"
+        @sign-out="handleSignOut"
+        @success="handleHeaderSuccess"
+        @error="handleHeaderError"
       />
 
       <!-- Articles List (Full Width) -->
       <div class="py-0">
+        <!-- Success/Error Messages -->
+        <div v-if="headerSuccess || headerError" class="px-6 py-4">
+          <p v-if="headerSuccess" class="text-base text-green-500 dark:text-green-400">{{ headerSuccess }}</p>
+          <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
+        </div>
+
         <!-- Not Logged In State -->
         <div v-if="!session?.user" class="flex flex-col items-center justify-center py-20 px-4">
           <div class="max-w-md text-center space-y-6">
@@ -74,6 +87,7 @@
               :all-tags-with-counts="allTagsWithCounts"
               @open="handleOpenArticle"
               @toggle-save="toggleSaveArticle"
+              @toggle-read="handleToggleRead"
               @update-tags="handleUpdateTags"
             />
           </div>
@@ -179,6 +193,18 @@ const toggleSaveArticle = async (articleId: number) => {
     await fetchSavedArticlesByTag()
   } catch (error) {
     console.error('Failed to toggle save:', error)
+  }
+}
+
+// Toggle read/unread status
+const handleToggleRead = async (articleId: number) => {
+  try {
+    const article = displayedArticles.value.find(a => a.id === articleId)
+    if (article) {
+      await markAsRead(articleId, !article.isRead)
+    }
+  } catch (error) {
+    console.error('Failed to toggle read status:', error)
   }
 }
 
@@ -393,6 +419,42 @@ const tagsWithUnreadCounts = computed(() => {
 const hasUnreadInOtherViews = computed(() => {
   return tagsWithUnreadCounts.value.length > 0 || getInboxUnreadCount() > 0
 })
+
+// Header menu handlers
+const handleRefreshFeed = async () => {
+  if (selectedFeedId.value && selectedFeedId.value > 0) {
+    await refreshFeed(selectedFeedId.value)
+  }
+}
+
+const handleViewSaved = () => {
+  selectedFeedId.value = -1
+  selectedTag.value = null
+}
+
+const handleSignOut = async () => {
+  const { signOut } = useAuth()
+  await signOut({ callbackUrl: '/login' })
+}
+
+const headerSuccess = ref<string | null>(null)
+const headerError = ref<string | null>(null)
+
+const handleHeaderSuccess = (message: string) => {
+  headerError.value = null
+  headerSuccess.value = message
+  setTimeout(() => {
+    headerSuccess.value = null
+  }, 3000)
+}
+
+const handleHeaderError = (message: string) => {
+  headerSuccess.value = null
+  headerError.value = message
+  setTimeout(() => {
+    headerError.value = null
+  }, 3000)
+}
 
 // Register global keyboard shortcuts
 useKeyboardShortcuts({

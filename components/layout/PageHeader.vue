@@ -14,7 +14,7 @@
       </button>
 
       <!-- Dynamic Title -->
-      <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100 min-w-0 flex-1">
+      <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100 min-w-0 flex-1 mr-3">
         <Transition name="fade-title" mode="out-in">
           <!-- Show current article title when scrolled -->
           <div v-if="currentArticle" class="flex items-center gap-1 min-w-0 flex-1" :key="'article-' + currentArticle.id">
@@ -61,6 +61,40 @@
         </Transition>
       </h1>
     </div>
+
+    <!-- Header Actions Menu -->
+    <div class="relative flex-shrink-0">
+      <button
+        ref="menuButtonRef"
+        @click.stop="toggleMenu"
+        class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0"
+        :class="showMenu ? 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'"
+        :title="'Actions'"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+        </svg>
+      </button>
+
+      <!-- Actions Dropdown -->
+      <Transition name="dropdown">
+        <div
+          v-if="showMenu"
+          ref="menuRef"
+        >
+          <PageHeaderMenu
+            :selected-feed-id="selectedFeedId"
+            @mark-all-read="$emit('mark-all-read')"
+            @refresh-feed="$emit('refresh-feed')"
+            @sync-all="$emit('sync-all')"
+            @view-saved="$emit('view-saved')"
+            @sign-out="$emit('sign-out')"
+            @success="$emit('success', $event)"
+            @error="$emit('error', $event)"
+          />
+        </div>
+      </Transition>
+    </div>
   </div>
 </template>
 
@@ -90,7 +124,45 @@ withDefaults(defineProps<Props>(), {
 
 defineEmits<{
   'toggle-menu': []
+  'mark-all-read': []
+  'refresh-feed': []
+  'sync-all': []
+  'view-saved': []
+  'sign-out': []
+  'success': [message: string]
+  'error': [message: string]
 }>()
+
+const showMenu = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
+const menuButtonRef = ref<HTMLElement | null>(null)
+
+// Close dropdown when clicking outside
+onMounted(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (!showMenu.value) return
+
+    const target = event.target as HTMLElement
+
+    // Check if click is outside both the menu and the toggle button
+    const isOutsideMenu = menuRef.value && !menuRef.value.contains(target)
+    const isOutsideButton = menuButtonRef.value && !menuButtonRef.value.contains(target)
+
+    if (isOutsideMenu && isOutsideButton) {
+      showMenu.value = false
+    }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside)
+
+  onUnmounted(() => {
+    document.removeEventListener('mousedown', handleClickOutside)
+  })
+})
+
+const toggleMenu = () => {
+  showMenu.value = !showMenu.value
+}
 </script>
 
 <style scoped>
@@ -112,6 +184,24 @@ defineEmits<{
 
 .fade-title-enter-to,
 .fade-title-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.dropdown-enter-to,
+.dropdown-leave-from {
   opacity: 1;
   transform: translateY(0);
 }

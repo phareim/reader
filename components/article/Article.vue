@@ -19,6 +19,7 @@
       :show-feed-title="showFeedTitle"
       :all-tags-with-counts="allTagsWithCounts"
       @toggle-save="$emit('toggle-save', article.id)"
+      @toggle-read="$emit('toggle-read', article.id)"
       @update-tags="(savedArticleId, tags) => $emit('update-tags', savedArticleId, tags)"
     />
 
@@ -69,6 +70,7 @@ withDefaults(defineProps<Props>(), {
 defineEmits<{
   open: [id: number]
   'toggle-save': [id: number]
+  'toggle-read': [id: number]
   'update-tags': [savedArticleId: number, tags: string[]]
 }>()
 </script>
