@@ -1,5 +1,5 @@
 <template>
-  <div class="px-6"
+  <div class="px-2"
   :class="isExpanded ? 'py-2' : 'py-4'"
   >
     <div class="flex items-start justify-between gap-4">

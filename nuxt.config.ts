@@ -46,5 +46,14 @@ export default defineNuxtConfig({
         'next-auth/core': 'next-auth/core'
       }
     }
+  },
+
+  components: {
+    dirs: [
+      {
+        path: '~/components',
+        pathPrefix: false
+      }
+    ]
   }
 })
