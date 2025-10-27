@@ -3,9 +3,9 @@
     :to="`/article/${article.id}`"
     :id="`article-card-${article.id}`"
     :data-article-id="article.id"
-    class="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md group"
+    class="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group"
     :class="{
-      'ring-2 ring-blue-500 shadow-lg translate-y-[-4px]': isSelected,
+      'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
       'hover:translate-y-[-2px]': !isSelected
     }"
   >

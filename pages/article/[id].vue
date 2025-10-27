@@ -176,6 +176,7 @@
 
 <script setup lang="ts">
 import { formatDistanceToNow } from 'date-fns'
+import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 
 definePageMeta({
   auth: true
@@ -339,29 +340,6 @@ const formatDate = (date?: string) => {
   }
 }
 
-// Keyboard navigation
-const handleKeydown = (e: KeyboardEvent) => {
-  // Ignore if typing in an input field
-  const target = e.target as HTMLElement
-  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-    return
-  }
-
-  // Escape: go back to card view
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    router.back()
-    return
-  }
-
-  // ? or /: Show help (if we want to keep this)
-  if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
-    e.preventDefault()
-    helpDialogRef.value?.open()
-    return
-  }
-}
-
 // Lifecycle
 onMounted(async () => {
   if (session.value?.user) {
@@ -371,19 +349,65 @@ onMounted(async () => {
       fetchArticle()
     ])
   }
-
-  // Add keyboard listener
-  window.addEventListener('keydown', handleKeydown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
 })
 
 // Watch for route changes (next/prev navigation)
 watch(() => route.params.id, async () => {
   if (route.params.id) {
     await fetchArticle()
+  }
+})
+
+// Custom keyboard handler for article view
+const handleArticleKeydown = (e: KeyboardEvent) => {
+  // Ignore if typing in an input field
+  const target = e.target as HTMLElement
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+    return
+  }
+
+  // Escape: go back to previous page
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    router.back()
+    return
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleArticleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleArticleKeydown)
+})
+
+// Register keyboard shortcuts for article actions
+useKeyboardShortcuts({
+  helpDialogRef,
+  toggleMenu,
+  selectedArticleId: computed(() => articleId.value),
+  displayedArticles: computed(() => article.value ? [article.value] : []),
+  selectedFeedId: computed(() => article.value?.feedId || null),
+  showUnreadOnly: computed(() => false),
+  markAsRead,
+  refreshFeed: async (feedId: number) => {
+    if (feedId) {
+      await refreshFeed(feedId)
+    }
+  },
+  syncAll,
+  toggleSaveArticle: async () => {
+    await toggleSave()
+  },
+  handleMarkAsRead: async () => {
+    if (article.value && !article.value.isRead) {
+      await markAsRead(articleId.value, true)
+      article.value.isRead = true
+    }
+  },
+  handleMarkAllRead: async () => {
+    // Not applicable in article view
   }
 })
 </script>
