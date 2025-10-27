@@ -153,20 +153,20 @@
           </NuxtLink>
 
           <div class="flex items-center gap-2">
-            <button
+            <NuxtLink
               v-if="prevArticleId"
-              @click="navigateToArticle(prevArticleId)"
+              :to="`/article/${prevArticleId}`"
               class="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
             >
               ← Previous
-            </button>
-            <button
+            </NuxtLink>
+            <NuxtLink
               v-if="nextArticleId"
-              @click="navigateToArticle(nextArticleId)"
+              :to="`/article/${nextArticleId}`"
               class="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
             >
               Next →
-            </button>
+            </NuxtLink>
           </div>
         </footer>
       </article>
@@ -196,7 +196,8 @@ const {
 
 const {
   selectedArticleId,
-  markAsRead
+  markAsRead,
+  fetchArticles
 } = useArticles()
 
 const {
@@ -265,11 +266,52 @@ const fetchArticle = async () => {
       await markAsRead(articleId.value, true)
       article.value.isRead = true
     }
+
+    // Fetch feed articles to determine prev/next
+    await fetchAdjacentArticles()
   } catch (e: any) {
     console.error('Failed to fetch article:', e)
     error.value = e.statusMessage || 'Failed to load article'
   } finally {
     loading.value = false
+  }
+}
+
+// Fetch adjacent articles from the same feed
+const fetchAdjacentArticles = async () => {
+  if (!article.value?.feedId) {
+    prevArticleId.value = null
+    nextArticleId.value = null
+    return
+  }
+
+  try {
+    // Fetch all articles from the same feed
+    const response = await $fetch('/api/articles', {
+      params: {
+        feedId: article.value.feedId,
+        limit: 200  // Get more articles to ensure we have context
+      }
+    })
+
+    const feedArticles = response.articles || []
+
+    // Find current article index
+    const currentIndex = feedArticles.findIndex((a: any) => a.id === articleId.value)
+
+    if (currentIndex === -1) {
+      prevArticleId.value = null
+      nextArticleId.value = null
+      return
+    }
+
+    // Set previous and next article IDs
+    prevArticleId.value = currentIndex > 0 ? feedArticles[currentIndex - 1].id : null
+    nextArticleId.value = currentIndex < feedArticles.length - 1 ? feedArticles[currentIndex + 1].id : null
+  } catch (e) {
+    console.error('Failed to fetch adjacent articles:', e)
+    prevArticleId.value = null
+    nextArticleId.value = null
   }
 }
 
@@ -289,10 +331,6 @@ const toggleRead = async () => {
   } catch (e) {
     console.error('Failed to toggle read:', e)
   }
-}
-
-const navigateToArticle = (id: number) => {
-  router.push(`/article/${id}`)
 }
 
 const handleSyncAll = async () => {
@@ -366,10 +404,24 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Escape: go back to previous page
+  // Escape: go to article overview
   if (e.key === 'Escape') {
     e.preventDefault()
-    router.back()
+    router.push('/')
+    return
+  }
+
+  // j: next article
+  if (e.key === 'j' && nextArticleId.value) {
+    e.preventDefault()
+    router.push(`/article/${nextArticleId.value}`)
+    return
+  }
+
+  // k: previous article
+  if (e.key === 'k' && prevArticleId.value) {
+    e.preventDefault()
+    router.push(`/article/${prevArticleId.value}`)
     return
   }
 }

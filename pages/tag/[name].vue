@@ -92,6 +92,7 @@ const { data: session } = useAuth()
 
 const {
   feeds,
+  selectedTag,
   selectedTagFeedIds,
   fetchFeeds,
   syncAll
@@ -255,14 +256,21 @@ onMounted(async () => {
       fetchSavedArticlesByTag()
     ])
 
+    // Set the selected tag to match the route
+    selectedTag.value = tagName.value
+
     // Fetch articles for this tag
     await fetchArticles(undefined, selectedTagFeedIds.value)
   }
 })
 
 // Watch for tag name changes
-watch(tagName, async () => {
-  if (tagName.value) {
+watch(tagName, async (newTagName) => {
+  if (newTagName) {
+    // Update the selected tag
+    selectedTag.value = newTagName
+
+    // Fetch articles for the new tag
     await fetchArticles(undefined, selectedTagFeedIds.value)
   }
 })
