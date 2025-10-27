@@ -15,11 +15,9 @@ interface UseKeyboardShortcutsOptions {
 
   // Selection and articles
   selectedArticleId: Ref<number | null>
-  expandedArticleId: Ref<number | null>
   displayedArticles: ComputedRef<readonly Article[]>
   selectedFeedId: Ref<number | null>
   showUnreadOnly: Ref<boolean>
-  isKeyboardNavigating: Ref<boolean>
 
   // Data actions
   markAsRead: (id: number, isRead: boolean) => Promise<void>
@@ -28,8 +26,8 @@ interface UseKeyboardShortcutsOptions {
   toggleSaveArticle: (articleId: number) => Promise<void>
 
   // Higher-level handlers
-  handleOpenArticle: (id: number, toggle?: boolean) => Promise<void>
   handleMarkAsRead: () => Promise<void>
+  handleMarkAllRead: () => Promise<void>
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -37,20 +35,18 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     helpDialogRef,
     toggleMenu,
     selectedArticleId,
-    expandedArticleId,
     displayedArticles,
     selectedFeedId,
     showUnreadOnly,
-    isKeyboardNavigating,
     markAsRead,
     refreshFeed,
     syncAll,
     toggleSaveArticle,
-    handleOpenArticle,
-    handleMarkAsRead
+    handleMarkAsRead,
+    handleMarkAllRead
   } = options
 
-  const navigateArticles = async (direction: Direction, autoExpand = false) => {
+  const navigateArticles = async (direction: Direction) => {
     const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
     let newArticleId: number | null = null
 
@@ -58,13 +54,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       newArticleId = displayedArticles.value[currentIndex - 1].id
     } else if (direction === 'down' && currentIndex < displayedArticles.value.length - 1) {
       newArticleId = displayedArticles.value[currentIndex + 1].id
-    } else if (direction === 'down' && currentIndex === displayedArticles.value.length - 1) {      
-      if (autoExpand && showUnreadOnly.value) {
-          selectedArticleId.value = null
-          expandedArticleId.value = null
-      }
-      // For arrow keys, do nothing (stay on last article)
-      return
     } else if (direction === 'down' && currentIndex === -1 && displayedArticles.value.length > 0) {
       // If nothing selected, select first article
       newArticleId = displayedArticles.value[0].id
@@ -73,16 +62,11 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     if (newArticleId !== null) {
       selectedArticleId.value = newArticleId
 
-      if (autoExpand) {
-        // j/k keys: select and expand
-        await handleOpenArticle(newArticleId, false) // Don't toggle, always open
-      } else {
-        // Arrow keys: just select and scroll
-        await nextTick()
-        const articleElement = document.getElementById(`article-${newArticleId}`)
-        if (articleElement) {
-          articleElement.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' })
-        }
+      // Scroll to the selected card
+      await nextTick()
+      const articleCard = document.getElementById(`article-card-${newArticleId}`)
+      if (articleCard) {
+        articleCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
       }
     }
   }
@@ -102,55 +86,36 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     const key = e.key
     const shiftKey = e.shiftKey
 
-    // Navigation: j/k (auto-expand) or arrow keys (select only)
-    if (key === 'j') {
+    // Navigation: j/k or arrow keys
+    if (key === 'j' || key === 'ArrowDown') {
       e.preventDefault()
-      await navigateArticles('down', true) // j expands
+      await navigateArticles('down')
       return
     }
-    if (key === 'k') {
+    if (key === 'k' || key === 'ArrowUp') {
       e.preventDefault()
-      await navigateArticles('up', true) // k expands
-      return
-    }
-    if (key === 'ArrowDown') {
-      e.preventDefault()
-      isKeyboardNavigating.value = true
-      await navigateArticles('down', false) // Arrow only selects
-      // Reset flag after a short delay to allow smooth scrolling to complete
-      setTimeout(() => { isKeyboardNavigating.value = false }, 500)
-      return
-    }
-    if (key === 'ArrowUp') {
-      e.preventDefault()
-      isKeyboardNavigating.value = true
-      await navigateArticles('up', false) // Arrow only selects
-      // Reset flag after a short delay to allow smooth scrolling to complete
-      setTimeout(() => { isKeyboardNavigating.value = false }, 500)
+      await navigateArticles('up')
       return
     }
 
-    // Open/close article: o, Enter
-    if (key === 'Enter') {
+    // Open article in full view: Enter or o
+    if (key === 'Enter' || key === 'o') {
       e.preventDefault()
       if (selectedArticleId.value === null && displayedArticles.value.length > 0) {
-        // Select and open first article if none selected
+        // Navigate to first article if none selected
         const firstId = displayedArticles.value[0].id
-        selectedArticleId.value = firstId
-        await handleOpenArticle(firstId, false)
+        window.location.href = `/article/${firstId}`
       } else if (selectedArticleId.value !== null) {
-        // Toggle the currently selected article
-        await handleOpenArticle(selectedArticleId.value, true)
+        // Navigate to selected article
+        window.location.href = `/article/${selectedArticleId.value}`
       }
       return
     }
 
-    // Close expanded article: Escape
-    if (key === 'Escape') {
+    // Mark all as read: Shift+A
+    if (key === 'A' && shiftKey) {
       e.preventDefault()
-      if (expandedArticleId.value !== null) {
-        expandedArticleId.value = null
-      }
+      await handleMarkAllRead()
       return
     }
 
@@ -177,18 +142,20 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       return
     }
 
-    // View original
-    if (key === 'o') {
+    // Refresh feed: r
+    if (key === 'r' && !shiftKey && selectedFeedId.value && selectedFeedId.value > 0) {
       e.preventDefault()
-      if (selectedArticleId.value !== null) {
-        const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-        if (article) {
-          window.open(article.url, '_blank')
-        }
-      }
+      await refreshFeed(selectedFeedId.value)
       return
     }
-    
+
+    // Sync all feeds: Shift+R
+    if (key === 'R' && shiftKey) {
+      e.preventDefault()
+      await syncAll()
+      return
+    }
+
     // Show help: ?
     if (key === '?' || (key === '/' && shiftKey)) {
       e.preventDefault()

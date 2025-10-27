@@ -14,7 +14,7 @@
       <!-- Sticky Header -->
       <PageHeader
         :menu-is-open="menuIsOpen"
-        :current-article="currentScrolledArticle"
+        :current-article="null"
         :selected-feed="selectedFeed"
         :selected-feed-id="selectedFeedId"
         :selected-tag="selectedTag"
@@ -74,20 +74,18 @@
             @sync-all="handleSyncAll"
           />
 
-          <!-- Article List -->
-          <div v-else class="space-y-0">
-            <Article
+          <!-- Article Grid -->
+          <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+            <LazyArticleCard
               v-for="article in displayedArticles"
               :key="article.id"
               :article="article"
               :is-selected="selectedArticleId === article.id"
-              :is-expanded="expandedArticleId === article.id"
               :is-saved="isSaved(article.id)"
               :show-feed-title="!selectedFeed"
               :all-tags-with-counts="allTagsWithCounts"
-              @open="handleOpenArticle"
-              @toggle-save="toggleSaveArticle"
-              @toggle-read="handleToggleRead"
+              @toggle-save="toggleSaveArticle(article.id)"
+              @toggle-read="handleToggleRead(article.id)"
               @update-tags="handleUpdateTags"
             />
           </div>
@@ -156,18 +154,6 @@ const displayedArticles = computed(() => {
   }
   // Otherwise use the default filtering from useArticles
   return _displayedArticles.value
-})
-
-// Separate state for expanded article (different from selected/highlighted)
-const expandedArticleId = ref<number | null>(null)
-
-// Flag to prevent accidental clicks during keyboard navigation
-const isKeyboardNavigating = ref(false)
-
-// Show expanded article in sticky header
-const currentScrolledArticle = computed(() => {
-  if (expandedArticleId.value === null) return null
-  return displayedArticles.value.find(a => a.id === expandedArticleId.value) || null
 })
 
 // Reference to hamburger menu to track its open state
@@ -298,14 +284,8 @@ watch(showUnreadOnly, async () => {
   }
 })
 
-// Clear expanded article if it's no longer in the displayed list
+// Clear selected article if it's no longer in the displayed list
 watch(displayedArticles, () => {
-  if (expandedArticleId.value !== null) {
-    const stillExists = displayedArticles.value.some(a => a.id === expandedArticleId.value)
-    if (!stillExists) {
-      expandedArticleId.value = null
-    }
-  }
   if (selectedArticleId.value !== null) {
     const stillExists = displayedArticles.value.some(a => a.id === selectedArticleId.value)
     if (!stillExists) {
@@ -313,35 +293,6 @@ watch(displayedArticles, () => {
     }
   }
 })
-
-// Navigation moved into keyboard shortcuts composable
-
-// Open/expand article and mark as read
-const handleOpenArticle = async (id: number, toggle = true) => {
-  // Ignore if currently in keyboard navigation mode (prevents accidental triggers)
-  if (isKeyboardNavigating.value && !toggle) {
-    return
-  }
-
-  // Toggle if clicking the same expanded article (only when toggle is true)
-  if (toggle && expandedArticleId.value === id) {
-    expandedArticleId.value = null
-  } else {
-    expandedArticleId.value = id
-    selectedArticleId.value = id
-    const article = displayedArticles.value.find(a => a.id === id)
-    if (article && !article.isRead) {
-      await markAsRead(id, true)
-    }
-
-    // Scroll to the article with smooth animation
-    await nextTick()
-    const articleElement = document.getElementById(`article-${id}`)
-    if (articleElement) {
-      articleElement.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" })
-    }
-  }
-}
 
 // Mark selected article as read without opening
 const handleMarkAsRead = async () => {
@@ -461,16 +412,13 @@ useKeyboardShortcuts({
   helpDialogRef,
   toggleMenu,
   selectedArticleId,
-  expandedArticleId,
   displayedArticles,
   selectedFeedId,
   showUnreadOnly,
-  isKeyboardNavigating,
   markAsRead,
   refreshFeed,
   syncAll,
   toggleSaveArticle,
-  handleOpenArticle,
   handleMarkAsRead,
   handleMarkAllRead
 })
