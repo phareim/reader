@@ -129,8 +129,8 @@
         <!-- Article Body -->
         <div class="prose prose-lg dark:prose-invert max-w-none font-spectral">
           <div
-            v-if="article.content"
-            v-html="article.content"
+            v-if="processedContent"
+            v-html="processedContent"
           ></div>
           <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300">
             {{ article.summary }}
@@ -232,6 +232,24 @@ const selectedFeed = computed(() => {
   return feeds.value.find(f => f.id === article.value.feedId) || null
 })
 
+// Process article content to make all links open in new tabs
+const processedContent = computed(() => {
+  if (!article.value?.content) return null
+
+  // Create a temporary div to parse the HTML
+  const div = document.createElement('div')
+  div.innerHTML = article.value.content
+
+  // Find all links and add target="_blank" and rel
+  const links = div.querySelectorAll('a')
+  links.forEach(link => {
+    link.setAttribute('target', '_blank')
+    link.setAttribute('rel', 'noopener noreferrer')
+  })
+
+  return div.innerHTML
+})
+
 // Fetch article data
 const fetchArticle = async () => {
   loading.value = true
@@ -321,6 +339,29 @@ const formatDate = (date?: string) => {
   }
 }
 
+// Keyboard navigation
+const handleKeydown = (e: KeyboardEvent) => {
+  // Ignore if typing in an input field
+  const target = e.target as HTMLElement
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+    return
+  }
+
+  // Escape: go back to card view
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    router.back()
+    return
+  }
+
+  // ? or /: Show help (if we want to keep this)
+  if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+    e.preventDefault()
+    helpDialogRef.value?.open()
+    return
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   if (session.value?.user) {
@@ -330,6 +371,13 @@ onMounted(async () => {
       fetchArticle()
     ])
   }
+
+  // Add keyboard listener
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 
 // Watch for route changes (next/prev navigation)
@@ -338,6 +386,4 @@ watch(() => route.params.id, async () => {
     await fetchArticle()
   }
 })
-
-// TODO: Implement keyboard shortcuts for j/k navigation between articles
 </script>
