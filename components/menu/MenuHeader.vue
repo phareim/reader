@@ -9,12 +9,12 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <button
-      @click="$emit('select-all-feeds')"
+    <NuxtLink
+      to="/"
       class="text-2xl font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
     >
       Vibe Reader
-    </button>
+    </NuxtLink>
     <img v-if="session?.user?.image" :src="session.user.image" :alt="session.user.name"
       class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-zinc-700" />
     <div v-else

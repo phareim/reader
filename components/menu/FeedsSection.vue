@@ -5,11 +5,11 @@
         <svg class="w-5 h-5 flex-shrink-0 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
         </svg>
-        <button @click="selectAllFeeds"
+        <NuxtLink to="/"
           class="hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-          :class="selectedFeedId === -2 && selectedTag === null ? 'text-blue-600 dark:text-blue-300' : ''">
+          :class="$route.path === '/' ? 'text-blue-600 dark:text-blue-300' : ''">
           Feeds
-        </button>
+        </NuxtLink>
       </div>
       <label class="flex items-center gap-2 text-base font-normal text-gray-700 dark:text-gray-300">
         <input v-model="showUnreadOnly" type="checkbox" />
@@ -35,9 +35,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
             </button>
-            <button @click="selectTag(tag)" class="flex-1 text-left pl-1 pr-2">
+            <NuxtLink :to="`/tag/${tag}`" class="flex-1 text-left pl-1 pr-2">
               #{{ tag }}
-            </button>
+            </NuxtLink>
             <span class="flex-shrink-0 text-sm bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
               {{ getTagUnreadCount(tag) }}
             </span>
@@ -74,9 +74,9 @@
         <Transition name="expand">
           <div v-if="openTags.has(tag)" class="ml-4 space-y-0">
             <div v-for="feed in feedsByTag[tag]" :key="feed.id" class="flex items-center gap-1 relative">
-              <button @click="selectFeed(feed.id, tag)"
+              <NuxtLink :to="`/feed/${feed.id}`"
                 class="flex-1 min-w-0 text-left py-1.5 text-base rounded transition-colors flex items-center"
-                :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+                :class="$route.path === `/feed/${feed.id}` ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                 <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
                 <span v-else class="w-4 ml-3 mr-2"></span>
                 <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
@@ -85,7 +85,7 @@
                   :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
                   {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                 </span>
-              </button>
+              </NuxtLink>
 
               <!-- Dropdown Button -->
               <div class="relative">
@@ -130,9 +130,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <button @click="selectTag('__inbox__')" class="flex-1 text-left pl-1 pr-2">
+          <NuxtLink to="/tag/__inbox__" class="flex-1 text-left pl-1 pr-2">
             📥 Inbox
-          </button>
+          </NuxtLink>
           <span class="flex-shrink-0 text-sm bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
             {{ getInboxUnreadCount() }}
           </span>
@@ -142,9 +142,9 @@
         <Transition name="expand">
           <div v-if="openTags.has('__inbox__')" class="ml-4 space-y-0">
             <div v-for="feed in feedsByTag['__inbox__']" :key="feed.id" class="flex items-center gap-1 relative">
-              <button @click="selectFeed(feed.id, '__inbox__')"
+              <NuxtLink :to="`/feed/${feed.id}`"
                 class="flex-1 min-w-0 text-left py-1.5 text-base rounded transition-colors flex items-center"
-                :class="selectedFeedId === feed.id ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+                :class="$route.path === `/feed/${feed.id}` ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
                 <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
                 <span v-else class="w-4 ml-3 mr-2"></span>
                 <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
@@ -153,7 +153,7 @@
                   :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
                   {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                 </span>
-              </button>
+              </NuxtLink>
 
               <!-- Dropdown Button -->
               <div class="relative">

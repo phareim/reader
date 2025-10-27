@@ -5,11 +5,11 @@
         <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
           <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
         </svg>
-        <button @click="selectSavedArticles"
+        <NuxtLink to="/saved"
           class="flex-1 text-left hover:text-yellow-600 dark:hover:text-yellow-300 transition-colors"
-          :class="selectedFeedId === -1 && selectedTag === null ? 'text-yellow-600 dark:text-yellow-300' : ''">
+          :class="$route.path === '/saved' ? 'text-yellow-600 dark:text-yellow-300' : ''">
           Saved Articles
-        </button>
+        </NuxtLink>
         <button @click.stop="toggleSavedArticlesFolder"
         class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
         <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': isSavedArticlesExpanded }" fill="none"

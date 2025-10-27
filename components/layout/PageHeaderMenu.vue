@@ -44,15 +44,15 @@
     </div>
 
     <!-- View Saved Articles -->
-    <button
-      @click="$emit('view-saved')"
+    <NuxtLink
+      to="/saved"
       class="w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700"
     >
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
         <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
       </svg>
       <span>Saved articles</span>
-    </button>
+    </NuxtLink>
 
     <!-- Sign Out -->
     <button
