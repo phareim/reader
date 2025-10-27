@@ -445,12 +445,55 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
   }
 }
 
+// Swipe gesture handling
+let touchStartX = 0
+let touchStartY = 0
+let touchEndX = 0
+let touchEndY = 0
+
+const minSwipeDistance = 50 // Minimum distance in pixels to register as a swipe
+
+const handleTouchStart = (e: TouchEvent) => {
+  touchStartX = e.changedTouches[0].screenX
+  touchStartY = e.changedTouches[0].screenY
+}
+
+const handleTouchEnd = (e: TouchEvent) => {
+  touchEndX = e.changedTouches[0].screenX
+  touchEndY = e.changedTouches[0].screenY
+  handleSwipe()
+}
+
+const handleSwipe = () => {
+  const deltaX = touchEndX - touchStartX
+  const deltaY = touchEndY - touchStartY
+
+  // Ensure horizontal swipe is more significant than vertical
+  if (Math.abs(deltaX) < minSwipeDistance || Math.abs(deltaY) > Math.abs(deltaX)) {
+    return
+  }
+
+  // Swipe left -> next article
+  if (deltaX < 0 && nextArticleId.value) {
+    router.push(`/article/${nextArticleId.value}`)
+  }
+
+  // Swipe right -> previous article
+  if (deltaX > 0 && prevArticleId.value) {
+    router.push(`/article/${prevArticleId.value}`)
+  }
+}
+
 onMounted(() => {
   window.addEventListener('keydown', handleArticleKeydown)
+  window.addEventListener('touchstart', handleTouchStart)
+  window.addEventListener('touchend', handleTouchEnd)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleArticleKeydown)
+  window.removeEventListener('touchstart', handleTouchStart)
+  window.removeEventListener('touchend', handleTouchEnd)
 })
 
 // Register keyboard shortcuts for article actions

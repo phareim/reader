@@ -57,6 +57,21 @@
             </div>
           </div>
 
+          <!-- Touch Gestures -->
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Touch Gestures</h3>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
+                <span class="text-gray-700 dark:text-gray-300">Previous article (in article view)</span>
+                <span class="text-sm text-gray-600 dark:text-gray-400 italic">Swipe right →</span>
+              </div>
+              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
+                <span class="text-gray-700 dark:text-gray-300">Next article (in article view)</span>
+                <span class="text-sm text-gray-600 dark:text-gray-400 italic">← Swipe left</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Menu & Navigation -->
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Menu</h3>
