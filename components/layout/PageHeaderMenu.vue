@@ -25,6 +25,26 @@
       <span>View saved articles</span>
     </NuxtLink>
 
+    <!-- Refresh Feed (only show if a feed is selected) -->
+    <button
+      v-if="selectedFeedId && selectedFeedId > 0"
+      @click="$emit('refresh-feed')"
+      :disabled="isRefreshing"
+      class="w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700"
+      :class="{ 'opacity-70 cursor-not-allowed': isRefreshing }"
+    >
+      <svg
+        class="w-4 h-4 transition-transform"
+        :class="{ 'animate-spin': isRefreshing }"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span>{{ isRefreshing ? 'Refreshing...' : 'Refresh feed' }}</span>
+    </button>
+
     <!-- Sign Out -->
     <button
       @click="$emit('sign-out')"
@@ -40,12 +60,18 @@
 
 <script setup lang="ts">
 interface Props {
+  selectedFeedId?: number | null
+  isRefreshing?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  selectedFeedId: null,
+  isRefreshing: false
+})
 
 defineEmits<{
   'sign-out': []
+  'refresh-feed': []
   'success': [message: string]
   'error': [message: string]
 }>()

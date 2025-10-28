@@ -7,7 +7,11 @@ const parser = new Parser({
   customFields: {
     item: [
       ['content:encoded', 'contentEncoded'],
-      ['description', 'description']
+      ['description', 'description'],
+      ['media:content', 'mediaContent'],
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['enclosure', 'enclosure'],
+      ['itunes:image', 'itunesImage']
     ]
   }
 })
@@ -27,6 +31,7 @@ export interface ParsedArticle {
   author?: string
   content?: string
   summary?: string
+  imageUrl?: string
   publishedAt?: Date
 }
 
@@ -91,6 +96,47 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
 }
 
 /**
+ * Extract image URL from RSS item using multiple strategies
+ */
+function extractImageUrl(item: any, rawContent?: string): string | undefined {
+  
+  // 1. Try enclosure (if it's an image)
+  if (item.enclosure?.url) {
+    const enclosureType = item.enclosure.type || ''
+    if (enclosureType.startsWith('image/')) {
+      return item.enclosure.url
+    }
+  }
+
+  // 2. Try media:content or media:thumbnail
+  if (item.mediaContent?.$?.url) {
+    return item.mediaContent.$.url
+  }
+  if (item.mediaThumbnail?.$?.url) {
+    return item.mediaThumbnail.$.url
+  }
+
+  // 3. Try itunes:image
+  if (item.itunesImage?.$?.href) {
+    return item.itunesImage.$.href
+  }
+  if (item.itunes?.image) {
+    return item.itunes.image
+  }
+
+  // 4. Extract first <img> tag from HTML content
+  if (rawContent) {
+    const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (imgMatch?.[1]) {
+      console.log('Found image URL in content:', imgMatch[1])
+      return imgMatch[1]
+    }
+  }
+  console.log('No image found')
+  return undefined
+}
+
+/**
  * Parse RSS/Atom feed from URL
  */
 export async function parseFeed(url: string): Promise<ParsedFeed> {
@@ -117,6 +163,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
         author: item.creator || item.author,
         content: sanitizeHtml(rawContent),
         summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
+        imageUrl: extractImageUrl(item, rawContent),
         publishedAt: normalizeDate(item.pubDate)
       }
     })

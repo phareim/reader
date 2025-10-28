@@ -92,6 +92,7 @@ model Article {
   author        String?
   content       String?
   summary       String?
+  imageUrl      String?
   publishedAt   DateTime?
   isRead        Boolean   @default(false)
   isStarred     Boolean   @default(false)

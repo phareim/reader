@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-zinc-950">
+  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 

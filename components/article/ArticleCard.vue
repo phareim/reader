@@ -13,7 +13,23 @@
   >
     <!-- Fixed 4:3 aspect ratio container -->
     <div class="relative w-full" style="aspect-ratio: 4/3;">
-      <div class="absolute inset-0 p-3 flex flex-col">
+      <!-- Image Section (if available) -->
+      <div
+        v-if="article.imageUrl && !imageError"
+        class="absolute inset-x-0 top-0 h-32 overflow-hidden"
+      >
+        <img
+          :src="article.imageUrl"
+          :alt="article.title"
+          class="w-full h-full object-cover"
+          @error="handleImageError"
+        />
+      </div>
+
+      <div
+        class="absolute inset-0 p-3 flex flex-col"
+        :class="article.imageUrl && !imageError ? 'pt-36' : ''"
+      >
         <!-- Header Section -->
         <div class="flex items-start justify-between gap-2 mb-2">
           <div class="flex-1 min-w-0">
@@ -111,6 +127,7 @@ interface Article {
   url: string
   author?: string
   summary?: string
+  imageUrl?: string
   publishedAt?: string
   isRead: boolean
   feedTitle?: string
@@ -141,6 +158,11 @@ const emit = defineEmits<{
 const showActionsMenu = ref(false)
 const actionsMenuRef = ref<HTMLElement | null>(null)
 const menuButtonRef = ref<HTMLElement | null>(null)
+const imageError = ref(false)
+
+const handleImageError = () => {
+  imageError.value = true
+}
 
 // Close dropdown when clicking outside
 onMounted(() => {

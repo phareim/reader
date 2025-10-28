@@ -83,7 +83,10 @@
           ref="menuRef"
         >
           <PageHeaderMenu
+            :selected-feed-id="selectedFeedId"
+            :is-refreshing="isRefreshing"
             @sign-out="$emit('sign-out')"
+            @refresh-feed="$emit('refresh-feed')"
             @success="$emit('success', $event)"
             @error="$emit('error', $event)"
           />
@@ -111,10 +114,12 @@ interface Props {
   selectedFeed?: Feed | null
   selectedFeedId: number | null
   selectedTag: string | null
+  isRefreshing?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
-  selectedFeed: null
+  selectedFeed: null,
+  isRefreshing: false
 })
 
 defineEmits<{

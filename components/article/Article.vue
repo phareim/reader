@@ -26,7 +26,7 @@
 
     <!-- Article Content (Expanded Inline) -->
     <Transition name="expand">
-      <div v-if="isExpanded" class="border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950/60 py-6">
+      <div v-if="isExpanded" class="border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-dark-bg/60 py-6">
         <div class="max-w-3xl mx-auto px-2">
           <div
             v-if="article.content"

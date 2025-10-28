@@ -5,6 +5,7 @@ export const useFeeds = () => {
   const selectedFeedId = useState<number | null>('selectedFeedId', () => null)
   const selectedTag = useState<string | null>('selectedTag', () => null)
   const loading = useState<boolean>('feedsLoading', () => false)
+  const refreshing = useState<boolean>('feedsRefreshing', () => false)
   const error = useState<string | null>('feedsError', () => null)
 
   const selectedFeed = computed(() =>
@@ -124,6 +125,9 @@ export const useFeeds = () => {
   }
 
   const refreshFeed = async (id: number) => {
+    refreshing.value = true
+    error.value = null
+
     try {
       const response = await $fetch<{ success: boolean; newArticles: number }>(
         `/api/feeds/${id}/refresh`,
@@ -137,6 +141,8 @@ export const useFeeds = () => {
     } catch (err: any) {
       error.value = err.data?.message || err.message || 'Failed to refresh feed'
       throw err
+    } finally {
+      refreshing.value = false
     }
   }
 
@@ -193,6 +199,7 @@ export const useFeeds = () => {
     feedsByTag,
     totalUnreadCount,
     loading: readonly(loading),
+    refreshing: readonly(refreshing),
     error: readonly(error),
     fetchFeeds,
     addFeed,

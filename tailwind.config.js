@@ -13,7 +13,8 @@ module.exports = {
       colors: {
         gray: {
           850: '#1a1d23',
-        }
+        },
+        'dark-bg': '#131316',
       },
       fontFamily: {
         'sans': ['Spectral', 'serif'],

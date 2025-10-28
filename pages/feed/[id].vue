@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-zinc-950">
+  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -18,6 +18,7 @@
         :selected-feed="selectedFeed"
         :selected-feed-id="feedId"
         :selected-tag="null"
+        :is-refreshing="isRefreshing"
         @toggle-menu="toggleMenu"
         @mark-all-read="handleMarkAllRead"
         @refresh-feed="handleRefreshFeed"
@@ -93,6 +94,7 @@ const { data: session } = useAuth()
 const {
   feeds,
   selectedFeed,
+  refreshing: isRefreshing,
   fetchFeeds,
   refreshFeed,
   syncAll
