@@ -87,6 +87,7 @@ export default defineEventHandler(async (event) => {
             author: item.author,
             content: item.content,
             summary: item.summary,
+            imageUrl: item.imageUrl,
             publishedAt: item.publishedAt
           }
         })

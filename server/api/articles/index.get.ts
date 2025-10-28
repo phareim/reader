@@ -119,6 +119,7 @@ export default defineEventHandler(async (event) => {
         author: article.author,
         content: article.content,
         summary: article.summary,
+        imageUrl: article.imageUrl,
         publishedAt: article.publishedAt?.toISOString(),
         isRead: article.isRead,
         isStarred: article.isStarred,

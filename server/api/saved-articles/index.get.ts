@@ -64,6 +64,7 @@ export default defineEventHandler(async (event) => {
         author: saved.article.author,
         content: saved.article.content,
         summary: saved.article.summary,
+        imageUrl: saved.article.imageUrl,
         publishedAt: saved.article.publishedAt?.toISOString(),
         isRead: saved.article.isRead,
         savedAt: saved.savedAt.toISOString(),
