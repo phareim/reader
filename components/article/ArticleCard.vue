@@ -11,24 +11,28 @@
       'overflow-hidden': !showActionsMenu
     }"
   >
-    <!-- Fixed 4:3 aspect ratio container -->
-    <div class="relative w-full" style="aspect-ratio: 4/3;">
+    <!-- Fixed 3:4 aspect ratio container -->
+    <div class="relative w-full" style="aspect-ratio: 3/4;">
       <!-- Image Section (if available) -->
       <div
         v-if="article.imageUrl && !imageError"
-        class="absolute inset-x-0 top-0 h-32 overflow-hidden"
+        class="absolute inset-x-0 top-0 h-40 overflow-hidden rounded-t-lg"
       >
         <img
           :src="article.imageUrl"
           :alt="article.title"
-          class="w-full h-full object-cover"
+          class="w-full h-full object-cover transition-transform duration-300 ease-out"
+          :class="{
+            'scale-110': isSelected,
+            'group-hover:scale-110': !isSelected
+          }"
           @error="handleImageError"
         />
       </div>
 
       <div
         class="absolute inset-0 p-3 flex flex-col"
-        :class="article.imageUrl && !imageError ? 'pt-36' : ''"
+        :class="article.imageUrl && !imageError ? 'pt-44' : ''"
       >
         <!-- Header Section -->
         <div class="flex items-start justify-between gap-2 mb-2">
