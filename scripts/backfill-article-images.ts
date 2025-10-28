@@ -1,4 +1,9 @@
+import { config } from 'dotenv'
 import prisma from '../server/utils/db'
+import { getRandomUnsplashImage } from '../server/utils/unsplash'
+
+// Load environment variables from .env file
+config()
 
 /**
  * Extract image URL from article content using the same logic as feedParser
@@ -41,11 +46,12 @@ async function backfillArticleImages() {
 
     console.log(`Found ${articlesWithoutImages.length} articles without images\n`)
 
-    let updatedCount = 0
-    let skippedCount = 0
+    let updatedFromContentCount = 0
+    let updatedFromUnsplashCount = 0
+    let failedCount = 0
 
     for (const article of articlesWithoutImages) {
-      const imageUrl = extractImageUrlFromContent(article.content!)
+      let imageUrl = extractImageUrlFromContent(article.content!)
 
       if (imageUrl) {
         await prisma.article.update({
@@ -53,19 +59,37 @@ async function backfillArticleImages() {
           data: { imageUrl }
         })
 
-        updatedCount++
-        console.log(`✅ Updated article ${article.id}: "${article.title.substring(0, 60)}..." (${article.feed.title})`)
-        console.log(`   Image: ${imageUrl.substring(0, 80)}...\n`)
+        updatedFromContentCount++
+        console.log(`✅ Updated article ${article.id} from content: "${article.title.substring(0, 60)}..." (${article.feed.title})`)
       } else {
-        skippedCount++
+        // Fallback to Unsplash if no image found in content
+        const unsplashImage = await getRandomUnsplashImage()
+        if (unsplashImage) {
+          await prisma.article.update({
+            where: { id: article.id },
+            data: { imageUrl: unsplashImage }
+          })
+
+          updatedFromUnsplashCount++
+          console.log(`🌄 Updated article ${article.id} from Unsplash: "${article.title.substring(0, 60)}..." (${article.feed.title})`)
+        } else {
+          failedCount++
+          console.log(`❌ Failed to get image for article ${article.id}: "${article.title.substring(0, 60)}..." (${article.feed.title})`)
+        }
+      }
+
+      // Small delay to avoid rate limiting on Unsplash API
+      if (!imageUrl) {
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
     }
 
     console.log('\n✨ Backfill complete!')
     console.log(`📊 Statistics:`)
     console.log(`   - Total articles processed: ${articlesWithoutImages.length}`)
-    console.log(`   - Articles with images added: ${updatedCount}`)
-    console.log(`   - Articles without images: ${skippedCount}`)
+    console.log(`   - Images from content: ${updatedFromContentCount}`)
+    console.log(`   - Images from Unsplash: ${updatedFromUnsplashCount}`)
+    console.log(`   - Failed: ${failedCount}`)
 
   } catch (error) {
     console.error('❌ Error during backfill:', error)

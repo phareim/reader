@@ -15,11 +15,11 @@
     <div class="relative w-full" style="aspect-ratio: 3/4;">
       <!-- Image Section (if available) -->
       <div
-        v-if="article.imageUrl && !imageError"
+        v-if="displayImageUrl && !imageError"
         class="absolute inset-x-0 top-0 h-40 overflow-hidden rounded-t-lg"
       >
         <img
-          :src="article.imageUrl"
+          :src="displayImageUrl"
           :alt="article.title"
           class="w-full h-full object-cover transition-transform duration-300 ease-out"
           :class="{
@@ -32,7 +32,7 @@
 
       <div
         class="absolute inset-0 p-3 flex flex-col"
-        :class="article.imageUrl && !imageError ? 'pt-44' : ''"
+        :class="displayImageUrl && !imageError ? 'pt-44' : ''"
       >
         <!-- Header Section -->
         <div class="flex items-start justify-between gap-2 mb-2">
@@ -163,10 +163,33 @@ const showActionsMenu = ref(false)
 const actionsMenuRef = ref<HTMLElement | null>(null)
 const menuButtonRef = ref<HTMLElement | null>(null)
 const imageError = ref(false)
+const runtimeImageUrl = ref<string | null>(null)
 
 const handleImageError = () => {
   imageError.value = true
 }
+
+// Fetch Unsplash fallback image if article has no image
+const displayImageUrl = computed(() => {
+  if (props.article.imageUrl) {
+    return props.article.imageUrl
+  }
+  return runtimeImageUrl.value
+})
+
+// Fetch random Unsplash image on mount if no image exists
+onMounted(async () => {
+  if (!props.article.imageUrl) {
+    try {
+      const response = await $fetch<{ imageUrl: string | null }>('/api/unsplash/random')
+      if (response.imageUrl) {
+        runtimeImageUrl.value = response.imageUrl
+      }
+    } catch (error) {
+      console.error('Failed to fetch Unsplash image:', error)
+    }
+  }
+})
 
 // Close dropdown when clicking outside
 onMounted(() => {

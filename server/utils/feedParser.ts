@@ -1,6 +1,7 @@
 import Parser from 'rss-parser'
 import DOMPurify from 'isomorphic-dompurify'
 import crypto from 'crypto'
+import { getRandomUnsplashImage } from './unsplash'
 
 const parser = new Parser({
   timeout: Number(process.env.FETCH_TIMEOUT) || 30000,
@@ -97,9 +98,10 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
 
 /**
  * Extract image URL from RSS item using multiple strategies
+ * Falls back to Unsplash random image if nothing found
  */
-function extractImageUrl(item: any, rawContent?: string): string | undefined {
-  
+async function extractImageUrl(item: any, rawContent?: string): Promise<string | undefined> {
+
   // 1. Try enclosure (if it's an image)
   if (item.enclosure?.url) {
     const enclosureType = item.enclosure.type || ''
@@ -128,11 +130,16 @@ function extractImageUrl(item: any, rawContent?: string): string | undefined {
   if (rawContent) {
     const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i)
     if (imgMatch?.[1]) {
-      console.log('Found image URL in content:', imgMatch[1])
       return imgMatch[1]
     }
   }
-  console.log('No image found')
+
+  // 5. Fallback to Unsplash random image
+  const unsplashImage = await getRandomUnsplashImage()
+  if (unsplashImage) {
+    return unsplashImage
+  }
+
   return undefined
 }
 
@@ -151,22 +158,24 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
     const domain = extractDomain(feed.link || url)
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
 
-    const items: ParsedArticle[] = feed.items.map(item => {
-      // Extract content (prefer full content over description)
-      const rawContent = (item as any).contentEncoded || item.content || item.description
-      const rawSummary = item.contentSnippet || item.description
+    const items: ParsedArticle[] = await Promise.all(
+      feed.items.map(async (item) => {
+        // Extract content (prefer full content over description)
+        const rawContent = (item as any).contentEncoded || item.content || item.description
+        const rawSummary = item.contentSnippet || item.description
 
-      return {
-        guid: generateGuid(item),
-        title: item.title || 'Untitled',
-        url: item.link || '',
-        author: item.creator || item.author,
-        content: sanitizeHtml(rawContent),
-        summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
-        imageUrl: extractImageUrl(item, rawContent),
-        publishedAt: normalizeDate(item.pubDate)
-      }
-    })
+        return {
+          guid: generateGuid(item),
+          title: item.title || 'Untitled',
+          url: item.link || '',
+          author: item.creator || item.author,
+          content: sanitizeHtml(rawContent),
+          summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
+          imageUrl: await extractImageUrl(item, rawContent),
+          publishedAt: normalizeDate(item.pubDate)
+        }
+      })
+    )
 
     return {
       title: feed.title,
