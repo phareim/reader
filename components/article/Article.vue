@@ -21,6 +21,7 @@
       @toggle-save="$emit('toggle-save', article.id)"
       @toggle-read="$emit('toggle-read', article.id)"
       @update-tags="(savedArticleId, tags) => $emit('update-tags', savedArticleId, tags)"
+      @delete-article="$emit('delete-article', article.id)"
     />
 
     <!-- Article Content (Expanded Inline) -->
@@ -72,6 +73,7 @@ defineEmits<{
   'toggle-save': [id: number]
   'toggle-read': [id: number]
   'update-tags': [savedArticleId: number, tags: string[]]
+  'delete-article': [id: number]
 }>()
 </script>
 

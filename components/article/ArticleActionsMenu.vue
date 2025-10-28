@@ -72,7 +72,10 @@
       :href="article.url"
       target="_blank"
       rel="noopener noreferrer"
-      class="w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700"
+      :class="[
+        'w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700',
+        !isManualArticle ? 'rounded-b-lg' : ''
+      ]"
       @click.stop
     >
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,6 +83,18 @@
       </svg>
       <span>Open in new tab</span>
     </a>
+
+    <!-- Delete Article (only for manually added articles) -->
+    <button
+      v-if="isManualArticle"
+      @click="handleDelete"
+      class="w-full text-left px-4 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-b-lg transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+      </svg>
+      <span>Delete article</span>
+    </button>
   </div>
 </template>
 
@@ -91,6 +106,7 @@ interface Article {
   isRead: boolean
   savedId?: number
   tags?: string[]
+  feedTitle?: string
 }
 
 interface Props {
@@ -107,9 +123,14 @@ const emit = defineEmits<{
   'toggle-save': []
   'toggle-read': []
   'update-tags': [savedArticleId: number, tags: string[]]
+  'delete-article': []
 }>()
 
 const linkCopied = ref(false)
+
+const isManualArticle = computed(() => {
+  return props.article.feedTitle === 'Manual Additions'
+})
 
 const copyLink = async () => {
   try {
@@ -137,5 +158,11 @@ const handleRemoveTag = (tagToRemove: string) => {
   const currentTags = props.article.tags || []
   const updatedTags = currentTags.filter(t => t !== tagToRemove)
   emit('update-tags', props.article.savedId, updatedTags)
+}
+
+const handleDelete = () => {
+  if (confirm('Are you sure you want to permanently delete this article?')) {
+    emit('delete-article')
+  }
 }
 </script>

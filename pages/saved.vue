@@ -51,6 +51,7 @@
             @toggle-save="toggleSaveArticle(article.id)"
             @toggle-read="handleToggleRead(article.id)"
             @update-tags="handleUpdateTags"
+            @delete-article="handleDeleteArticle(article.id)"
           />
         </div>
 
@@ -172,6 +173,31 @@ const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
     if (article) {
       article.tags = previousTags
     }
+  }
+}
+
+// Delete an article (only for manually added articles)
+const handleDeleteArticle = async (articleId: number) => {
+  try {
+    await $fetch(`/api/articles/${articleId}/delete`, {
+      method: 'DELETE'
+    })
+
+    // Refresh the articles list
+    await fetchArticles(-1)
+    await fetchSavedArticlesByTag()
+    await fetchFeeds()
+
+    headerSuccess.value = 'Article deleted successfully'
+    setTimeout(() => {
+      headerSuccess.value = null
+    }, 3000)
+  } catch (error: any) {
+    console.error('Failed to delete article:', error)
+    headerError.value = error.data?.message || error.message || 'Failed to delete article'
+    setTimeout(() => {
+      headerError.value = null
+    }, 5000)
   }
 }
 

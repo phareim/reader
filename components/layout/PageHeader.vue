@@ -83,11 +83,6 @@
           ref="menuRef"
         >
           <PageHeaderMenu
-            :selected-feed-id="selectedFeedId"
-            @mark-all-read="$emit('mark-all-read')"
-            @refresh-feed="$emit('refresh-feed')"
-            @sync-all="$emit('sync-all')"
-            @view-saved="$emit('view-saved')"
             @sign-out="$emit('sign-out')"
             @success="$emit('success', $event)"
             @error="$emit('error', $event)"

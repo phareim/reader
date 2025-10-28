@@ -46,6 +46,7 @@
                 @toggle-save="$emit('toggle-save')"
                 @toggle-read="$emit('toggle-read')"
                 @update-tags="(savedArticleId, tags) => $emit('update-tags', savedArticleId, tags)"
+                @delete-article="$emit('delete-article')"
               />
             </div>
           </Transition>
@@ -86,6 +87,7 @@ const emit = defineEmits<{
   'toggle-save': []
   'toggle-read': []
   'update-tags': [savedArticleId: number, tags: string[]]
+  'delete-article': []
 }>()
 
 const showActionsMenu = ref(false)

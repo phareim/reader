@@ -3,10 +3,12 @@
     :to="`/article/${article.id}`"
     :id="`article-card-${article.id}`"
     :data-article-id="article.id"
-    class="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group"
+    class="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group relative"
     :class="{
       'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
-      'hover:translate-y-[-2px]': !isSelected
+      'hover:translate-y-[-2px]': !isSelected,
+      'overflow-visible': showActionsMenu,
+      'overflow-hidden': !showActionsMenu
     }"
   >
     <!-- Fixed 4:3 aspect ratio container -->
@@ -34,10 +36,10 @@
             <span v-if="!article.isRead" class="text-blue-500 dark:text-blue-400 text-lg leading-none">•</span>
 
             <!-- Actions Menu -->
-            <div class="relative" @click.prevent>
+            <div class="relative z-50" @click.stop.prevent>
               <button
                 ref="menuButtonRef"
-                @click.stop="toggleActionsMenu"
+                @click.stop.prevent="toggleActionsMenu"
                 class="p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors opacity-0 group-hover:opacity-100"
                 :class="showActionsMenu ? 'opacity-100 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'"
                 :title="'Article actions'"
@@ -52,6 +54,8 @@
                 <div
                   v-if="showActionsMenu"
                   ref="actionsMenuRef"
+                  @click.stop
+                  class="absolute right-0 top-full mt-1 z-50"
                 >
                   <ArticleActionsMenu
                     :article="article"
@@ -60,6 +64,7 @@
                     @toggle-save="$emit('toggle-save')"
                     @toggle-read="$emit('toggle-read')"
                     @update-tags="(savedArticleId, tags) => $emit('update-tags', savedArticleId, tags)"
+                    @delete-article="$emit('delete-article')"
                   />
                 </div>
               </Transition>
@@ -130,6 +135,7 @@ const emit = defineEmits<{
   'toggle-save': []
   'toggle-read': []
   'update-tags': [savedArticleId: number, tags: string[]]
+  'delete-article': []
 }>()
 
 const showActionsMenu = ref(false)
