@@ -16,7 +16,7 @@
         <div class="flex items-start justify-between gap-2 mb-2">
           <div class="flex-1 min-w-0">
             <h3
-              class="font-spectral line-clamp-4 mb-1"
+              class="font-spectral line-clamp-4 mb-1 view-transition-name:article-title"
               :class="article.isRead
                 ? 'text-sm font-normal text-gray-700 dark:text-gray-300'
                 : 'text-base font-bold text-gray-900 dark:text-gray-100'"
