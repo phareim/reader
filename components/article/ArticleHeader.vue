@@ -5,7 +5,7 @@
     <div class="flex items-start justify-between gap-4">
       <div class="flex-1 min-w-0">
         <h2
-          class="mb-1 font-spectral truncate text-lg"
+          class="mb-1 font-spectral truncate text-lg view-transition-name:article-title"
           :class="titleClasses()"
         >
           {{ article.title }}

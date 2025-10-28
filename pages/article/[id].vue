@@ -141,32 +141,44 @@
         </div>
 
         <!-- Navigation Footer -->
-        <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between">
-          <NuxtLink
-            to="/"
-            class="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Articles
-          </NuxtLink>
-
-          <div class="flex items-center gap-2">
+        <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-zinc-800">
+          <div class="flex items-center justify-between gap-2 sm:gap-4">
+            <!-- Previous Button (Left) -->
             <NuxtLink
               v-if="prevArticleId"
               :to="`/article/${prevArticleId}`"
-              class="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+              class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
             >
-              ← Previous
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span class="hidden sm:inline">Previous</span>
             </NuxtLink>
+            <div v-else class="w-[44px] sm:w-[76px]"></div>
+
+            <!-- Back to Articles (Center) -->
+            <NuxtLink
+              to="/"
+              class="px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
+            >
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <span class="hidden xs:inline sm:inline">All Articles</span>
+            </NuxtLink>
+
+            <!-- Next Button (Right) -->
             <NuxtLink
               v-if="nextArticleId"
               :to="`/article/${nextArticleId}`"
-              class="px-4 py-2 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+              class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
             >
-              Next →
+              <span class="hidden sm:inline">Next</span>
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
             </NuxtLink>
+            <div v-else class="w-[44px] sm:w-[76px]"></div>
           </div>
         </footer>
       </article>
@@ -408,6 +420,13 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     e.preventDefault()
     router.push('/')
+    return
+  }
+
+  // o: open original article URL
+  if (e.key === 'o' && article.value?.url) {
+    e.preventDefault()
+    window.open(article.value.url, '_blank', 'noopener,noreferrer')
     return
   }
 
