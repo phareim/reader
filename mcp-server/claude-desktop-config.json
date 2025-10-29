@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "vibe-reader": {
+    "the-librarian": {
       "command": "node",
       "args": [
         "/absolute/path/to/your/reader/node_modules/.bin/tsx",

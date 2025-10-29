@@ -1,7 +1,7 @@
 {
-  "name": "reader",
+  "name": "the-librarian",
   "version": "1.0.0",
-  "description": "",
+  "description": "Your friendly librarian for organizing and curating the web's knowledge",
   "main": "index.js",
   "scripts": {
     "dev": "nuxt dev --host",

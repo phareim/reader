@@ -7,26 +7,14 @@
     <KeyboardShortcutsHelp ref="helpDialogRef" />
 
     <!-- Main Content Area -->
-    <div
-      class="min-h-screen transition-all duration-300 ease-in-out"
-      :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
-    >
+    <div class="min-h-screen transition-all duration-300 ease-in-out"
+      :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }">
       <!-- Sticky Header -->
-      <PageHeader
-        :menu-is-open="menuIsOpen"
-        :current-article="null"
-        :selected-feed="selectedFeed"
-        :selected-feed-id="selectedFeedId"
-        :selected-tag="selectedTag"
-        @toggle-menu="toggleMenu"
-        @mark-all-read="handleMarkAllRead"
-        @refresh-feed="handleRefreshFeed"
-        @sync-all="handleSyncAll"
-        @view-saved="handleViewSaved"
-        @sign-out="handleSignOut"
-        @success="handleHeaderSuccess"
-        @error="handleHeaderError"
-      />
+      <PageHeader :menu-is-open="menuIsOpen" :current-article="null" :selected-feed="selectedFeed"
+        :selected-feed-id="selectedFeedId" :selected-tag="selectedTag" @toggle-menu="toggleMenu"
+        @mark-all-read="handleMarkAllRead" @refresh-feed="handleRefreshFeed" @sync-all="handleSyncAll"
+        @view-saved="handleViewSaved" @sign-out="handleSignOut" @success="handleHeaderSuccess"
+        @error="handleHeaderError" />
 
       <!-- Articles List (Full Width) -->
       <div class="py-0">
@@ -39,19 +27,24 @@
         <!-- Not Logged In State -->
         <div v-if="!session?.user" class="flex flex-col items-center justify-center py-20 px-4">
           <div class="max-w-md text-center space-y-6">
-            <svg class="w-20 h-20 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            <svg class="w-20 h-20 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome to Vibe Reader</h2>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <img :src="booksStackIcon" alt="Stack of books"
+                class="w-10 h-10 mx-auto text-gray-400 dark:text-zinc-600" />
+              Hello!
+            </h2>
             <p class="text-gray-600 dark:text-gray-400">
-              Your personal RSS reader for staying up to date.
+              Your friendly librarian for organizing and curating the web's knowledge.
             </p>
-            <NuxtLink
-              to="/login"
-              class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-            >
+            <NuxtLink to="/login"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
               Sign In to Get Started
             </NuxtLink>
@@ -63,31 +56,19 @@
           <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
 
           <!-- Empty State Component (shown when no articles OR in overview mode) -->
-          <EmptyState
-            v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
-            :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'"
-            :tags-with-unread="tagsWithUnreadCounts"
-            :inbox-unread-count="getInboxUnreadCount()"
-            :total-unread-count="totalUnreadCount"
-            :has-unread-in-other-views="hasUnreadInOtherViews"
-            @select-tag="handleSelectTag"
-            @sync-all="handleSyncAll"
-          />
+          <EmptyState v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
+            :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'" :tags-with-unread="tagsWithUnreadCounts"
+            :inbox-unread-count="getInboxUnreadCount()" :total-unread-count="totalUnreadCount"
+            :has-unread-in-other-views="hasUnreadInOtherViews" @select-tag="handleSelectTag"
+            @sync-all="handleSyncAll" />
 
           <!-- Article Grid -->
           <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-            <LazyArticleCard
-              v-for="article in displayedArticles"
-              :key="article.id"
-              :article="article"
-              :is-selected="selectedArticleId === article.id"
-              :is-saved="isSaved(article.id)"
-              :show-feed-title="!selectedFeed"
-              :all-tags-with-counts="allTagsWithCounts"
-              @toggle-save="toggleSaveArticle(article.id)"
-              @toggle-read="handleToggleRead(article.id)"
-              @update-tags="handleUpdateTags"
-            />
+            <LazyArticleCard v-for="article in displayedArticles" :key="article.id" :article="article"
+              :is-selected="selectedArticleId === article.id" :is-saved="isSaved(article.id)"
+              :show-feed-title="!selectedFeed" :all-tags-with-counts="allTagsWithCounts"
+              @toggle-save="toggleSaveArticle(article.id)" @toggle-read="handleToggleRead(article.id)"
+              @update-tags="handleUpdateTags" />
           </div>
         </template>
       </div>
@@ -97,6 +78,7 @@
 
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
+import booksStackIcon from '~/assets/svg/books-stack-of-three-svgrepo-com.svg'
 definePageMeta({
   auth: false
 })

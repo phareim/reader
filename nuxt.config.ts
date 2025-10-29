@@ -11,6 +11,10 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      title: 'The Librarian',
+      meta: [
+        { name: 'description', content: 'Your friendly librarian for organizing and curating the web\'s knowledge' }
+      ],
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },

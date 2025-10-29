@@ -1,7 +1,7 @@
 CT#!/usr/bin/env node
 
 /**
- * Vibe Reader MCP Server
+ * The Librarian MCP Server
  *
  * A Model Context Protocol server that allows Claude to interact with your RSS reader.
  * Provides tools for reading feeds, articles, and managing saved content.
@@ -242,7 +242,7 @@ const tools: Tool[] = [
  */
 const server = new Server(
   {
-    name: 'vibe-reader',
+    name: 'the-librarian',
     version: '1.0.0'
   },
   {
@@ -514,7 +514,7 @@ async function main() {
   await server.connect(transport)
 
   // Log to stderr (stdout is used for MCP protocol)
-  console.error('Vibe Reader MCP server running')
+  console.error('The Librarian MCP server running')
   console.error(`API Base URL: ${API_BASE_URL}`)
 }
 

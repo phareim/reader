@@ -31,7 +31,7 @@ export const useClaude = () => {
   }
 
   const askQuestion = async (question: string, context?: string) => {
-    const system = 'You are a helpful assistant integrated into a Vibe Reader RSS application. Answer questions clearly and concisely.'
+    const system = 'You are a helpful assistant integrated into The Librarian RSS application. Answer questions clearly and concisely.'
     const prompt = context
       ? `Context: ${context}\n\nQuestion: ${question}`
       : question

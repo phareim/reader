@@ -81,7 +81,7 @@ Special tag values:
 ### Component Organization
 
 **Menu Components** (`components/menu/`):
-- `MenuHeader.vue` - Header with close button and "Vibe Reader" title (clickable to go to overview)
+- `MenuHeader.vue` - Header with close button and "The Librarian" title (clickable to go to overview)
 - `AddFeedSection.vue` - Wraps `FeedUrlInput` component
 - `SavedArticlesSection.vue` - Collapsible saved articles with tags
 - `FeedsSection.vue` - Main feeds list with tag folders
@@ -262,7 +262,7 @@ MCP_USER_EMAIL="your-email@example.com"  # Your Reader login email
 ```json
 {
   "mcpServers": {
-    "vibe-reader": {
+    "the-librarian": {
       "command": "node",
       "args": [
         "/path/to/reader/node_modules/.bin/tsx",

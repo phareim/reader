@@ -56,7 +56,7 @@
               <span v-if="selectedTag === '__inbox__'" class="truncate">📥 Inbox</span>
               <span v-else class="truncate">#{{ selectedTag }}</span>
             </template>
-            <span v-else class="truncate">All Vibes — The RSS Reader</span>
+            <span v-else class="truncate">The Librarian</span>
           </div>
         </Transition>
       </h1>

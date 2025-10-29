@@ -1,6 +1,6 @@
-# Vibe Reader MCP Server
+# The Librarian MCP Server
 
-A Model Context Protocol (MCP) server that allows Claude to interact with your Vibe Reader RSS application. With this integration, you can ask Claude to read articles, manage your saved content, and organize your reading list.
+A Model Context Protocol (MCP) server that allows Claude to interact with your Librarian RSS application. With this integration, you can ask Claude to read articles, manage your saved content, and organize your reading list.
 
 ## Features
 
@@ -20,7 +20,7 @@ A Model Context Protocol (MCP) server that allows Claude to interact with your V
 
 ### 1. Prerequisites
 
-- Your Vibe Reader app running locally (usually on `http://localhost:3001`)
+- Your Librarian app running locally (usually on `http://localhost:3001`)
 - Claude Desktop installed
 - Logged in to your Reader account
 
@@ -36,7 +36,7 @@ Add this configuration (update the paths to match your system):
 ```json
 {
   "mcpServers": {
-    "vibe-reader": {
+    "the-librarian": {
       "command": "node",
       "args": [
         "/Users/YOUR_USERNAME/path/to/reader/node_modules/.bin/tsx",
@@ -71,7 +71,7 @@ After updating the configuration, completely quit and restart Claude Desktop for
 In Claude Desktop, you can verify the MCP server is connected by:
 1. Looking for the 🔌 icon in the chat interface
 2. Asking Claude: "What MCP tools do you have access to?"
-3. Claude should list the 8 Vibe Reader tools
+3. Claude should list the 10 Librarian tools
 
 ## Usage Examples
 

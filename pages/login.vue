@@ -3,8 +3,8 @@
     <div class="max-w-md w-full">
       <!-- Logo/Title Card -->
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">Vibe Reader</h1>
-        <p class="text-gray-600 dark:text-gray-400">Your personal RSS feed reader</p>
+        <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">The Librarian</h1>
+        <p class="text-gray-600 dark:text-gray-400">Your friendly librarian for the web</p>
       </div>
 
       <!-- Login Card -->
@@ -53,7 +53,7 @@
 
       <!-- Features -->
       <div class="mt-8 text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Why Vibe Reader?</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Why The Librarian?</p>
         <div class="grid grid-cols-3 gap-4 text-xs text-gray-500 dark:text-gray-400">
           <div>
             <div class="text-2xl mb-1">🔒</div>

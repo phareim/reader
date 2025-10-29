@@ -1,6 +1,6 @@
-# RSS Reader
+# The Librarian
 
-A modern, self-hosted RSS feed reader inspired by Google Reader. Built with Nuxt 3, Vue 3, Prisma, and Postgres (Neon-ready).
+A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, Prisma, and Postgres (Neon-ready).
 
 ## Features
 
