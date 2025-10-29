@@ -3,22 +3,29 @@
     :to="`/article/${article.id}`"
     :id="`article-card-${article.id}`"
     :data-article-id="article.id"
-    class="block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group relative"
+    class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group relative"
     :class="{
       'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
       'hover:translate-y-[-2px]': !isSelected,
       'overflow-visible': showActionsMenu,
-      'overflow-hidden': !showActionsMenu
+      'overflow-hidden': !showActionsMenu,
+      'dynamic-height': dynamicHeight
     }"
   >
-    <!-- Fixed 3:4 aspect ratio container -->
-    <div class="relative w-full" style="aspect-ratio: 3/4;">
-      <!-- Image Section (if available) -->
+    <!-- Flexible height container -->
+    <div
+      class="card-container relative w-full"
+      :class="dynamicHeight ? 'min-h-0' : 'fixed-aspect'"
+    >
+      <!-- Image or Gradient Section -->
       <div
-        v-if="displayImageUrl && !imageError"
-        class="absolute inset-x-0 top-0 h-40 overflow-hidden rounded-t-lg"
+        v-if="displayImageUrl || showGradient"
+        :class="dynamicHeight ? 'relative' : 'absolute inset-x-0 top-0'"
+        class="h-40 overflow-hidden rounded-t-lg"
       >
+        <!-- Actual image -->
         <img
+          v-if="displayImageUrl && !imageError"
           :src="displayImageUrl"
           :alt="article.title"
           class="w-full h-full object-cover transition-transform duration-300 ease-out"
@@ -28,11 +35,24 @@
           }"
           @error="handleImageError"
         />
+        <!-- Gradient placeholder -->
+        <div
+          v-else-if="showGradient"
+          class="w-full h-full transition-transform duration-300 ease-out"
+          :class="{
+            'scale-110': isSelected,
+            'group-hover:scale-110': !isSelected
+          }"
+          :style="{ background: placeholderGradient }"
+        />
       </div>
 
       <div
-        class="absolute inset-0 p-3 flex flex-col"
-        :class="displayImageUrl && !imageError ? 'pt-44' : ''"
+        :class="[
+          dynamicHeight ? 'relative' : 'absolute inset-0',
+          (displayImageUrl || showGradient) ? (dynamicHeight ? '' : 'pt-44') : ''
+        ]"
+        class="p-3 flex flex-col"
       >
         <!-- Header Section -->
         <div class="flex items-start justify-between gap-2 mb-2">
@@ -144,11 +164,13 @@ interface Props {
   isSelected: boolean
   isSaved: boolean
   showFeedTitle?: boolean
+  dynamicHeight?: boolean
   allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showFeedTitle: false,
+  dynamicHeight: false,
   allTagsWithCounts: () => []
 })
 
@@ -164,29 +186,63 @@ const actionsMenuRef = ref<HTMLElement | null>(null)
 const menuButtonRef = ref<HTMLElement | null>(null)
 const imageError = ref(false)
 const runtimeImageUrl = ref<string | null>(null)
+const useGradient = ref(false)
 
 const handleImageError = () => {
   imageError.value = true
+  useGradient.value = true
 }
 
-// Fetch Unsplash fallback image if article has no image
+// Generate a deterministic gradient based on article ID
+const generateGradient = (id: number): string => {
+  // Use article ID as seed for consistent colors
+  const hue1 = (id * 137.508) % 360 // Golden angle for good distribution
+  const hue2 = (hue1 + 60 + (id % 120)) % 360 // Related hue
+  const saturation = 60 + (id % 20)
+  const lightness = 55 + (id % 15)
+
+  return `linear-gradient(135deg,
+    hsl(${hue1}, ${saturation}%, ${lightness}%),
+    hsl(${hue2}, ${saturation}%, ${lightness + 10}%))`
+}
+
+const placeholderGradient = computed(() => generateGradient(props.article.id))
+
+// Display logic: article image > unsplash image > gradient
 const displayImageUrl = computed(() => {
   if (props.article.imageUrl) {
     return props.article.imageUrl
   }
-  return runtimeImageUrl.value
+  if (runtimeImageUrl.value && !imageError.value) {
+    return runtimeImageUrl.value
+  }
+  return null
 })
 
-// Fetch random Unsplash image on mount if no image exists
+const showGradient = computed(() => {
+  return !props.article.imageUrl && !displayImageUrl.value
+})
+
+// Randomly fetch Unsplash image (1 in 10-20 articles)
 onMounted(async () => {
   if (!props.article.imageUrl) {
-    try {
-      const response = await $fetch<{ imageUrl: string | null }>('/api/unsplash/random')
-      if (response.imageUrl) {
-        runtimeImageUrl.value = response.imageUrl
+    const randomChance = Math.random()
+    const shouldTryUnsplash = randomChance < 0.08 // ~1 in 12-13 articles
+
+    if (shouldTryUnsplash) {
+      try {
+        const response = await $fetch<{ imageUrl: string | null }>('/api/unsplash/random')
+        if (response.imageUrl) {
+          runtimeImageUrl.value = response.imageUrl
+        } else {
+          useGradient.value = true
+        }
+      } catch (error) {
+        // Silently fall back to gradient
+        useGradient.value = true
       }
-    } catch (error) {
-      console.error('Failed to fetch Unsplash image:', error)
+    } else {
+      useGradient.value = true
     }
   }
 })
@@ -247,6 +303,30 @@ const truncateSummary = (summary: string, maxChars = 200) => {
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Fixed aspect ratio for multi-column layouts */
+.card-container.fixed-aspect {
+  aspect-ratio: 3/4;
+}
+
+/* Automatic dynamic height in single-column layouts (mobile) */
+@media (max-width: 639px) {
+  /* Override the fixed aspect ratio on mobile */
+  .card-container.fixed-aspect {
+    aspect-ratio: auto;
+  }
+
+  /* Make the image and content flow naturally on mobile */
+  .card-container.fixed-aspect > div {
+    position: relative !important;
+    inset: auto !important;
+  }
+
+  /* Remove top padding since content flows naturally */
+  .card-container.fixed-aspect > div.pt-44 {
+    padding-top: 0.75rem !important;
+  }
 }
 
 /* Dropdown transition */
