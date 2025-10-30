@@ -371,6 +371,11 @@ const handlePointerDown = (e: PointerEvent | TouchEvent) => {
   const target = e.target as HTMLElement
   if (target.closest('button')) return
 
+  // Prevent default to avoid text selection on desktop
+  if ('pointerType' in e && e.pointerType === 'mouse') {
+    e.preventDefault()
+  }
+
   isDragging.value = true
   hasMoved.value = false
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
@@ -395,8 +400,11 @@ const handlePointerMove = (e: PointerEvent | TouchEvent) => {
   const deltaX = Math.abs(clientX - startX.value)
   const deltaY = Math.abs(clientY - startY.value)
 
+  // Reduce threshold for desktop mouse (2px vs 5px for touch)
+  const threshold = 'pointerType' in e && e.pointerType === 'mouse' ? 2 : 5
+
   // Only start swiping if horizontal movement is greater than vertical
-  if (deltaX > 5 && deltaX > deltaY) {
+  if (deltaX > threshold && deltaX > deltaY) {
     hasMoved.value = true
 
     // Prevent default to stop scrolling when swiping horizontally
@@ -415,9 +423,10 @@ const handlePointerUp = async () => {
   isDragging.value = false
   const cardWidth = cardRef.value?.offsetWidth || 300
   const threshold = cardWidth * 0.5
+  const didMove = hasMoved.value
 
   // Check if swipe threshold is met
-  if (hasMoved.value && Math.abs(swipeOffset.value) >= threshold) {
+  if (didMove && Math.abs(swipeOffset.value) >= threshold) {
     isRemoving.value = true
 
     // Animate card off screen
@@ -440,7 +449,13 @@ const handlePointerUp = async () => {
   } else {
     // Snap back
     swipeOffset.value = 0
-    hasMoved.value = false
+
+    // Keep hasMoved flag for a short time to prevent click navigation
+    if (didMove) {
+      setTimeout(() => {
+        hasMoved.value = false
+      }, 50)
+    }
   }
 }
 
@@ -464,6 +479,9 @@ const handleLinkClick = (e: MouseEvent) => {
 /* Swipe container */
 .swipe-wrapper {
   transition: all 0.3s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
 }
 
 .swipe-wrapper.is-removing {
