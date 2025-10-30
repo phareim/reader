@@ -1,7 +1,16 @@
 <template>
   <div
+    ref="cardRef"
     class="swipe-wrapper relative"
     :class="{ 'is-removing': isRemoving }"
+    @pointerdown="handlePointerDown"
+    @pointermove="handlePointerMove"
+    @pointerup="handlePointerUp"
+    @pointercancel="handlePointerCancel"
+    @touchstart="handlePointerDown"
+    @touchmove="handlePointerMove"
+    @touchend="handlePointerUp"
+    @touchcancel="handlePointerCancel"
   >
     <!-- Swipe Overlays -->
     <div
@@ -31,7 +40,6 @@
     </div>
 
     <NuxtLink
-      ref="cardRef"
       :to="`/article/${article.id}`"
       :id="`article-card-${article.id}`"
       :data-article-id="article.id"
@@ -52,14 +60,7 @@
         transform: `translateX(${swipeOffset}px)`,
         transition: isDragging ? 'none' : undefined
       }"
-      @pointerdown="handlePointerDown"
-      @pointermove="handlePointerMove"
-      @pointerup="handlePointerUp"
-      @pointercancel="handlePointerCancel"
-      @touchstart="handlePointerDown"
-      @touchmove="handlePointerMove"
-      @touchend="handlePointerUp"
-      @touchcancel="handlePointerCancel"
+      @click="handleLinkClick"
     >
     <!-- Flexible height container -->
     <div
@@ -245,9 +246,11 @@ const useGradient = ref(false)
 const cardRef = ref<HTMLElement | null>(null)
 const isDragging = ref(false)
 const startX = ref(0)
+const startY = ref(0)
 const currentX = ref(0)
 const swipeOffset = ref(0)
 const isRemoving = ref(false)
+const hasMoved = ref(false)
 
 const handleImageError = () => {
   imageError.value = true
@@ -358,19 +361,22 @@ const swipeDirection = computed(() => {
 
 const swipeProgress = computed(() => {
   const cardWidth = cardRef.value?.offsetWidth || 300
-  return Math.min(Math.abs(swipeOffset.value) / (cardWidth * 0.9), 1)
+  return Math.min(Math.abs(swipeOffset.value) / (cardWidth * 0.5), 1)
 })
 
 const handlePointerDown = (e: PointerEvent | TouchEvent) => {
   if (!props.allowSwipe || isRemoving.value) return
 
-  // Don't interfere with menu button clicks or text selection
+  // Don't interfere with menu button clicks
   const target = e.target as HTMLElement
-  if (target.closest('button') || target.closest('a')) return
+  if (target.closest('button')) return
 
   isDragging.value = true
+  hasMoved.value = false
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
   startX.value = clientX
+  startY.value = clientY
   currentX.value = clientX
 
   // Add pointer capture for mouse events
@@ -383,10 +389,24 @@ const handlePointerDown = (e: PointerEvent | TouchEvent) => {
 const handlePointerMove = (e: PointerEvent | TouchEvent) => {
   if (!isDragging.value || !props.allowSwipe) return
 
-  e.preventDefault()
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  currentX.value = clientX
-  swipeOffset.value = currentX.value - startX.value
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+
+  const deltaX = Math.abs(clientX - startX.value)
+  const deltaY = Math.abs(clientY - startY.value)
+
+  // Only start swiping if horizontal movement is greater than vertical
+  if (deltaX > 5 && deltaX > deltaY) {
+    hasMoved.value = true
+
+    // Prevent default to stop scrolling when swiping horizontally
+    if (e.cancelable) {
+      e.preventDefault()
+    }
+
+    currentX.value = clientX
+    swipeOffset.value = currentX.value - startX.value
+  }
 }
 
 const handlePointerUp = async () => {
@@ -394,10 +414,10 @@ const handlePointerUp = async () => {
 
   isDragging.value = false
   const cardWidth = cardRef.value?.offsetWidth || 300
-  const threshold = cardWidth * 0.9
+  const threshold = cardWidth * 0.5
 
   // Check if swipe threshold is met
-  if (Math.abs(swipeOffset.value) >= threshold) {
+  if (hasMoved.value && Math.abs(swipeOffset.value) >= threshold) {
     isRemoving.value = true
 
     // Animate card off screen
@@ -420,12 +440,23 @@ const handlePointerUp = async () => {
   } else {
     // Snap back
     swipeOffset.value = 0
+    hasMoved.value = false
   }
 }
 
 const handlePointerCancel = () => {
   isDragging.value = false
   swipeOffset.value = 0
+  hasMoved.value = false
+}
+
+// Prevent navigation if user was dragging
+const handleLinkClick = (e: MouseEvent) => {
+  if (hasMoved.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    hasMoved.value = false
+  }
 }
 </script>
 
