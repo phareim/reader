@@ -64,11 +64,13 @@
 
           <!-- Article Grid -->
           <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-            <LazyArticleCard v-for="article in displayedArticles" :key="article.id" :article="article"
-              :is-selected="selectedArticleId === article.id" :is-saved="isSaved(article.id)"
-              :show-feed-title="!selectedFeed" :all-tags-with-counts="allTagsWithCounts"
-              @toggle-save="toggleSaveArticle(article.id)" @toggle-read="handleToggleRead(article.id)"
-              @update-tags="handleUpdateTags" />
+            <TransitionGroup name="card-list" tag="div" class="contents">
+              <LazyArticleCard v-for="article in displayedArticles" :key="article.id" :article="article"
+                :is-selected="selectedArticleId === article.id" :is-saved="isSaved(article.id)"
+                :show-feed-title="!selectedFeed" :all-tags-with-counts="allTagsWithCounts"
+                @toggle-save="toggleSaveArticle(article.id)" @toggle-read="handleToggleRead(article.id)"
+                @update-tags="handleUpdateTags" @swipe-dismiss="handleSwipeDismiss(article.id)" />
+            </TransitionGroup>
           </div>
         </template>
       </div>
@@ -128,14 +130,22 @@ const {
   fetchSavedArticlesByTag
 } = useSavedArticlesByTag()
 
+// Track dismissed articles for smooth removal animation
+const dismissedArticleIds = ref<Set<number>>(new Set())
+
 // Override displayedArticles to ignore unread filter when viewing saved articles
 const displayedArticles = computed(() => {
+  let articlesToDisplay
   // When viewing saved articles (feedId === -1), show all saved articles
   if (selectedFeedId.value === -1) {
-    return articles.value
+    articlesToDisplay = articles.value
+  } else {
+    // Otherwise use the default filtering from useArticles
+    articlesToDisplay = _displayedArticles.value
   }
-  // Otherwise use the default filtering from useArticles
-  return _displayedArticles.value
+
+  // Filter out dismissed articles
+  return articlesToDisplay.filter(a => !dismissedArticleIds.value.has(a.id))
 })
 
 // Reference to hamburger menu to track its open state
@@ -174,6 +184,13 @@ const handleToggleRead = async (articleId: number) => {
   } catch (error) {
     console.error('Failed to toggle read status:', error)
   }
+}
+
+// Handle swipe dismiss - remove article from local display immediately
+const handleSwipeDismiss = (articleId: number) => {
+  // The toggle-save or toggle-read events have already been emitted
+  // Just need to mark as dismissed for smooth animation
+  dismissedArticleIds.value.add(articleId)
 }
 
 // Update tags for a saved article
@@ -228,6 +245,9 @@ watch(() => session.value?.user, async (user) => {
 
 // Watch for feed or tag selection changes
 watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
+  // Clear dismissed articles when changing views
+  dismissedArticleIds.value.clear()
+
   if (feedId === -2) {
     // Overview mode - don't fetch articles, just show the EmptyState
     return
@@ -409,5 +429,18 @@ useKeyboardShortcuts({
 <style scoped>
 Article {
   transition: transform 0.3s ease;
+}
+
+/* Card list transitions for smooth removal */
+.card-list-move {
+  transition: all 0.5s ease;
+}
+
+.card-list-leave-active {
+  position: absolute;
+}
+
+.card-list-leave-to {
+  opacity: 0;
 }
 </style>

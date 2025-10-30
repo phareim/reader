@@ -46,6 +46,9 @@ export const useArticles = () => {
         params.isRead = 'false'
       }
 
+      // Exclude saved articles from feed views
+      params.excludeSaved = 'true'
+
       const response = await $fetch<ArticlesResponse>('/api/articles', {
         params
       })

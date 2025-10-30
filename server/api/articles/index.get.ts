@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
   const feedIdsParam = query.feedIds as string | undefined
   const isRead = query.isRead === 'true' ? true : query.isRead === 'false' ? false : undefined
   const isStarred = query.isStarred === 'true' ? true : undefined
+  const excludeSaved = query.excludeSaved === 'true'
   const limit = Math.min(parseInt(query.limit as string) || 50, 200)
   const offset = parseInt(query.offset as string) || 0
 
@@ -87,6 +88,14 @@ export default defineEventHandler(async (event) => {
 
     if (isStarred !== undefined) {
       where.isStarred = isStarred
+    }
+
+    if (excludeSaved) {
+      where.savedBy = {
+        none: {
+          userId: user.id
+        }
+      }
     }
 
     const [articles, total] = await Promise.all([

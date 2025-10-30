@@ -54,7 +54,7 @@
       </div>
 
       <!-- Article Content -->
-      <article v-else-if="article" class="max-w-4xl mx-auto px-6 py-8">
+      <article v-else-if="article" class="max-w-xl mx-auto px-6 py-8">
         <!-- Article Header -->
         <header class="mb-8 pb-6 border-b border-gray-200 dark:border-zinc-800">
           <h1 class="text-4xl font-bold font-spectral text-gray-900 dark:text-gray-100 mb-4">

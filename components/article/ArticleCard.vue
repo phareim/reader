@@ -1,17 +1,66 @@
 <template>
-  <NuxtLink
-    :to="`/article/${article.id}`"
-    :id="`article-card-${article.id}`"
-    :data-article-id="article.id"
-    class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all duration-200 hover:shadow-md dark:hover:bg-zinc-800 group relative"
-    :class="{
-      'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
-      'hover:translate-y-[-2px]': !isSelected,
-      'overflow-visible': showActionsMenu,
-      'overflow-hidden': !showActionsMenu,
-      'dynamic-height': dynamicHeight
-    }"
+  <div
+    class="swipe-wrapper relative"
+    :class="{ 'is-removing': isRemoving }"
   >
+    <!-- Swipe Overlays -->
+    <div
+      v-if="allowSwipe && swipeDirection !== 'none'"
+      class="swipe-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10 rounded-lg"
+      :class="{
+        'swipe-overlay-left': swipeDirection === 'left',
+        'swipe-overlay-right': swipeDirection === 'right'
+      }"
+      :style="{ opacity: swipeProgress }"
+    >
+      <!-- Left swipe (Mark as Read) -->
+      <div v-if="swipeDirection === 'left'" class="flex flex-col items-center gap-2 text-white">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <span class="text-sm font-semibold">Mark as Read</span>
+      </div>
+
+      <!-- Right swipe (Save) -->
+      <div v-if="swipeDirection === 'right'" class="flex flex-col items-center gap-2 text-white">
+        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+        </svg>
+        <span class="text-sm font-semibold">Save Article</span>
+      </div>
+    </div>
+
+    <NuxtLink
+      ref="cardRef"
+      :to="`/article/${article.id}`"
+      :id="`article-card-${article.id}`"
+      :data-article-id="article.id"
+      class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all group relative"
+      :class="{
+        'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
+        'hover:translate-y-[-2px]': !isSelected && !isDragging,
+        'overflow-visible': showActionsMenu,
+        'overflow-hidden': !showActionsMenu,
+        'dynamic-height': dynamicHeight,
+        'cursor-grab': allowSwipe && !isDragging,
+        'cursor-grabbing': isDragging,
+        'hover:shadow-md dark:hover:bg-zinc-800': !isDragging,
+        'swipe-transition': !isDragging && !isRemoving,
+        'duration-200': !isDragging && !isRemoving
+      }"
+      :style="{
+        transform: `translateX(${swipeOffset}px)`,
+        transition: isDragging ? 'none' : undefined
+      }"
+      @pointerdown="handlePointerDown"
+      @pointermove="handlePointerMove"
+      @pointerup="handlePointerUp"
+      @pointercancel="handlePointerCancel"
+      @touchstart="handlePointerDown"
+      @touchmove="handlePointerMove"
+      @touchend="handlePointerUp"
+      @touchcancel="handlePointerCancel"
+    >
     <!-- Flexible height container -->
     <div
       class="card-container relative w-full"
@@ -140,6 +189,7 @@
       </div>
     </div>
   </NuxtLink>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -165,12 +215,14 @@ interface Props {
   isSaved: boolean
   showFeedTitle?: boolean
   dynamicHeight?: boolean
+  allowSwipe?: boolean
   allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showFeedTitle: false,
   dynamicHeight: false,
+  allowSwipe: true,
   allTagsWithCounts: () => []
 })
 
@@ -179,6 +231,7 @@ const emit = defineEmits<{
   'toggle-read': []
   'update-tags': [savedArticleId: number, tags: string[]]
   'delete-article': []
+  'swipe-dismiss': []
 }>()
 
 const showActionsMenu = ref(false)
@@ -187,6 +240,14 @@ const menuButtonRef = ref<HTMLElement | null>(null)
 const imageError = ref(false)
 const runtimeImageUrl = ref<string | null>(null)
 const useGradient = ref(false)
+
+// Swipe state
+const cardRef = ref<HTMLElement | null>(null)
+const isDragging = ref(false)
+const startX = ref(0)
+const currentX = ref(0)
+const swipeOffset = ref(0)
+const isRemoving = ref(false)
 
 const handleImageError = () => {
   imageError.value = true
@@ -287,9 +348,122 @@ const truncateSummary = (summary: string, maxChars = 200) => {
   if (summary.length <= maxChars) return summary
   return summary.substring(0, maxChars).trim() + '...'
 }
+
+// Swipe functionality
+const swipeDirection = computed(() => {
+  if (swipeOffset.value > 20) return 'right' // Save
+  if (swipeOffset.value < -20) return 'left' // Mark as read
+  return 'none'
+})
+
+const swipeProgress = computed(() => {
+  const cardWidth = cardRef.value?.offsetWidth || 300
+  return Math.min(Math.abs(swipeOffset.value) / (cardWidth * 0.9), 1)
+})
+
+const handlePointerDown = (e: PointerEvent | TouchEvent) => {
+  if (!props.allowSwipe || isRemoving.value) return
+
+  // Don't interfere with menu button clicks or text selection
+  const target = e.target as HTMLElement
+  if (target.closest('button') || target.closest('a')) return
+
+  isDragging.value = true
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  startX.value = clientX
+  currentX.value = clientX
+
+  // Add pointer capture for mouse events
+  if ('setPointerCapture' in e && e.pointerId !== undefined) {
+    const element = e.currentTarget as HTMLElement
+    element.setPointerCapture(e.pointerId)
+  }
+}
+
+const handlePointerMove = (e: PointerEvent | TouchEvent) => {
+  if (!isDragging.value || !props.allowSwipe) return
+
+  e.preventDefault()
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  currentX.value = clientX
+  swipeOffset.value = currentX.value - startX.value
+}
+
+const handlePointerUp = async () => {
+  if (!isDragging.value || !props.allowSwipe) return
+
+  isDragging.value = false
+  const cardWidth = cardRef.value?.offsetWidth || 300
+  const threshold = cardWidth * 0.9
+
+  // Check if swipe threshold is met
+  if (Math.abs(swipeOffset.value) >= threshold) {
+    isRemoving.value = true
+
+    // Animate card off screen
+    const direction = swipeOffset.value > 0 ? 1 : -1
+    swipeOffset.value = direction * (cardWidth + 50)
+
+    // Wait for animation, then emit events
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    if (direction > 0) {
+      // Right swipe - Save
+      emit('toggle-save')
+    } else {
+      // Left swipe - Mark as read
+      emit('toggle-read')
+    }
+
+    // Emit dismiss event for parent to remove from DOM
+    emit('swipe-dismiss')
+  } else {
+    // Snap back
+    swipeOffset.value = 0
+  }
+}
+
+const handlePointerCancel = () => {
+  isDragging.value = false
+  swipeOffset.value = 0
+}
 </script>
 
 <style scoped>
+/* Swipe container */
+.swipe-wrapper {
+  transition: all 0.3s ease;
+}
+
+.swipe-wrapper.is-removing {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Swipe overlays */
+.swipe-overlay {
+  transition: opacity 0.2s ease;
+}
+
+.swipe-overlay-left {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0.8));
+}
+
+.swipe-overlay-right {
+  background: linear-gradient(to left, rgba(234, 179, 8, 0.9), rgba(234, 179, 8, 0.8));
+}
+
+/* Smooth transition for snap back */
+.swipe-transition {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Prevent text selection while dragging */
+.cursor-grabbing * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Line clamp utilities */
 .line-clamp-4 {
   display: -webkit-box;

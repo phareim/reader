@@ -47,6 +47,7 @@
             :is-selected="selectedArticleId === article.id"
             :is-saved="true"
             :show-feed-title="true"
+            :allow-swipe="false"
             :all-tags-with-counts="allTagsWithCounts"
             @toggle-save="toggleSaveArticle(article.id)"
             @toggle-read="handleToggleRead(article.id)"
