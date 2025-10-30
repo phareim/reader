@@ -142,20 +142,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       return
     }
 
-    // Refresh feed: r
-    if (key === 'r' && !shiftKey && selectedFeedId.value && selectedFeedId.value > 0) {
-      e.preventDefault()
-      await refreshFeed(selectedFeedId.value)
-      return
-    }
-
-    // Sync all feeds: Shift+R
-    if (key === 'R' && shiftKey) {
-      e.preventDefault()
-      await syncAll()
-      return
-    }
-
     // Show help: ?
     if (key === '?' || (key === '/' && shiftKey)) {
       e.preventDefault()

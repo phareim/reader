@@ -130,16 +130,6 @@
                 <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
                 <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Refresh current feed</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Refresh all feeds</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
-                <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">r</kbd>
-              </div>
             </div>
           </div>
 
