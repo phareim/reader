@@ -35,11 +35,10 @@
       </div>
     </div>
 
-    <NuxtLink
-      :to="`/article/${article.id}`"
+    <div
       :id="`article-card-${article.id}`"
       :data-article-id="article.id"
-      class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all group relative"
+      class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all group relative cursor-pointer"
       :class="{
         'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
         'hover:translate-y-[-2px]': !isSelected && !isDragging,
@@ -56,7 +55,7 @@
         transform: `translateX(${swipeOffset}px)`,
         transition: isDragging ? 'none' : undefined
       }"
-      @click.prevent.stop="handleLinkClick"
+      @click="handleCardClick"
     >
     <!-- Flexible height container -->
     <div
@@ -185,7 +184,7 @@
         </div>
       </div>
     </div>
-  </NuxtLink>
+  </div>
   </div>
 </template>
 
@@ -358,7 +357,9 @@ const swipeDirection = computed(() => {
 
 const swipeProgress = computed(() => {
   const cardWidth = cardRef.value?.offsetWidth || 300
-  return Math.min(Math.abs(swipeOffset.value) / (cardWidth * 0.5), 1)
+  // Use 30% threshold for desktop (easier to trigger), 50% for touch
+  const thresholdPercent = window.matchMedia('(pointer: fine)').matches ? 0.3 : 0.5
+  return Math.min(Math.abs(swipeOffset.value) / (cardWidth * thresholdPercent), 1)
 })
 
 const handlePointerDown = (e: PointerEvent | TouchEvent) => {
@@ -417,10 +418,21 @@ const handlePointerMove = (e: PointerEvent | TouchEvent) => {
 const handlePointerUp = async () => {
   if (!isDragging.value || !props.allowSwipe) return
 
-  isDragging.value = false
   const cardWidth = cardRef.value?.offsetWidth || 300
-  const threshold = cardWidth * 0.5
+  // Use 30% threshold for desktop (easier to trigger), 50% for touch
+  const thresholdPercent = window.matchMedia('(pointer: fine)').matches ? 0.3 : 0.5
+  const threshold = cardWidth * thresholdPercent
   const didMove = hasMoved.value
+
+  console.log('PointerUp:', {
+    didMove,
+    swipeOffset: swipeOffset.value,
+    threshold,
+    thresholdPercent,
+    willTrigger: didMove && Math.abs(swipeOffset.value) >= threshold
+  })
+
+  isDragging.value = false
 
   // Check if swipe threshold is met
   if (didMove && Math.abs(swipeOffset.value) >= threshold) {
@@ -428,6 +440,7 @@ const handlePointerUp = async () => {
     // This prevents click navigation on desktop
     willTriggerSwipe.value = true
     isRemoving.value = true
+    console.log('Swipe triggered! willTriggerSwipe set to true')
 
     // Animate card off screen
     const direction = swipeOffset.value > 0 ? 1 : -1
@@ -457,7 +470,7 @@ const handlePointerUp = async () => {
     if (didMove) {
       setTimeout(() => {
         hasMoved.value = false
-      }, 50)
+      }, 100)
     }
   }
 }
@@ -470,9 +483,17 @@ const handlePointerCancel = () => {
 }
 
 // Handle click - navigate only if not swiping/dragging
-const handleLinkClick = (e: MouseEvent) => {
+const handleCardClick = (e: MouseEvent) => {
+  console.log('Click handler:', {
+    hasMoved: hasMoved.value,
+    isDragging: isDragging.value,
+    isRemoving: isRemoving.value,
+    willTriggerSwipe: willTriggerSwipe.value
+  })
+
   // Prevent navigation if user was dragging or card is being removed
   if (hasMoved.value || isDragging.value || isRemoving.value || willTriggerSwipe.value) {
+    console.log('Click prevented!')
     // Don't navigate, just clean up
     if (!isRemoving.value && !willTriggerSwipe.value) {
       hasMoved.value = false
@@ -481,6 +502,7 @@ const handleLinkClick = (e: MouseEvent) => {
   }
 
   // Otherwise, manually navigate
+  console.log('Navigating to article')
   navigateTo(`/article/${props.article.id}`)
 }
 </script>
