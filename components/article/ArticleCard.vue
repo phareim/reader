@@ -7,10 +7,6 @@
     @pointermove="handlePointerMove"
     @pointerup="handlePointerUp"
     @pointercancel="handlePointerCancel"
-    @touchstart="handlePointerDown"
-    @touchmove="handlePointerMove"
-    @touchend="handlePointerUp"
-    @touchcancel="handlePointerCancel"
   >
     <!-- Swipe Overlays -->
     <div
@@ -60,7 +56,7 @@
         transform: `translateX(${swipeOffset}px)`,
         transition: isDragging ? 'none' : undefined
       }"
-      @click="handleLinkClick"
+      @click.prevent.stop="handleLinkClick"
     >
     <!-- Flexible height container -->
     <div
@@ -251,6 +247,7 @@ const currentX = ref(0)
 const swipeOffset = ref(0)
 const isRemoving = ref(false)
 const hasMoved = ref(false)
+const willTriggerSwipe = ref(false)
 
 const handleImageError = () => {
   imageError.value = true
@@ -427,6 +424,9 @@ const handlePointerUp = async () => {
 
   // Check if swipe threshold is met
   if (didMove && Math.abs(swipeOffset.value) >= threshold) {
+    // Set this synchronously BEFORE any async operations
+    // This prevents click navigation on desktop
+    willTriggerSwipe.value = true
     isRemoving.value = true
 
     // Animate card off screen
@@ -446,6 +446,9 @@ const handlePointerUp = async () => {
 
     // Emit dismiss event for parent to remove from DOM
     emit('swipe-dismiss')
+
+    // Reset flag after action completes
+    willTriggerSwipe.value = false
   } else {
     // Snap back
     swipeOffset.value = 0
@@ -463,15 +466,22 @@ const handlePointerCancel = () => {
   isDragging.value = false
   swipeOffset.value = 0
   hasMoved.value = false
+  willTriggerSwipe.value = false
 }
 
-// Prevent navigation if user was dragging
+// Handle click - navigate only if not swiping/dragging
 const handleLinkClick = (e: MouseEvent) => {
-  if (hasMoved.value) {
-    e.preventDefault()
-    e.stopPropagation()
-    hasMoved.value = false
+  // Prevent navigation if user was dragging or card is being removed
+  if (hasMoved.value || isDragging.value || isRemoving.value || willTriggerSwipe.value) {
+    // Don't navigate, just clean up
+    if (!isRemoving.value && !willTriggerSwipe.value) {
+      hasMoved.value = false
+    }
+    return
   }
+
+  // Otherwise, manually navigate
+  navigateTo(`/article/${props.article.id}`)
 }
 </script>
 
