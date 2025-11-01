@@ -183,6 +183,113 @@
         </footer>
       </article>
     </div>
+
+    <!-- Swipe Indicator (fixed overlay, independent of content state) -->
+    <Transition
+      enter-active-class="transition-opacity duration-200"
+      leave-active-class="transition-opacity duration-200"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="isSwipeGesture && swipeProgress > 0"
+        class="fixed inset-0 pointer-events-none z-50 overflow-hidden"
+      >
+        <!-- Left side indicator (swipe right -> previous) -->
+        <div
+          v-if="swipeDirection === 'right' && prevArticleId"
+          class="absolute left-0 top-0 bottom-0 w-32"
+        >
+          <svg
+            class="absolute inset-0 w-full h-full"
+            :viewBox="`0 0 128 ${windowHeight}`"
+            preserveAspectRatio="none"
+          >
+            <path
+              :d="getSwipeCurve('left')"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              class="text-blue-500 dark:text-blue-400"
+              :opacity="0.6 + swipeProgress * 0.4"
+              style="filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));"
+            />
+          </svg>
+          <Transition
+            enter-active-class="transition-all duration-150"
+            leave-active-class="transition-all duration-150"
+            enter-from-class="opacity-0 scale-75"
+            enter-to-class="opacity-100 scale-100"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-75"
+          >
+            <div
+              v-if="swipeProgress > 0.3"
+              class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
+              :style="{
+                top: `${swipeYPercent}%`,
+                left: `${16 + swipeProgress * 20}px`,
+                transform: 'translateY(-50%)',
+                width: '32px',
+                height: '32px'
+              }"
+            >
+              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Right side indicator (swipe left -> next) -->
+        <div
+          v-if="swipeDirection === 'left' && nextArticleId"
+          class="absolute right-0 top-0 bottom-0 w-32"
+        >
+          <svg
+            class="absolute inset-0 w-full h-full"
+            :viewBox="`0 0 128 ${windowHeight}`"
+            preserveAspectRatio="none"
+          >
+            <path
+              :d="getSwipeCurve('right')"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              class="text-blue-500 dark:text-blue-400"
+              :opacity="0.6 + swipeProgress * 0.4"
+              style="filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));"
+            />
+          </svg>
+          <Transition
+            enter-active-class="transition-all duration-150"
+            leave-active-class="transition-all duration-150"
+            enter-from-class="opacity-0 scale-75"
+            enter-to-class="opacity-100 scale-100"
+            leave-from-class="opacity-100 scale-100"
+            leave-to-class="opacity-0 scale-75"
+          >
+            <div
+              v-if="swipeProgress > 0.3"
+              class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
+              :style="{
+                top: `${swipeYPercent}%`,
+                right: `${16 + swipeProgress * 20}px`,
+                transform: 'translateY(-50%)',
+                width: '32px',
+                height: '32px'
+              }"
+            >
+              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Transition>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -461,9 +568,41 @@ const touchCurrentX = ref(0)
 const touchCurrentY = ref(0)
 const isSwipeGesture = ref(false)
 const hasSwiped = ref(false)
+const swipeProgress = ref(0) // 0-1 progress of swipe
+const swipeDirection = ref<'left' | 'right' | null>(null)
+const swipeYPercent = ref(50) // Y position as percentage of screen height
+const windowHeight = ref(0)
 
 const minSwipeDistance = 100 // Minimum distance in pixels to register as a swipe
 const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizontal swipe
+const maxSwipeDistance = 200 // Maximum distance for full progress
+
+// Calculate swipe curve path based on Y position - creates organic bend effect
+const getSwipeCurve = (side: 'left' | 'right') => {
+  const height = windowHeight.value || 1000
+  const yPos = (swipeYPercent.value / 100) * height
+  const curveAmount = swipeProgress.value * 50 // Maximum curve offset
+  
+  // Create a smooth curve that bends outward at the touch position
+  // The curve starts straight, bends smoothly at touch Y, then straightens
+  const startX = side === 'left' ? 0 : 128
+  const endX = side === 'left' ? 0 : 128
+  
+  // Maximum bend point (at touch Y position)
+  const peakX = side === 'left' ? curveAmount : 128 - curveAmount
+  
+  // Create a smooth S-curve using two quadratic bezier curves
+  // First curve: from top to peak
+  const midY1 = yPos * 0.5
+  const control1X = side === 'left' ? curveAmount * 0.5 : 128 - curveAmount * 0.5
+  
+  // Second curve: from peak to bottom
+  const midY2 = yPos + (height - yPos) * 0.5
+  const control2X = side === 'left' ? curveAmount * 0.5 : 128 - curveAmount * 0.5
+  
+  // Build path with smooth quadratic bezier curves
+  return `M ${startX},0 Q ${control1X},${midY1} ${peakX},${yPos} Q ${control2X},${midY2} ${endX},${height}`
+}
 
 const handleTouchStart = (e: TouchEvent) => {
   // Ignore if touching interactive elements
@@ -486,6 +625,10 @@ const handleTouchStart = (e: TouchEvent) => {
   touchCurrentY.value = touch.clientY
   isSwipeGesture.value = false
   hasSwiped.value = false
+  swipeProgress.value = 0
+  swipeDirection.value = null
+  windowHeight.value = window.innerHeight
+  swipeYPercent.value = (touch.clientY / window.innerHeight) * 100
 }
 
 const handleTouchMove = (e: TouchEvent) => {
@@ -505,7 +648,14 @@ const handleTouchMove = (e: TouchEvent) => {
   if (absDeltaX > 10 && absDeltaX > absDeltaY * 1.5 && absDeltaY < maxVerticalThreshold) {
     if (!isSwipeGesture.value) {
       isSwipeGesture.value = true
+      swipeDirection.value = deltaX < 0 ? 'left' : 'right'
     }
+
+    // Update swipe progress (0-1)
+    swipeProgress.value = Math.min(absDeltaX / maxSwipeDistance, 1)
+    
+    // Update Y position percentage
+    swipeYPercent.value = (touch.clientY / window.innerHeight) * 100
 
     // Prevent default scrolling when swiping horizontally
     if (isSwipeGesture.value && e.cancelable) {
@@ -547,6 +697,8 @@ const handleTouchEnd = (e: TouchEvent) => {
   touchCurrentX.value = 0
   touchCurrentY.value = 0
   isSwipeGesture.value = false
+  swipeProgress.value = 0
+  swipeDirection.value = null
 
   // Reset swipe flag after a short delay to prevent accidental clicks
   setTimeout(() => {
@@ -562,6 +714,8 @@ const handleTouchCancel = () => {
   touchCurrentY.value = 0
   isSwipeGesture.value = false
   hasSwiped.value = false
+  swipeProgress.value = 0
+  swipeDirection.value = null
 }
 
 onUnmounted(() => {
