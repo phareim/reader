@@ -1,6 +1,8 @@
 <template>
   <div>
     <NuxtPage />
-    <PwaUpdatePrompt />
+    <ClientOnly>
+      <PwaUpdatePrompt />
+    </ClientOnly>
   </div>
 </template>

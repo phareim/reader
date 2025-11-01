@@ -203,7 +203,8 @@ const { data: session } = useAuth()
 const {
   feeds,
   fetchFeeds,
-  syncAll
+  syncAll,
+  refreshFeed
 } = useFeeds()
 
 const {
@@ -392,6 +393,14 @@ const formatDate = (date?: string) => {
 
 // Lifecycle
 onMounted(async () => {
+  // Set up event listeners
+  window.addEventListener('keydown', handleArticleKeydown)
+  window.addEventListener('touchstart', handleTouchStart, { passive: true })
+  window.addEventListener('touchmove', handleTouchMove, { passive: false })
+  window.addEventListener('touchend', handleTouchEnd, { passive: false })
+  window.addEventListener('touchcancel', handleTouchCancel)
+
+  // Fetch initial data
   if (session.value?.user) {
     await Promise.all([
       fetchFeeds(),
@@ -446,54 +455,121 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
 }
 
 // Swipe gesture handling
-let touchStartX = 0
-let touchStartY = 0
-let touchEndX = 0
-let touchEndY = 0
+const touchStartX = ref(0)
+const touchStartY = ref(0)
+const touchCurrentX = ref(0)
+const touchCurrentY = ref(0)
+const isSwipeGesture = ref(false)
+const hasSwiped = ref(false)
 
-const minSwipeDistance = 50 // Minimum distance in pixels to register as a swipe
+const minSwipeDistance = 100 // Minimum distance in pixels to register as a swipe
+const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizontal swipe
 
 const handleTouchStart = (e: TouchEvent) => {
-  touchStartX = e.changedTouches[0].screenX
-  touchStartY = e.changedTouches[0].screenY
-}
-
-const handleTouchEnd = (e: TouchEvent) => {
-  touchEndX = e.changedTouches[0].screenX
-  touchEndY = e.changedTouches[0].screenY
-  handleSwipe()
-}
-
-const handleSwipe = () => {
-  const deltaX = touchEndX - touchStartX
-  const deltaY = touchEndY - touchStartY
-
-  // Ensure horizontal swipe is more significant than vertical
-  if (Math.abs(deltaX) < minSwipeDistance || Math.abs(deltaY) > Math.abs(deltaX)) {
+  // Ignore if touching interactive elements
+  const target = e.target as HTMLElement
+  if (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'BUTTON' ||
+    target.tagName === 'A' ||
+    target.closest('button') ||
+    target.closest('a')
+  ) {
     return
   }
 
-  // Swipe left -> next article
-  if (deltaX < 0 && nextArticleId.value) {
-    router.push(`/article/${nextArticleId.value}`)
-  }
+  const touch = e.changedTouches[0]
+  touchStartX.value = touch.clientX
+  touchStartY.value = touch.clientY
+  touchCurrentX.value = touch.clientX
+  touchCurrentY.value = touch.clientY
+  isSwipeGesture.value = false
+  hasSwiped.value = false
+}
 
-  // Swipe right -> previous article
-  if (deltaX > 0 && prevArticleId.value) {
-    router.push(`/article/${prevArticleId.value}`)
+const handleTouchMove = (e: TouchEvent) => {
+  if (!touchStartX.value && !touchStartY.value) return
+
+  const touch = e.changedTouches[0]
+  touchCurrentX.value = touch.clientX
+  touchCurrentY.value = touch.clientY
+
+  const deltaX = touchCurrentX.value - touchStartX.value
+  const deltaY = touchCurrentY.value - touchStartY.value
+  const absDeltaX = Math.abs(deltaX)
+  const absDeltaY = Math.abs(deltaY)
+
+  // Detect if this is a horizontal swipe gesture
+  // Must have significant horizontal movement and horizontal movement should dominate
+  if (absDeltaX > 10 && absDeltaX > absDeltaY * 1.5 && absDeltaY < maxVerticalThreshold) {
+    if (!isSwipeGesture.value) {
+      isSwipeGesture.value = true
+    }
+
+    // Prevent default scrolling when swiping horizontally
+    if (isSwipeGesture.value && e.cancelable) {
+      e.preventDefault()
+    }
   }
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', handleArticleKeydown)
-  window.addEventListener('touchstart', handleTouchStart)
-  window.addEventListener('touchend', handleTouchEnd)
-})
+const handleTouchEnd = (e: TouchEvent) => {
+  if (!touchStartX.value && !touchStartY.value) return
+
+  const touch = e.changedTouches[0]
+  touchCurrentX.value = touch.clientX
+  touchCurrentY.value = touch.clientY
+
+  const deltaX = touchCurrentX.value - touchStartX.value
+  const deltaY = touchCurrentY.value - touchStartY.value
+  const absDeltaX = Math.abs(deltaX)
+  const absDeltaY = Math.abs(deltaY)
+
+  // Only process swipe if it was identified as a horizontal gesture
+  if (isSwipeGesture.value && absDeltaX >= minSwipeDistance && absDeltaY < maxVerticalThreshold) {
+    e.preventDefault()
+    hasSwiped.value = true
+
+    // Swipe left -> next article
+    if (deltaX < 0 && nextArticleId.value) {
+      router.push(`/article/${nextArticleId.value}`)
+    }
+    // Swipe right -> previous article
+    else if (deltaX > 0 && prevArticleId.value) {
+      router.push(`/article/${prevArticleId.value}`)
+    }
+  }
+
+  // Reset touch state
+  touchStartX.value = 0
+  touchStartY.value = 0
+  touchCurrentX.value = 0
+  touchCurrentY.value = 0
+  isSwipeGesture.value = false
+
+  // Reset swipe flag after a short delay to prevent accidental clicks
+  setTimeout(() => {
+    hasSwiped.value = false
+  }, 100)
+}
+
+const handleTouchCancel = () => {
+  // Reset all touch state on cancel
+  touchStartX.value = 0
+  touchStartY.value = 0
+  touchCurrentX.value = 0
+  touchCurrentY.value = 0
+  isSwipeGesture.value = false
+  hasSwiped.value = false
+}
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleArticleKeydown)
   window.removeEventListener('touchstart', handleTouchStart)
+  window.removeEventListener('touchmove', handleTouchMove)
   window.removeEventListener('touchend', handleTouchEnd)
+  window.removeEventListener('touchcancel', handleTouchCancel)
 })
 
 // Register keyboard shortcuts for article actions
@@ -507,11 +583,12 @@ useKeyboardShortcuts({
   markAsRead,
   refreshFeed: async (feedId: number) => {
     if (feedId) {
-      await refreshFeed(feedId)
+      return await refreshFeed(feedId)
     }
+    return { success: false, newArticles: 0 }
   },
   syncAll,
-  toggleSaveArticle: async () => {
+  toggleSaveArticle: async (articleId: number) => {
     await toggleSave()
   },
   handleMarkAsRead: async () => {
