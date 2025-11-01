@@ -50,7 +50,9 @@
     "cookie": "^0.7.2"
   },
   "devDependencies": {
+    "@vite-pwa/nuxt": "^1.0.7",
     "patch-package": "^8.0.1",
+    "sharp": "^0.34.4",
     "tsx": "^4.20.6"
   }
 }
