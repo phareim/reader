@@ -597,6 +597,11 @@ const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizon
 
 const swipeThreshold = computed(() => minSwipeDistance / maxSwipeDistance) // 0.5 threshold
 
+// Smoothstep function for easing curves (0 to 1)
+const smoothstep = (t: number) => {
+  return t * t * (3 - 2 * t)
+}
+
 // Calculate swipe curve path based on Y position - creates organic bend effect
 const getSwipeCurve = (side: 'left' | 'right') => {
   const height = windowHeight.value || 1000
@@ -604,25 +609,66 @@ const getSwipeCurve = (side: 'left' | 'right') => {
   const maxWidth = 128 + swipeProgress.value * 300 // Total width extends into page
   const curveAmount = swipeProgress.value * 300 // Maximum curve extension into page
   
-  // Create a smooth curve that bends outward at the touch position
-  // The curve starts straight, bends smoothly at touch Y, then straightens
-  const startX = side === 'left' ? 0 : maxWidth
-  const endX = side === 'left' ? 0 : maxWidth
+  const edgeX = side === 'left' ? 0 : maxWidth
   
-  // Maximum bend point (at touch Y position) - extends into the page
-  const peakX = side === 'left' ? curveAmount : maxWidth - curveAmount
+  // Create a smooth bell curve centered at touch Y position
+  // Use multiple points with smooth interpolation to avoid sharp peaks
+  const numPoints = 20 // Number of points for smooth curve
+  const points: Array<{ x: number; y: number }> = []
   
-  // Create a smooth S-curve using two quadratic bezier curves
-  // First curve: from top to peak
-  const midY1 = yPos * 0.5
-  const control1X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints // 0 to 1
+    const y = t * height
+    
+    // Calculate distance from touch point (normalized to 0-1)
+    const distanceFromPeak = Math.abs(y - yPos) / (height / 2)
+    const clampedDistance = Math.min(distanceFromPeak, 1)
+    
+    // Use smoothstep for a rounded bell curve effect
+    const influence = 1 - smoothstep(clampedDistance)
+    
+    // Calculate X offset based on influence (creates smooth rounded peak)
+    const offset = curveAmount * influence
+    const x = side === 'left' ? offset : maxWidth - offset
+    
+    points.push({ x, y })
+  }
   
-  // Second curve: from peak to bottom
-  const midY2 = yPos + (height - yPos) * 0.5
-  const control2X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  // Build path by connecting points with smooth curves
+  // Use Catmull-Rom style interpolation for smoother curves
+  let path = `M ${edgeX},0`
   
-  // Build path with smooth quadratic bezier curves
-  return `M ${startX},0 Q ${control1X},${midY1} ${peakX},${yPos} Q ${control2X},${midY2} ${endX},${height}`
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]
+    const curr = points[i]
+    
+    if (i === 1) {
+      // First segment: smooth curve from edge
+      const controlX = (prev.x + curr.x) / 2
+      const controlY = (prev.y + curr.y) / 2
+      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
+    } else if (i === points.length - 1) {
+      // Last segment: smooth curve to edge
+      const controlX = (prev.x + curr.x) / 2
+      const controlY = (prev.y + curr.y) / 2
+      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
+    } else {
+      // Middle segments: use cubic bezier for smoother transitions
+      const prevPrev = points[i - 2]
+      const next = points[i + 1]
+      
+      // Calculate smooth control points using Catmull-Rom style
+      const tension = 0.5
+      const cp1X = prev.x + (curr.x - prevPrev.x) * tension
+      const cp1Y = prev.y + (curr.y - prevPrev.y) * tension
+      const cp2X = curr.x - (next.x - prev.x) * tension
+      const cp2Y = curr.y - (next.y - prev.y) * tension
+      
+      path += ` C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${curr.x},${curr.y}`
+    }
+  }
+  
+  return path
 }
 
 // Calculate filled area path (closed path for fill between edge and curve)
@@ -633,18 +679,56 @@ const getSwipeFillPath = (side: 'left' | 'right') => {
   const curveAmount = swipeProgress.value * 300
   
   const edgeX = side === 'left' ? 0 : maxWidth
-  const peakX = side === 'left' ? curveAmount : maxWidth - curveAmount
   
-  const midY1 = yPos * 0.5
-  const control1X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  // Create the same smooth curve as the stroke
+  const numPoints = 20
+  const points: Array<{ x: number; y: number }> = []
   
-  const midY2 = yPos + (height - yPos) * 0.5
-  const control2X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints
+    const y = t * height
+    
+    const distanceFromPeak = Math.abs(y - yPos) / (height / 2)
+    const clampedDistance = Math.min(distanceFromPeak, 1)
+    const influence = 1 - smoothstep(clampedDistance)
+    
+    const offset = curveAmount * influence
+    const x = side === 'left' ? offset : maxWidth - offset
+    
+    points.push({ x, y })
+  }
   
-  // Create closed path: start at edge top, follow curve, then close back along edge
-  const curvePath = `M ${edgeX},0 Q ${control1X},${midY1} ${peakX},${yPos} Q ${control2X},${midY2} ${edgeX},${height}`
-  // Close the path by going back along the edge (already at edgeX, just need to close)
-  return `${curvePath} Z`
+  // Build path by connecting points with smooth curves (same as stroke)
+  let path = `M ${edgeX},0`
+  
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]
+    const curr = points[i]
+    
+    if (i === 1) {
+      const controlX = (prev.x + curr.x) / 2
+      const controlY = (prev.y + curr.y) / 2
+      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
+    } else if (i === points.length - 1) {
+      const controlX = (prev.x + curr.x) / 2
+      const controlY = (prev.y + curr.y) / 2
+      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
+    } else {
+      const prevPrev = points[i - 2]
+      const next = points[i + 1]
+      
+      const tension = 0.5
+      const cp1X = prev.x + (curr.x - prevPrev.x) * tension
+      const cp1Y = prev.y + (curr.y - prevPrev.y) * tension
+      const cp2X = curr.x - (next.x - prev.x) * tension
+      const cp2Y = curr.y - (next.y - prev.y) * tension
+      
+      path += ` C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${curr.x},${curr.y}`
+    }
+  }
+  
+  // Close the path by going back along the edge
+  return `${path} L ${edgeX},${height} Z`
 }
 
 const handleTouchStart = (e: TouchEvent) => {
