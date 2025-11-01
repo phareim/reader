@@ -200,13 +200,22 @@
         <!-- Left side indicator (swipe right -> previous) -->
         <div
           v-if="swipeDirection === 'right' && prevArticleId"
-          class="absolute left-0 top-0 bottom-0 w-32"
+          class="absolute left-0 top-0 bottom-0"
+          :style="{ width: `${128 + swipeProgress * 300}px` }"
         >
           <svg
             class="absolute inset-0 w-full h-full"
-            :viewBox="`0 0 128 ${windowHeight}`"
+            :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
             preserveAspectRatio="none"
           >
+            <!-- Filled area when threshold is passed -->
+            <path
+              v-if="swipeProgress >= swipeThreshold"
+              :d="getSwipeFillPath('left')"
+              fill="currentColor"
+              class="text-blue-500 dark:text-blue-400"
+              :opacity="0.15 + (swipeProgress - swipeThreshold) * 0.15"
+            />
             <path
               :d="getSwipeCurve('left')"
               fill="none"
@@ -230,7 +239,7 @@
               class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
               :style="{
                 top: `${swipeYPercent}%`,
-                left: `${16 + swipeProgress * 20}px`,
+                left: `${16 + swipeProgress * 150}px`,
                 transform: 'translateY(-50%)',
                 width: '32px',
                 height: '32px'
@@ -246,13 +255,22 @@
         <!-- Right side indicator (swipe left -> next) -->
         <div
           v-if="swipeDirection === 'left' && nextArticleId"
-          class="absolute right-0 top-0 bottom-0 w-32"
+          class="absolute right-0 top-0 bottom-0"
+          :style="{ width: `${128 + swipeProgress * 300}px` }"
         >
           <svg
             class="absolute inset-0 w-full h-full"
-            :viewBox="`0 0 128 ${windowHeight}`"
+            :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
             preserveAspectRatio="none"
           >
+            <!-- Filled area when threshold is passed -->
+            <path
+              v-if="swipeProgress >= swipeThreshold"
+              :d="getSwipeFillPath('right')"
+              fill="currentColor"
+              class="text-blue-500 dark:text-blue-400"
+              :opacity="0.15 + (swipeProgress - swipeThreshold) * 0.15"
+            />
             <path
               :d="getSwipeCurve('right')"
               fill="none"
@@ -276,7 +294,7 @@
               class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
               :style="{
                 top: `${swipeYPercent}%`,
-                right: `${16 + swipeProgress * 20}px`,
+                right: `${16 + swipeProgress * 150}px`,
                 transform: 'translateY(-50%)',
                 width: '32px',
                 height: '32px'
@@ -573,35 +591,60 @@ const swipeDirection = ref<'left' | 'right' | null>(null)
 const swipeYPercent = ref(50) // Y position as percentage of screen height
 const windowHeight = ref(0)
 
-const minSwipeDistance = 100 // Minimum distance in pixels to register as a swipe
-const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizontal swipe
 const maxSwipeDistance = 200 // Maximum distance for full progress
+const minSwipeDistance = (maxSwipeDistance/3)*2 // Minimum distance in pixels to register as a swipe
+const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizontal swipe
+
+const swipeThreshold = computed(() => minSwipeDistance / maxSwipeDistance) // 0.5 threshold
 
 // Calculate swipe curve path based on Y position - creates organic bend effect
 const getSwipeCurve = (side: 'left' | 'right') => {
   const height = windowHeight.value || 1000
   const yPos = (swipeYPercent.value / 100) * height
-  const curveAmount = swipeProgress.value * 50 // Maximum curve offset
+  const maxWidth = 128 + swipeProgress.value * 300 // Total width extends into page
+  const curveAmount = swipeProgress.value * 300 // Maximum curve extension into page
   
   // Create a smooth curve that bends outward at the touch position
   // The curve starts straight, bends smoothly at touch Y, then straightens
-  const startX = side === 'left' ? 0 : 128
-  const endX = side === 'left' ? 0 : 128
+  const startX = side === 'left' ? 0 : maxWidth
+  const endX = side === 'left' ? 0 : maxWidth
   
-  // Maximum bend point (at touch Y position)
-  const peakX = side === 'left' ? curveAmount : 128 - curveAmount
+  // Maximum bend point (at touch Y position) - extends into the page
+  const peakX = side === 'left' ? curveAmount : maxWidth - curveAmount
   
   // Create a smooth S-curve using two quadratic bezier curves
   // First curve: from top to peak
   const midY1 = yPos * 0.5
-  const control1X = side === 'left' ? curveAmount * 0.5 : 128 - curveAmount * 0.5
+  const control1X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
   
   // Second curve: from peak to bottom
   const midY2 = yPos + (height - yPos) * 0.5
-  const control2X = side === 'left' ? curveAmount * 0.5 : 128 - curveAmount * 0.5
+  const control2X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
   
   // Build path with smooth quadratic bezier curves
   return `M ${startX},0 Q ${control1X},${midY1} ${peakX},${yPos} Q ${control2X},${midY2} ${endX},${height}`
+}
+
+// Calculate filled area path (closed path for fill between edge and curve)
+const getSwipeFillPath = (side: 'left' | 'right') => {
+  const height = windowHeight.value || 1000
+  const yPos = (swipeYPercent.value / 100) * height
+  const maxWidth = 128 + swipeProgress.value * 300
+  const curveAmount = swipeProgress.value * 300
+  
+  const edgeX = side === 'left' ? 0 : maxWidth
+  const peakX = side === 'left' ? curveAmount : maxWidth - curveAmount
+  
+  const midY1 = yPos * 0.5
+  const control1X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  
+  const midY2 = yPos + (height - yPos) * 0.5
+  const control2X = side === 'left' ? curveAmount * 0.5 : maxWidth - curveAmount * 0.5
+  
+  // Create closed path: start at edge top, follow curve, then close back along edge
+  const curvePath = `M ${edgeX},0 Q ${control1X},${midY1} ${peakX},${yPos} Q ${control2X},${midY2} ${edgeX},${height}`
+  // Close the path by going back along the edge (already at edgeX, just need to close)
+  return `${curvePath} Z`
 }
 
 const handleTouchStart = (e: TouchEvent) => {
