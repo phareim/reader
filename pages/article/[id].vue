@@ -208,22 +208,58 @@
             :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
             preserveAspectRatio="none"
           >
+            <defs>
+              <!-- Glow filter for diffuse light effect - increased blur for more diffusion -->
+              <filter id="glow-filter-left" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="16" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              <!-- Gradient for the stroke - much more transparent -->
+              <linearGradient id="stroke-gradient-left" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
+                <stop :offset="`${swipeYPercent}%`" :stop-color="`rgba(59, 130, 246, ${0.18 + swipeProgress * 0.12})`" />
+                <stop offset="100%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
+              </linearGradient>
+            </defs>
             <!-- Filled area when threshold is passed -->
             <path
               v-if="swipeProgress >= swipeThreshold"
               :d="getSwipeFillPath('left')"
               fill="currentColor"
               class="text-blue-500 dark:text-blue-400"
-              :opacity="0.15 + (swipeProgress - swipeThreshold) * 0.15"
+              :opacity="0.08 + (swipeProgress - swipeThreshold) * 0.07"
             />
+            <!-- Outer glow layer - very diffuse -->
             <path
               :d="getSwipeCurve('left')"
               fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              class="text-blue-500 dark:text-blue-400"
-              :opacity="0.6 + swipeProgress * 0.4"
-              style="filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));"
+              stroke="url(#stroke-gradient-left)"
+              stroke-width="16"
+              stroke-linecap="round"
+              opacity="0.15"
+              filter="url(#glow-filter-left)"
+            />
+            <!-- Middle glow layer -->
+            <path
+              :d="getSwipeCurve('left')"
+              fill="none"
+              stroke="url(#stroke-gradient-left)"
+              stroke-width="12"
+              stroke-linecap="round"
+              opacity="0.2"
+              filter="url(#glow-filter-left)"
+            />
+            <!-- Inner core - very subtle -->
+            <path
+              :d="getSwipeCurve('left')"
+              fill="none"
+              stroke="url(#stroke-gradient-left)"
+              stroke-width="6"
+              stroke-linecap="round"
+              opacity="0.25"
             />
           </svg>
           <Transition
@@ -235,17 +271,17 @@
             leave-to-class="opacity-0 scale-75"
           >
             <div
-              v-if="swipeProgress > 0.3"
+              v-if="swipeProgress >= swipeThreshold"
               class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
               :style="{
                 top: `${swipeYPercent}%`,
                 left: `${16 + swipeProgress * 150}px`,
                 transform: 'translateY(-50%)',
-                width: '32px',
-                height: '32px'
+                width: '64px',
+                height: '64px'
               }"
             >
-              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-10 h-10 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
               </svg>
             </div>
@@ -263,22 +299,58 @@
             :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
             preserveAspectRatio="none"
           >
+            <defs>
+              <!-- Glow filter for diffuse light effect - increased blur for more diffusion -->
+              <filter id="glow-filter-right" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="16" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              <!-- Gradient for the stroke - much more transparent -->
+              <linearGradient id="stroke-gradient-right" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
+                <stop :offset="`${swipeYPercent}%`" :stop-color="`rgba(59, 130, 246, ${0.18 + swipeProgress * 0.12})`" />
+                <stop offset="100%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
+              </linearGradient>
+            </defs>
             <!-- Filled area when threshold is passed -->
             <path
               v-if="swipeProgress >= swipeThreshold"
               :d="getSwipeFillPath('right')"
               fill="currentColor"
               class="text-blue-500 dark:text-blue-400"
-              :opacity="0.15 + (swipeProgress - swipeThreshold) * 0.15"
+              :opacity="0.08 + (swipeProgress - swipeThreshold) * 0.07"
             />
+            <!-- Outer glow layer - very diffuse -->
             <path
               :d="getSwipeCurve('right')"
               fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              class="text-blue-500 dark:text-blue-400"
-              :opacity="0.6 + swipeProgress * 0.4"
-              style="filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));"
+              stroke="url(#stroke-gradient-right)"
+              stroke-width="16"
+              stroke-linecap="round"
+              opacity="0.15"
+              filter="url(#glow-filter-right)"
+            />
+            <!-- Middle glow layer -->
+            <path
+              :d="getSwipeCurve('right')"
+              fill="none"
+              stroke="url(#stroke-gradient-right)"
+              stroke-width="12"
+              stroke-linecap="round"
+              opacity="0.2"
+              filter="url(#glow-filter-right)"
+            />
+            <!-- Inner core - very subtle -->
+            <path
+              :d="getSwipeCurve('right')"
+              fill="none"
+              stroke="url(#stroke-gradient-right)"
+              stroke-width="6"
+              stroke-linecap="round"
+              opacity="0.25"
             />
           </svg>
           <Transition
@@ -290,17 +362,17 @@
             leave-to-class="opacity-0 scale-75"
           >
             <div
-              v-if="swipeProgress > 0.3"
+              v-if="swipeProgress >= swipeThreshold"
               class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
               :style="{
                 top: `${swipeYPercent}%`,
                 right: `${16 + swipeProgress * 150}px`,
                 transform: 'translateY(-50%)',
-                width: '32px',
-                height: '32px'
+                width: '64px',
+                height: '64px'
               }"
             >
-              <svg class="w-5 h-5 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-10 h-10 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
             </div>
