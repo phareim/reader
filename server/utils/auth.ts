@@ -1,4 +1,4 @@
-import { H3Event } from 'h3'
+import { H3Event, getHeader, createError } from 'h3'
 import { getServerSession } from '#auth'
 import prisma from '~/server/utils/db'
 

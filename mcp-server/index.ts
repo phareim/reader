@@ -1,4 +1,4 @@
-CT#!/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * The Librarian MCP Server
