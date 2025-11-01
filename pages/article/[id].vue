@@ -198,186 +198,30 @@
         class="fixed inset-0 pointer-events-none z-50 overflow-hidden"
       >
         <!-- Left side indicator (swipe right -> previous) -->
-        <div
-          v-if="swipeDirection === 'right' && prevArticleId"
-          class="absolute left-0 top-0 bottom-0"
-          :style="{ width: `${128 + swipeProgress * 300}px` }"
-        >
-          <svg
-            class="absolute inset-0 w-full h-full"
-            :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <!-- Glow filter for diffuse light effect - increased blur for more diffusion -->
-              <filter id="glow-filter-left" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="16" result="coloredBlur"/>
-                <feMerge>
-                  <feMergeNode in="coloredBlur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-              <!-- Gradient for the stroke - much more transparent -->
-              <linearGradient id="stroke-gradient-left" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
-                <stop :offset="`${swipeYPercent}%`" :stop-color="`rgba(59, 130, 246, ${0.18 + swipeProgress * 0.12})`" />
-                <stop offset="100%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
-              </linearGradient>
-            </defs>
-            <!-- Filled area when threshold is passed -->
-            <path
-              v-if="swipeProgress >= swipeThreshold"
-              :d="getSwipeFillPath('left')"
-              fill="currentColor"
-              class="text-blue-500 dark:text-blue-400"
-              :opacity="0.08 + (swipeProgress - swipeThreshold) * 0.07"
-            />
-            <!-- Outer glow layer - very diffuse -->
-            <path
-              :d="getSwipeCurve('left')"
-              fill="none"
-              stroke="url(#stroke-gradient-left)"
-              stroke-width="16"
-              stroke-linecap="round"
-              opacity="0.15"
-              filter="url(#glow-filter-left)"
-            />
-            <!-- Middle glow layer -->
-            <path
-              :d="getSwipeCurve('left')"
-              fill="none"
-              stroke="url(#stroke-gradient-left)"
-              stroke-width="12"
-              stroke-linecap="round"
-              opacity="0.2"
-              filter="url(#glow-filter-left)"
-            />
-            <!-- Inner core - very subtle -->
-            <path
-              :d="getSwipeCurve('left')"
-              fill="none"
-              stroke="url(#stroke-gradient-left)"
-              stroke-width="6"
-              stroke-linecap="round"
-              opacity="0.25"
-            />
-          </svg>
-          <Transition
-            enter-active-class="transition-all duration-150"
-            leave-active-class="transition-all duration-150"
-            enter-from-class="opacity-0 scale-75"
-            enter-to-class="opacity-100 scale-100"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-75"
-          >
-            <div
-              v-if="swipeProgress >= swipeThreshold"
-              class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
-              :style="{
-                top: `${swipeYPercent}%`,
-                left: `${16 + swipeProgress * 150}px`,
-                transform: 'translateY(-50%)',
-                width: '64px',
-                height: '64px'
-              }"
-            >
-              <svg class="w-10 h-10 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </div>
-          </Transition>
-        </div>
+        <SwipeIndicator
+          v-if="swipeDirection === 'right'"
+          side="left"
+          :progress="swipeProgress"
+          :y-percent="swipeYPercent"
+          :height="windowHeight || 1000"
+          :threshold="swipeThreshold"
+          :curve-path="leftCurvePath"
+          :fill-path="leftFillPath"
+          :can-navigate="!!prevArticleId"
+        />
 
         <!-- Right side indicator (swipe left -> next) -->
-        <div
-          v-if="swipeDirection === 'left' && nextArticleId"
-          class="absolute right-0 top-0 bottom-0"
-          :style="{ width: `${128 + swipeProgress * 300}px` }"
-        >
-          <svg
-            class="absolute inset-0 w-full h-full"
-            :viewBox="`0 0 ${128 + swipeProgress * 300} ${windowHeight}`"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <!-- Glow filter for diffuse light effect - increased blur for more diffusion -->
-              <filter id="glow-filter-right" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="16" result="coloredBlur"/>
-                <feMerge>
-                  <feMergeNode in="coloredBlur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-              <!-- Gradient for the stroke - much more transparent -->
-              <linearGradient id="stroke-gradient-right" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
-                <stop :offset="`${swipeYPercent}%`" :stop-color="`rgba(59, 130, 246, ${0.18 + swipeProgress * 0.12})`" />
-                <stop offset="100%" :stop-color="`rgba(59, 130, 246, ${0.08 + swipeProgress * 0.06})`" />
-              </linearGradient>
-            </defs>
-            <!-- Filled area when threshold is passed -->
-            <path
-              v-if="swipeProgress >= swipeThreshold"
-              :d="getSwipeFillPath('right')"
-              fill="currentColor"
-              class="text-blue-500 dark:text-blue-400"
-              :opacity="0.08 + (swipeProgress - swipeThreshold) * 0.07"
-            />
-            <!-- Outer glow layer - very diffuse -->
-            <path
-              :d="getSwipeCurve('right')"
-              fill="none"
-              stroke="url(#stroke-gradient-right)"
-              stroke-width="16"
-              stroke-linecap="round"
-              opacity="0.15"
-              filter="url(#glow-filter-right)"
-            />
-            <!-- Middle glow layer -->
-            <path
-              :d="getSwipeCurve('right')"
-              fill="none"
-              stroke="url(#stroke-gradient-right)"
-              stroke-width="12"
-              stroke-linecap="round"
-              opacity="0.2"
-              filter="url(#glow-filter-right)"
-            />
-            <!-- Inner core - very subtle -->
-            <path
-              :d="getSwipeCurve('right')"
-              fill="none"
-              stroke="url(#stroke-gradient-right)"
-              stroke-width="6"
-              stroke-linecap="round"
-              opacity="0.25"
-            />
-          </svg>
-          <Transition
-            enter-active-class="transition-all duration-150"
-            leave-active-class="transition-all duration-150"
-            enter-from-class="opacity-0 scale-75"
-            enter-to-class="opacity-100 scale-100"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-75"
-          >
-            <div
-              v-if="swipeProgress >= swipeThreshold"
-              class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
-              :style="{
-                top: `${swipeYPercent}%`,
-                right: `${16 + swipeProgress * 150}px`,
-                transform: 'translateY(-50%)',
-                width: '64px',
-                height: '64px'
-              }"
-            >
-              <svg class="w-10 h-10 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </Transition>
-        </div>
+        <SwipeIndicator
+          v-if="swipeDirection === 'left'"
+          side="right"
+          :progress="swipeProgress"
+          :y-percent="swipeYPercent"
+          :height="windowHeight || 1000"
+          :threshold="swipeThreshold"
+          :curve-path="rightCurvePath"
+          :fill-path="rightFillPath"
+          :can-navigate="!!nextArticleId"
+        />
       </div>
     </Transition>
   </div>
@@ -386,6 +230,8 @@
 <script setup lang="ts">
 import { formatDistanceToNow } from 'date-fns'
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
+import { useSwipeGesture } from '~/composables/useSwipeGesture'
+import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCurve'
 
 definePageMeta({
   auth: true
@@ -588,14 +434,43 @@ const formatDate = (date?: string) => {
   }
 }
 
+// Setup swipe gesture handling
+const {
+  isSwipeGesture,
+  swipeProgress,
+  swipeDirection,
+  swipeYPercent,
+  windowHeight,
+  swipeThreshold
+} = useSwipeGesture({
+  onSwipeLeft: () => {
+    if (nextArticleId.value) {
+      router.push(`/article/${nextArticleId.value}`)
+    }
+  },
+  onSwipeRight: () => {
+    if (prevArticleId.value) {
+      router.push(`/article/${prevArticleId.value}`)
+    }
+  },
+  canSwipeLeft: computed(() => !!nextArticleId.value),
+  canSwipeRight: computed(() => !!prevArticleId.value)
+})
+
+// Computed curve paths for swipe indicators
+const curveParams = computed(() =>
+  getCurveParams(windowHeight.value || 1000, swipeYPercent.value, swipeProgress.value)
+)
+
+const leftCurvePath = computed(() => getSwipeCurve('left', curveParams.value))
+const leftFillPath = computed(() => getSwipeFillPath('left', curveParams.value))
+const rightCurvePath = computed(() => getSwipeCurve('right', curveParams.value))
+const rightFillPath = computed(() => getSwipeFillPath('right', curveParams.value))
+
 // Lifecycle
 onMounted(async () => {
-  // Set up event listeners
+  // Set up keyboard event listener
   window.addEventListener('keydown', handleArticleKeydown)
-  window.addEventListener('touchstart', handleTouchStart, { passive: true })
-  window.addEventListener('touchmove', handleTouchMove, { passive: false })
-  window.addEventListener('touchend', handleTouchEnd, { passive: false })
-  window.addEventListener('touchcancel', handleTouchCancel)
 
   // Fetch initial data
   if (session.value?.user) {
@@ -651,278 +526,8 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
   }
 }
 
-// Swipe gesture handling
-const touchStartX = ref(0)
-const touchStartY = ref(0)
-const touchCurrentX = ref(0)
-const touchCurrentY = ref(0)
-const isSwipeGesture = ref(false)
-const hasSwiped = ref(false)
-const swipeProgress = ref(0) // 0-1 progress of swipe
-const swipeDirection = ref<'left' | 'right' | null>(null)
-const swipeYPercent = ref(50) // Y position as percentage of screen height
-const windowHeight = ref(0)
-
-const maxSwipeDistance = 200 // Maximum distance for full progress
-const minSwipeDistance = (maxSwipeDistance/3)*2 // Minimum distance in pixels to register as a swipe
-const maxVerticalThreshold = 50 // Maximum vertical movement allowed for horizontal swipe
-
-const swipeThreshold = computed(() => minSwipeDistance / maxSwipeDistance) // 0.5 threshold
-
-// Smoothstep function for easing curves (0 to 1)
-const smoothstep = (t: number) => {
-  return t * t * (3 - 2 * t)
-}
-
-// Calculate swipe curve path based on Y position - creates organic bend effect
-const getSwipeCurve = (side: 'left' | 'right') => {
-  const height = windowHeight.value || 1000
-  const yPos = (swipeYPercent.value / 100) * height
-  const maxWidth = 128 + swipeProgress.value * 300 // Total width extends into page
-  const curveAmount = swipeProgress.value * 300 // Maximum curve extension into page
-  
-  const edgeX = side === 'left' ? 0 : maxWidth
-  
-  // Create a smooth bell curve centered at touch Y position
-  // Use multiple points with smooth interpolation to avoid sharp peaks
-  const numPoints = 20 // Number of points for smooth curve
-  const points: Array<{ x: number; y: number }> = []
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints // 0 to 1
-    const y = t * height
-    
-    // Calculate distance from touch point (normalized to 0-1)
-    const distanceFromPeak = Math.abs(y - yPos) / (height / 2)
-    const clampedDistance = Math.min(distanceFromPeak, 1)
-    
-    // Use smoothstep for a rounded bell curve effect
-    const influence = 1 - smoothstep(clampedDistance)
-    
-    // Calculate X offset based on influence (creates smooth rounded peak)
-    const offset = curveAmount * influence
-    const x = side === 'left' ? offset : maxWidth - offset
-    
-    points.push({ x, y })
-  }
-  
-  // Build path by connecting points with smooth curves
-  // Use Catmull-Rom style interpolation for smoother curves
-  let path = `M ${edgeX},0`
-  
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]
-    const curr = points[i]
-    
-    if (i === 1) {
-      // First segment: smooth curve from edge
-      const controlX = (prev.x + curr.x) / 2
-      const controlY = (prev.y + curr.y) / 2
-      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
-    } else if (i === points.length - 1) {
-      // Last segment: smooth curve to edge
-      const controlX = (prev.x + curr.x) / 2
-      const controlY = (prev.y + curr.y) / 2
-      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
-    } else {
-      // Middle segments: use cubic bezier for smoother transitions
-      const prevPrev = points[i - 2]
-      const next = points[i + 1]
-      
-      // Calculate smooth control points using Catmull-Rom style
-      const tension = 0.5
-      const cp1X = prev.x + (curr.x - prevPrev.x) * tension
-      const cp1Y = prev.y + (curr.y - prevPrev.y) * tension
-      const cp2X = curr.x - (next.x - prev.x) * tension
-      const cp2Y = curr.y - (next.y - prev.y) * tension
-      
-      path += ` C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${curr.x},${curr.y}`
-    }
-  }
-  
-  return path
-}
-
-// Calculate filled area path (closed path for fill between edge and curve)
-const getSwipeFillPath = (side: 'left' | 'right') => {
-  const height = windowHeight.value || 1000
-  const yPos = (swipeYPercent.value / 100) * height
-  const maxWidth = 128 + swipeProgress.value * 300
-  const curveAmount = swipeProgress.value * 300
-  
-  const edgeX = side === 'left' ? 0 : maxWidth
-  
-  // Create the same smooth curve as the stroke
-  const numPoints = 20
-  const points: Array<{ x: number; y: number }> = []
-  
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints
-    const y = t * height
-    
-    const distanceFromPeak = Math.abs(y - yPos) / (height / 2)
-    const clampedDistance = Math.min(distanceFromPeak, 1)
-    const influence = 1 - smoothstep(clampedDistance)
-    
-    const offset = curveAmount * influence
-    const x = side === 'left' ? offset : maxWidth - offset
-    
-    points.push({ x, y })
-  }
-  
-  // Build path by connecting points with smooth curves (same as stroke)
-  let path = `M ${edgeX},0`
-  
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]
-    const curr = points[i]
-    
-    if (i === 1) {
-      const controlX = (prev.x + curr.x) / 2
-      const controlY = (prev.y + curr.y) / 2
-      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
-    } else if (i === points.length - 1) {
-      const controlX = (prev.x + curr.x) / 2
-      const controlY = (prev.y + curr.y) / 2
-      path += ` Q ${controlX},${controlY} ${curr.x},${curr.y}`
-    } else {
-      const prevPrev = points[i - 2]
-      const next = points[i + 1]
-      
-      const tension = 0.5
-      const cp1X = prev.x + (curr.x - prevPrev.x) * tension
-      const cp1Y = prev.y + (curr.y - prevPrev.y) * tension
-      const cp2X = curr.x - (next.x - prev.x) * tension
-      const cp2Y = curr.y - (next.y - prev.y) * tension
-      
-      path += ` C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${curr.x},${curr.y}`
-    }
-  }
-  
-  // Close the path by going back along the edge
-  return `${path} L ${edgeX},${height} Z`
-}
-
-const handleTouchStart = (e: TouchEvent) => {
-  // Ignore if touching interactive elements
-  const target = e.target as HTMLElement
-  if (
-    target.tagName === 'INPUT' ||
-    target.tagName === 'TEXTAREA' ||
-    target.tagName === 'BUTTON' ||
-    target.tagName === 'A' ||
-    target.closest('button') ||
-    target.closest('a')
-  ) {
-    return
-  }
-
-  const touch = e.changedTouches[0]
-  touchStartX.value = touch.clientX
-  touchStartY.value = touch.clientY
-  touchCurrentX.value = touch.clientX
-  touchCurrentY.value = touch.clientY
-  isSwipeGesture.value = false
-  hasSwiped.value = false
-  swipeProgress.value = 0
-  swipeDirection.value = null
-  windowHeight.value = window.innerHeight
-  swipeYPercent.value = (touch.clientY / window.innerHeight) * 100
-}
-
-const handleTouchMove = (e: TouchEvent) => {
-  if (!touchStartX.value && !touchStartY.value) return
-
-  const touch = e.changedTouches[0]
-  touchCurrentX.value = touch.clientX
-  touchCurrentY.value = touch.clientY
-
-  const deltaX = touchCurrentX.value - touchStartX.value
-  const deltaY = touchCurrentY.value - touchStartY.value
-  const absDeltaX = Math.abs(deltaX)
-  const absDeltaY = Math.abs(deltaY)
-
-  // Detect if this is a horizontal swipe gesture
-  // Must have significant horizontal movement and horizontal movement should dominate
-  if (absDeltaX > 10 && absDeltaX > absDeltaY * 1.5 && absDeltaY < maxVerticalThreshold) {
-    if (!isSwipeGesture.value) {
-      isSwipeGesture.value = true
-      swipeDirection.value = deltaX < 0 ? 'left' : 'right'
-    }
-
-    // Update swipe progress (0-1)
-    swipeProgress.value = Math.min(absDeltaX / maxSwipeDistance, 1)
-    
-    // Update Y position percentage
-    swipeYPercent.value = (touch.clientY / window.innerHeight) * 100
-
-    // Prevent default scrolling when swiping horizontally
-    if (isSwipeGesture.value && e.cancelable) {
-      e.preventDefault()
-    }
-  }
-}
-
-const handleTouchEnd = (e: TouchEvent) => {
-  if (!touchStartX.value && !touchStartY.value) return
-
-  const touch = e.changedTouches[0]
-  touchCurrentX.value = touch.clientX
-  touchCurrentY.value = touch.clientY
-
-  const deltaX = touchCurrentX.value - touchStartX.value
-  const deltaY = touchCurrentY.value - touchStartY.value
-  const absDeltaX = Math.abs(deltaX)
-  const absDeltaY = Math.abs(deltaY)
-
-  // Only process swipe if it was identified as a horizontal gesture
-  if (isSwipeGesture.value && absDeltaX >= minSwipeDistance && absDeltaY < maxVerticalThreshold) {
-    e.preventDefault()
-    hasSwiped.value = true
-
-    // Swipe left -> next article
-    if (deltaX < 0 && nextArticleId.value) {
-      router.push(`/article/${nextArticleId.value}`)
-    }
-    // Swipe right -> previous article
-    else if (deltaX > 0 && prevArticleId.value) {
-      router.push(`/article/${prevArticleId.value}`)
-    }
-  }
-
-  // Reset touch state
-  touchStartX.value = 0
-  touchStartY.value = 0
-  touchCurrentX.value = 0
-  touchCurrentY.value = 0
-  isSwipeGesture.value = false
-  swipeProgress.value = 0
-  swipeDirection.value = null
-
-  // Reset swipe flag after a short delay to prevent accidental clicks
-  setTimeout(() => {
-    hasSwiped.value = false
-  }, 100)
-}
-
-const handleTouchCancel = () => {
-  // Reset all touch state on cancel
-  touchStartX.value = 0
-  touchStartY.value = 0
-  touchCurrentX.value = 0
-  touchCurrentY.value = 0
-  isSwipeGesture.value = false
-  hasSwiped.value = false
-  swipeProgress.value = 0
-  swipeDirection.value = null
-}
-
 onUnmounted(() => {
   window.removeEventListener('keydown', handleArticleKeydown)
-  window.removeEventListener('touchstart', handleTouchStart)
-  window.removeEventListener('touchmove', handleTouchMove)
-  window.removeEventListener('touchend', handleTouchEnd)
-  window.removeEventListener('touchcancel', handleTouchCancel)
 })
 
 // Register keyboard shortcuts for article actions
