@@ -4,33 +4,23 @@ import prisma from '~/server/utils/db'
 
 /**
  * Get authenticated user from either:
- * 1. MCP token (X-MCP-Token header)
+ * 1. MCP token (X-MCP-Token header) - looks up user by token in database
  * 2. Session cookie (next-auth)
  */
 export async function getAuthenticatedUser(event: H3Event) {
   // Check for MCP token first
   const mcpToken = getHeader(event, 'x-mcp-token')
-  const validMcpToken = process.env.MCP_TOKEN
 
-  if (mcpToken && validMcpToken && mcpToken === validMcpToken) {
-    // MCP token is valid - get user by email from env
-    const mcpUserEmail = process.env.MCP_USER_EMAIL
-
-    if (!mcpUserEmail) {
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'MCP_USER_EMAIL not configured'
-      })
-    }
-
+  if (mcpToken) {
+    // Look up user by MCP token
     const user = await prisma.user.findUnique({
-      where: { email: mcpUserEmail }
+      where: { mcpToken }
     })
 
     if (!user) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'MCP user not found'
+        statusMessage: 'Invalid MCP token'
       })
     }
 

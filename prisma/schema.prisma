@@ -36,18 +36,20 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  feeds         Feed[]
-  savedArticles SavedArticle[]
-  tags          Tag[]
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  mcpToken          String?   @unique
+  mcpTokenCreatedAt DateTime?
+  accounts          Account[]
+  sessions          Session[]
+  feeds             Feed[]
+  savedArticles     SavedArticle[]
+  tags              Tag[]
 }
 
 model VerificationToken {

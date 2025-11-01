@@ -245,18 +245,25 @@ The MCP server:
 
 ### Authentication
 
-The MCP server uses token-based authentication to bypass session cookies:
+The MCP server uses per-user token-based authentication stored in the database:
 
 **Server-side** (`server/utils/auth.ts`):
 - `getAuthenticatedUser()` checks for `X-MCP-Token` header first
+- Looks up user by token in the database (User.mcpToken field)
 - Falls back to session authentication for browser requests
 - Both methods return the same authenticated user
 
-**Environment variables**:
-```bash
-MCP_TOKEN="random-hex-token"  # Generate with: openssl rand -hex 32
-MCP_USER_EMAIL="your-email@example.com"  # Your Reader login email
-```
+**User Setup** (Multi-user support):
+1. Navigate to `/mcp-settings` in your Reader web app (must be logged in)
+2. Click "Generate Token" to create your personal MCP token
+3. Enter the path to your cloned Reader repository
+4. Copy the generated Claude Desktop configuration
+5. Paste into your `claude_desktop_config.json`
+6. Restart Claude Desktop
+
+**Database schema**:
+- `User.mcpToken` - Unique token per user (nullable, 64-char hex)
+- `User.mcpTokenCreatedAt` - Token creation timestamp
 
 **Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
@@ -265,18 +272,23 @@ MCP_USER_EMAIL="your-email@example.com"  # Your Reader login email
     "the-librarian": {
       "command": "node",
       "args": [
-        "/path/to/reader/node_modules/.bin/tsx",
-        "/path/to/reader/mcp-server/index.ts"
+        "/path/to/your/reader/node_modules/.bin/tsx",
+        "/path/to/your/reader/mcp-server/index.ts"
       ],
       "env": {
-        "READER_API_URL": "http://localhost:3000",
-        "MCP_TOKEN": "your-token-here",
-        "MCP_USER_EMAIL": "your-email@example.com"
+        "READER_API_URL": "https://reader.phareim.no",
+        "MCP_TOKEN": "your-personal-token-from-settings-page"
       }
     }
   }
 }
 ```
+
+**Security:**
+- Each user has their own unique token
+- Tokens can be regenerated or revoked at any time via `/mcp-settings`
+- No shared credentials or environment variables needed
+- Token identifies the user, eliminating need for MCP_USER_EMAIL
 
 ### Running the MCP Server
 
@@ -320,6 +332,10 @@ Once connected, you can ask Claude:
 - `mcp-server/index.ts` - Main MCP server implementation
 - `mcp-server/README.md` - Detailed setup and troubleshooting guide
 - `mcp-server/claude-desktop-config.json` - Configuration template
-- `server/utils/auth.ts` - Dual authentication helper (session + MCP token)
+- `server/utils/auth.ts` - Dual authentication helper (session + MCP token lookup)
+- `server/api/user/mcp-token.post.ts` - Generate/regenerate user MCP token
+- `server/api/user/mcp-token.delete.ts` - Revoke user MCP token
+- `server/api/user/mcp-config.get.ts` - Get token status and config template
 - `server/api/articles/manual.post.ts` - Manual article addition endpoint
+- `pages/mcp-settings.vue` - User-facing MCP setup page
 - `types/api.ts` - Shared TypeScript types for API responses
