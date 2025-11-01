@@ -231,6 +231,7 @@
 import { formatDistanceToNow } from 'date-fns'
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import { useSwipeGesture } from '~/composables/useSwipeGesture'
+import { useArticleNavigation } from '~/composables/useArticleNavigation'
 import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCurve'
 
 definePageMeta({
@@ -266,8 +267,16 @@ const {
 const article = ref<any>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
-const prevArticleId = ref<number | null>(null)
-const nextArticleId = ref<number | null>(null)
+
+// Article navigation composable
+const {
+  prevArticleId,
+  nextArticleId,
+  fetchAdjacentArticles
+} = useArticleNavigation({
+  currentArticleId: articleId,
+  feedId: computed(() => article.value?.feedId)
+})
 
 // Reference to hamburger menu
 const hamburgerMenuRef = ref<any>(null)
@@ -330,44 +339,6 @@ const fetchArticle = async () => {
     error.value = e.statusMessage || 'Failed to load article'
   } finally {
     loading.value = false
-  }
-}
-
-// Fetch adjacent articles from the same feed
-const fetchAdjacentArticles = async () => {
-  if (!article.value?.feedId) {
-    prevArticleId.value = null
-    nextArticleId.value = null
-    return
-  }
-
-  try {
-    // Fetch all articles from the same feed
-    const response = await $fetch('/api/articles', {
-      params: {
-        feedId: article.value.feedId,
-        limit: 200  // Get more articles to ensure we have context
-      }
-    })
-
-    const feedArticles = response.articles || []
-
-    // Find current article index
-    const currentIndex = feedArticles.findIndex((a: any) => a.id === articleId.value)
-
-    if (currentIndex === -1) {
-      prevArticleId.value = null
-      nextArticleId.value = null
-      return
-    }
-
-    // Set previous and next article IDs
-    prevArticleId.value = currentIndex > 0 ? feedArticles[currentIndex - 1].id : null
-    nextArticleId.value = currentIndex < feedArticles.length - 1 ? feedArticles[currentIndex + 1].id : null
-  } catch (e) {
-    console.error('Failed to fetch adjacent articles:', e)
-    prevArticleId.value = null
-    nextArticleId.value = null
   }
 }
 
@@ -489,6 +460,26 @@ watch(() => route.params.id, async () => {
   }
 })
 
+// Keyboard shortcut handlers for article view
+const articleKeyboardHandlers: Record<string, (e: KeyboardEvent) => void> = {
+  'Escape': () => router.push('/'),
+  'o': () => {
+    if (article.value?.url) {
+      window.open(article.value.url, '_blank', 'noopener,noreferrer')
+    }
+  },
+  'j': () => {
+    if (nextArticleId.value) {
+      router.push(`/article/${nextArticleId.value}`)
+    }
+  },
+  'k': () => {
+    if (prevArticleId.value) {
+      router.push(`/article/${prevArticleId.value}`)
+    }
+  }
+}
+
 // Custom keyboard handler for article view
 const handleArticleKeydown = (e: KeyboardEvent) => {
   // Ignore if typing in an input field
@@ -497,32 +488,11 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
     return
   }
 
-  // Escape: go to article overview
-  if (e.key === 'Escape') {
+  // Check if we have a handler for this key
+  const handler = articleKeyboardHandlers[e.key]
+  if (handler) {
     e.preventDefault()
-    router.push('/')
-    return
-  }
-
-  // o: open original article URL
-  if (e.key === 'o' && article.value?.url) {
-    e.preventDefault()
-    window.open(article.value.url, '_blank', 'noopener,noreferrer')
-    return
-  }
-
-  // j: next article
-  if (e.key === 'j' && nextArticleId.value) {
-    e.preventDefault()
-    router.push(`/article/${nextArticleId.value}`)
-    return
-  }
-
-  // k: previous article
-  if (e.key === 'k' && prevArticleId.value) {
-    e.preventDefault()
-    router.push(`/article/${prevArticleId.value}`)
-    return
+    handler(e)
   }
 }
 
