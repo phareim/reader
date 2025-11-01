@@ -232,7 +232,9 @@ import { formatDistanceToNow } from 'date-fns'
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import { useSwipeGesture } from '~/composables/useSwipeGesture'
 import { useArticleNavigation } from '~/composables/useArticleNavigation'
+import { useToast } from '~/composables/useToast'
 import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCurve'
+import { processArticleContent } from '~/utils/processArticleContent'
 
 definePageMeta({
   auth: true
@@ -300,22 +302,7 @@ const selectedFeed = computed(() => {
 })
 
 // Process article content to make all links open in new tabs
-const processedContent = computed(() => {
-  if (!article.value?.content) return null
-
-  // Create a temporary div to parse the HTML
-  const div = document.createElement('div')
-  div.innerHTML = article.value.content
-
-  // Find all links and add target="_blank" and rel
-  const links = div.querySelectorAll('a')
-  links.forEach(link => {
-    link.setAttribute('target', '_blank')
-    link.setAttribute('rel', 'noopener noreferrer')
-  })
-
-  return div.innerHTML
-})
+const processedContent = computed(() => processArticleContent(article.value?.content))
 
 // Fetch article data
 const fetchArticle = async () => {
@@ -377,24 +364,11 @@ const handleSignOut = async () => {
   await signOut({ callbackUrl: '/login' })
 }
 
-const headerSuccess = ref<string | null>(null)
-const headerError = ref<string | null>(null)
+// Toast notifications
+const { success: headerSuccess, error: headerError, showSuccess, showError } = useToast()
 
-const handleHeaderSuccess = (message: string) => {
-  headerError.value = null
-  headerSuccess.value = message
-  setTimeout(() => {
-    headerSuccess.value = null
-  }, 3000)
-}
-
-const handleHeaderError = (message: string) => {
-  headerSuccess.value = null
-  headerError.value = message
-  setTimeout(() => {
-    headerError.value = null
-  }, 3000)
-}
+const handleHeaderSuccess = (message: string) => showSuccess(message)
+const handleHeaderError = (message: string) => showError(message)
 
 const formatDate = (date?: string) => {
   if (!date) return 'Unknown date'
