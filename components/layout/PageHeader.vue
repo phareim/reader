@@ -71,6 +71,46 @@
       </h1>
     </div>
 
+    <!-- Search Input -->
+    <Transition name="search">
+      <div v-if="showSearchInput && showSearch" class="flex items-center gap-2 mx-4 flex-shrink-0">
+        <div class="relative">
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search articles..."
+            class="w-64 px-3 py-1.5 pl-9 text-sm border border-gray-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @keydown.esc="showSearchInput = false; searchQuery = ''"
+          />
+          <svg class="w-4 h-4 absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute right-2 top-2 p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
+          >
+            <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Search Toggle Button -->
+    <button
+      v-if="showSearch && !showSearchInput"
+      @click="toggleSearch"
+      class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0 text-gray-400 dark:text-gray-500"
+      title="Search articles"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    </button>
+
     <!-- Header Actions Menu -->
     <div class="relative flex-shrink-0">
       <button
@@ -126,13 +166,15 @@ interface Props {
   isRefreshing?: boolean
   unreadCount?: number
   totalCount?: number
+  showSearch?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   selectedFeed: null,
   isRefreshing: false,
   unreadCount: 0,
-  totalCount: 0
+  totalCount: 0,
+  showSearch: true
 })
 
 defineEmits<{
@@ -149,6 +191,11 @@ defineEmits<{
 const showMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const menuButtonRef = ref<HTMLElement | null>(null)
+
+// Search functionality
+const { searchQuery } = useArticleSearch()
+const showSearchInput = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // Close dropdown when clicking outside
 onMounted(() => {
@@ -176,6 +223,27 @@ onMounted(() => {
 const toggleMenu = () => {
   showMenu.value = !showMenu.value
 }
+
+const toggleSearch = () => {
+  showSearchInput.value = !showSearchInput.value
+  if (showSearchInput.value) {
+    // Focus the search input after the transition
+    nextTick(() => {
+      searchInputRef.value?.focus()
+    })
+  } else {
+    searchQuery.value = ''
+  }
+}
+
+// Watch for search input visibility to focus
+watch(showSearchInput, (visible) => {
+  if (visible) {
+    nextTick(() => {
+      searchInputRef.value?.focus()
+    })
+  }
+})
 </script>
 
 <style scoped>
@@ -217,5 +285,23 @@ const toggleMenu = () => {
 .dropdown-leave-from {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Search transition */
+.search-enter-active,
+.search-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.search-enter-from,
+.search-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.search-enter-to,
+.search-leave-from {
+  opacity: 1;
+  transform: translateX(0);
 }
 </style>

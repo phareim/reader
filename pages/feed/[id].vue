@@ -41,9 +41,9 @@
         <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
 
         <!-- Article Grid -->
-        <div v-else-if="displayedArticles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+        <div v-else-if="searchedArticles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
           <LazyArticleCard
-            v-for="article in displayedArticles"
+            v-for="article in searchedArticles"
             :key="article.id"
             :article="article"
             :is-selected="selectedArticleId === article.id"
@@ -139,6 +139,14 @@ const {
 const {
   fetchSavedArticlesByTag
 } = useSavedArticlesByTag()
+
+// Search functionality
+const { searchQuery, filterArticles } = useArticleSearch()
+
+// Apply search filter to displayed articles
+const searchedArticles = computed(() => {
+  return filterArticles(displayedArticles.value, searchQuery.value)
+})
 
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)

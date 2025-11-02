@@ -133,6 +133,9 @@ const {
   fetchSavedArticlesByTag
 } = useSavedArticlesByTag()
 
+// Search functionality
+const { searchQuery, filterArticles } = useArticleSearch()
+
 // Track dismissed articles for smooth removal animation
 const dismissedArticleIds = ref<Set<number>>(new Set())
 
@@ -147,7 +150,7 @@ const articleCounts = computed(() => {
   }
 })
 
-// Override displayedArticles to ignore unread filter when viewing saved articles
+// Override displayedArticles to ignore unread filter when viewing saved articles + apply search
 const displayedArticles = computed(() => {
   let articlesToDisplay
   // When viewing saved articles (feedId === -1), show all saved articles
@@ -157,6 +160,9 @@ const displayedArticles = computed(() => {
     // Otherwise use the default filtering from useArticles
     articlesToDisplay = _displayedArticles.value
   }
+
+  // Apply search filter
+  articlesToDisplay = filterArticles(articlesToDisplay, searchQuery.value)
 
   // Filter out dismissed articles
   return articlesToDisplay.filter(a => !dismissedArticleIds.value.has(a.id))

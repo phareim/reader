@@ -40,7 +40,7 @@
         <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
 
         <!-- Article Grid Grouped by Feed -->
-        <div v-else-if="displayedArticles.length > 0" class="p-4 space-y-8">
+        <div v-else-if="searchedArticles.length > 0" class="p-4 space-y-8">
           <div v-for="group in articlesByFeed" :key="group.feed.id" class="space-y-3">
             <!-- Feed Header -->
             <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800">
@@ -155,6 +155,14 @@ const {
   handleMarkAllRead: markAllReadHandler
 } = useArticleViewHandlers()
 
+// Search functionality
+const { searchQuery, filterArticles } = useArticleSearch()
+
+// Apply search filter to displayed articles
+const searchedArticles = computed(() => {
+  return filterArticles(displayedArticles.value, searchQuery.value)
+})
+
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
 const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
@@ -164,9 +172,9 @@ const helpDialogRef = ref<any>(null)
 
 // Group articles by feed for better organization
 const articlesByFeed = computed(() => {
-  const grouped = new Map<number, { feed: { id: number; title: string; faviconUrl?: string }; articles: typeof displayedArticles.value }>()
+  const grouped = new Map<number, { feed: { id: number; title: string; faviconUrl?: string }; articles: typeof searchedArticles.value }>()
 
-  displayedArticles.value.forEach(article => {
+  searchedArticles.value.forEach(article => {
     if (!grouped.has(article.feedId)) {
       grouped.set(article.feedId, {
         feed: {
