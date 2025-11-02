@@ -11,7 +11,9 @@
       :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }">
       <!-- Sticky Header -->
       <PageHeader :menu-is-open="menuIsOpen" :current-article="null" :selected-feed="selectedFeed"
-        :selected-feed-id="selectedFeedId" :selected-tag="selectedTag" @toggle-menu="toggleMenu"
+        :selected-feed-id="selectedFeedId" :selected-tag="selectedTag"
+        :unread-count="articleCounts.unreadCount" :total-count="articleCounts.totalCount"
+        @toggle-menu="toggleMenu"
         @mark-all-read="handleMarkAllRead" @refresh-feed="handleRefreshFeed" @sync-all="handleSyncAll"
         @view-saved="handleViewSaved" @sign-out="handleSignOut" @success="handleHeaderSuccess"
         @error="handleHeaderError" />
@@ -108,6 +110,7 @@ const {
   selectedArticle,
   showUnreadOnly,
   displayedArticles: _displayedArticles,
+  unreadArticles,
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
@@ -132,6 +135,17 @@ const {
 
 // Track dismissed articles for smooth removal animation
 const dismissedArticleIds = ref<Set<number>>(new Set())
+
+// Compute article counts for header
+const articleCounts = computed(() => {
+  if (selectedFeedId.value === -1) {
+    // Saved articles - show total count
+    return { unreadCount: 0, totalCount: articles.value.length }
+  } else {
+    // Other views - show unread count
+    return { unreadCount: unreadArticles.value.length, totalCount: 0 }
+  }
+})
 
 // Override displayedArticles to ignore unread filter when viewing saved articles
 const displayedArticles = computed(() => {

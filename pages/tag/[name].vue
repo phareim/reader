@@ -18,9 +18,10 @@
         :selected-feed="null"
         :selected-feed-id="null"
         :selected-tag="tagName"
+        :unread-count="unreadArticles.length"
         @toggle-menu="toggleMenu"
-        @mark-all-read="handleMarkAllRead"
-        @refresh-feed="() => {}"
+        @mark-all-read="markAllReadHandler"
+        @refresh-feed="handleRefreshTag"
         @sync-all="handleSyncAll"
         @view-saved="handleViewSaved"
         @sign-out="handleSignOut"
@@ -38,20 +39,41 @@
 
         <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
 
-        <!-- Article Grid -->
-        <div v-else-if="displayedArticles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-          <LazyArticleCard
-            v-for="article in displayedArticles"
-            :key="article.id"
-            :article="article"
-            :is-selected="selectedArticleId === article.id"
-            :is-saved="isSaved(article.id)"
-            :show-feed-title="true"
-            :all-tags-with-counts="allTagsWithCounts"
-            @toggle-save="toggleSaveArticle(article.id)"
-            @toggle-read="handleToggleRead(article.id)"
-            @update-tags="handleUpdateTags"
-          />
+        <!-- Article Grid Grouped by Feed -->
+        <div v-else-if="displayedArticles.length > 0" class="p-4 space-y-8">
+          <div v-for="group in articlesByFeed" :key="group.feed.id" class="space-y-3">
+            <!-- Feed Header -->
+            <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800">
+              <img
+                v-if="group.feed.faviconUrl"
+                :src="group.feed.faviconUrl"
+                :alt="group.feed.title"
+                class="w-5 h-5 flex-shrink-0"
+              />
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {{ group.feed.title }}
+              </h2>
+              <span class="text-sm text-gray-500 dark:text-gray-400">
+                ({{ group.articles.length }} article{{ group.articles.length !== 1 ? 's' : '' }})
+              </span>
+            </div>
+
+            <!-- Articles for this feed -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <LazyArticleCard
+                v-for="article in group.articles"
+                :key="article.id"
+                :article="article"
+                :is-selected="selectedArticleId === article.id"
+                :is-saved="isSaved(article.id)"
+                :show-feed-title="false"
+                :all-tags-with-counts="allTagsWithCounts"
+                @toggle-save="toggleSaveArticle(article.id)"
+                @toggle-read="handleToggleRead(article.id)"
+                @update-tags="handleUpdateTags"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -95,13 +117,15 @@ const {
   selectedTag,
   selectedTagFeedIds,
   fetchFeeds,
-  syncAll
+  syncAll,
+  refreshFeed
 } = useFeeds()
 
 const {
   articles,
   selectedArticleId,
   displayedArticles,
+  unreadArticles,
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
@@ -110,19 +134,26 @@ const {
 
 const {
   isSaved,
-  toggleSave,
   fetchSavedArticleIds
 } = useSavedArticles()
 
 const {
   allTagsWithCounts,
-  updateSavedArticleTags,
   fetchTags
 } = useTags()
 
 const {
   fetchSavedArticlesByTag
 } = useSavedArticlesByTag()
+
+// Use shared article handlers
+const {
+  toggleSaveArticle,
+  handleToggleRead,
+  handleUpdateTags,
+  handleMarkAsRead,
+  handleMarkAllRead: markAllReadHandler
+} = useArticleViewHandlers()
 
 // Reference to hamburger menu to track its open state
 const hamburgerMenuRef = ref<any>(null)
@@ -131,82 +162,53 @@ const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
 // Reference to help dialog
 const helpDialogRef = ref<any>(null)
 
+// Group articles by feed for better organization
+const articlesByFeed = computed(() => {
+  const grouped = new Map<number, { feed: { id: number; title: string; faviconUrl?: string }; articles: typeof displayedArticles.value }>()
+
+  displayedArticles.value.forEach(article => {
+    if (!grouped.has(article.feedId)) {
+      grouped.set(article.feedId, {
+        feed: {
+          id: article.feedId,
+          title: article.feedTitle || 'Unknown Feed',
+          faviconUrl: article.feedFavicon || undefined
+        },
+        articles: []
+      })
+    }
+    grouped.get(article.feedId)!.articles.push(article)
+  })
+
+  // Convert to array and sort by feed title
+  return Array.from(grouped.values()).sort((a, b) =>
+    a.feed.title.localeCompare(b.feed.title)
+  )
+})
+
 const toggleMenu = () => {
   if (hamburgerMenuRef.value) {
     hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
   }
 }
 
-// Toggle save/unsave article
-const toggleSaveArticle = async (articleId: number) => {
+const handleRefreshTag = async () => {
   try {
-    await toggleSave(articleId)
-    await fetchSavedArticlesByTag()
+    // Refresh all feeds in this tag
+    const feedIds = selectedTagFeedIds.value
+    if (feedIds.length === 0) return
+
+    handleHeaderSuccess(`Refreshing ${feedIds.length} feed${feedIds.length > 1 ? 's' : ''}...`)
+
+    await Promise.all(feedIds.map(id => refreshFeed(id)))
+
+    // Refresh the articles list
+    await fetchArticles(undefined, selectedTagFeedIds.value)
+
+    handleHeaderSuccess('Tag refreshed successfully!')
   } catch (error) {
-    console.error('Failed to toggle save:', error)
-  }
-}
-
-// Toggle read/unread status
-const handleToggleRead = async (articleId: number) => {
-  try {
-    const article = displayedArticles.value.find(a => a.id === articleId)
-    if (article) {
-      await markAsRead(articleId, !article.isRead)
-    }
-  } catch (error) {
-    console.error('Failed to toggle read status:', error)
-  }
-}
-
-// Update tags for a saved article
-const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
-  const article = articles.value.find(a => a.savedId === savedArticleId)
-  const previousTags = article?.tags || []
-
-  if (article) {
-    article.tags = tags
-  }
-
-  try {
-    await updateSavedArticleTags(savedArticleId, tags)
-    await Promise.all([
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
-  } catch (error) {
-    console.error('Failed to update tags:', error)
-    if (article) {
-      article.tags = previousTags
-    }
-  }
-}
-
-const handleMarkAsRead = async () => {
-  if (selectedArticleId.value !== null) {
-    const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-    if (article && !article.isRead) {
-      await markAsRead(selectedArticleId.value, true)
-    }
-  }
-}
-
-const handleMarkAllRead = async () => {
-  try {
-    const articlesToMark = displayedArticles.value.filter(a => !a.isRead)
-    articlesToMark.forEach(article => {
-      article.isRead = true
-      article.readAt = new Date().toISOString()
-    })
-    Promise.all(articlesToMark.map(article =>
-      markAsRead(article.id, true).catch(err => {
-        article.isRead = false
-        article.readAt = null
-        console.error('Failed to mark article as read:', err)
-      })
-    ))
-  } catch (error) {
-    console.error('Failed to mark all as read:', error)
+    console.error('Failed to refresh tag:', error)
+    handleHeaderError('Failed to refresh tag')
   }
 }
 
@@ -288,6 +290,6 @@ useKeyboardShortcuts({
   syncAll,
   toggleSaveArticle,
   handleMarkAsRead,
-  handleMarkAllRead
+  handleMarkAllRead: markAllReadHandler
 })
 </script>

@@ -42,6 +42,9 @@
                 <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
               </svg>
               <span class="truncate">Saved Articles</span>
+              <span v-if="totalCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                ({{ totalCount }})
+              </span>
             </template>
             <template v-else-if="selectedFeed">
               <img
@@ -51,10 +54,16 @@
                 class="w-8 h-8 flex-shrink-0"
               />
               <span class="truncate">{{ selectedFeed.title }}</span>
+              <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                ({{ unreadCount }} unread)
+              </span>
             </template>
             <template v-else-if="selectedTag">
               <span v-if="selectedTag === '__inbox__'" class="truncate">📥 Inbox</span>
               <span v-else class="truncate">#{{ selectedTag }}</span>
+              <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                ({{ unreadCount }} unread)
+              </span>
             </template>
             <span v-else class="truncate">The Librarian</span>
           </div>
@@ -115,11 +124,15 @@ interface Props {
   selectedFeedId: number | null
   selectedTag: string | null
   isRefreshing?: boolean
+  unreadCount?: number
+  totalCount?: number
 }
 
 withDefaults(defineProps<Props>(), {
   selectedFeed: null,
-  isRefreshing: false
+  isRefreshing: false,
+  unreadCount: 0,
+  totalCount: 0
 })
 
 defineEmits<{
