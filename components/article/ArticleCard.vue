@@ -93,19 +93,22 @@
           class="w-full h-full object-cover transition-transform duration-300 ease-out"
           :class="{
             'scale-110': isSelected,
-            'group-hover:scale-110': !isSelected
+            'group-hover:scale-150': !isSelected
           }"
           @error="handleImageError"
         />
         <!-- Gradient placeholder -->
         <div
           v-else-if="showGradient"
-          class="w-full h-full transition-transform duration-300 ease-out"
+          class="w-full h-full transition-all duration-300 ease-out gradient-placeholder"
           :class="{
-            'scale-110': isSelected,
-            'group-hover:scale-110': !isSelected
+            'translate-y-[-5px]': isSelected,
+            'group-hover:translate-y-[-2px]': !isSelected
           }"
-          :style="{ background: placeholderGradient }"
+          :style="{
+            background: placeholderGradient,
+            '--hover-gradient': placeholderGradientHover
+          }"
         />
       </div>
 
@@ -276,19 +279,25 @@ const handleImageError = () => {
 }
 
 // Generate a deterministic gradient based on article ID
-const generateGradient = (id: number): string => {
+const generateGradient = (id: number, hover = false): string => {
   // Use article ID as seed for consistent colors
   const hue1 = (id * 137.508) % 360 // Golden angle for good distribution
   const hue2 = (hue1 + 60 + (id % 120)) % 360 // Related hue
   const saturation = 60 + (id % 20)
   const lightness = 55 + (id % 15)
 
+  // Slightly modify gradient on hover: increase saturation and lightness
+  const hoverSaturation = hover ? saturation + 10 : saturation
+  const hoverLightness = hover ? lightness + 5 : lightness
+  const hoverLightness2 = hover ? lightness + 25 : lightness + 10
+
   return `linear-gradient(135deg,
-    hsl(${hue1}, ${saturation}%, ${lightness}%),
-    hsl(${hue2}, ${saturation}%, ${lightness + 10}%))`
+    hsl(${hue1}, ${hoverSaturation}%, ${hoverLightness}%),
+    hsl(${hue2}, ${hoverSaturation}%, ${hoverLightness2}%))`
 }
 
-const placeholderGradient = computed(() => generateGradient(props.article.id))
+const placeholderGradient = computed(() => generateGradient(props.article.id, false))
+const placeholderGradientHover = computed(() => generateGradient(props.article.id, true))
 
 // Display logic: article image > unsplash image > gradient
 const displayImageUrl = computed(() => {
@@ -309,7 +318,7 @@ const showGradient = computed(() => {
 onMounted(async () => {
   if (!props.article.imageUrl) {
     const randomChance = Math.random()
-    const shouldTryUnsplash = randomChance < 0.08 // ~1 in 12-13 articles
+    const shouldTryUnsplash = randomChance < 0.05 // ~1 in 20 articles
 
     if (shouldTryUnsplash) {
       try {
@@ -553,6 +562,15 @@ const handleCardClick = (e: MouseEvent) => {
 .cursor-grabbing * {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Gradient hover effect */
+.gradient-placeholder {
+  transition: background 0.3s ease;
+}
+
+.group:hover .gradient-placeholder {
+  background: var(--hover-gradient) !important;
 }
 
 /* Line clamp utilities */
