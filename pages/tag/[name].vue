@@ -56,6 +56,16 @@
               <span class="text-sm text-gray-500 dark:text-gray-400">
                 ({{ group.articles.length }} article{{ group.articles.length !== 1 ? 's' : '' }})
               </span>
+              <button
+                @click="handleMarkFeedAsRead(group.feed.id, group.articles)"
+                class="ml-auto px-3 py-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors flex items-center gap-1"
+                title="Mark all articles in this feed as read"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Mark as read
+              </button>
             </div>
 
             <!-- Articles for this feed -->
@@ -362,6 +372,27 @@ const handleBulkClear = () => {
 
 const handleBulkExit = () => {
   toggleSelectionMode()
+}
+
+// Mark all articles in a specific feed as read
+const handleMarkFeedAsRead = async (feedId: number, articles: typeof searchedArticles.value) => {
+  try {
+    // Get unread article IDs from this feed
+    const unreadArticleIds = articles.filter(article => !article.isRead).map(article => article.id)
+
+    if (unreadArticleIds.length === 0) {
+      handleHeaderSuccess('All articles in this feed are already read')
+      return
+    }
+
+    // Mark all unread articles in this feed as read
+    await Promise.all(unreadArticleIds.map(id => markAsRead(id, true)))
+
+    handleHeaderSuccess(`Marked ${unreadArticleIds.length} article${unreadArticleIds.length !== 1 ? 's' : ''} as read`)
+  } catch (error) {
+    console.error('Failed to mark feed articles as read:', error)
+    handleHeaderError('Failed to mark articles as read')
+  }
 }
 
 // Load feeds and articles on mount
