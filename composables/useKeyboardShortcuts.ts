@@ -28,6 +28,10 @@ interface UseKeyboardShortcutsOptions {
   // Higher-level handlers
   handleMarkAsRead: () => Promise<void>
   handleMarkAllRead: () => Promise<void>
+
+  // Bulk selection (optional)
+  selectionMode?: Ref<boolean>
+  toggleSelection?: (id: number, articles: Array<{ id: number }>, shiftKey: boolean) => void
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -43,7 +47,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     syncAll,
     toggleSaveArticle,
     handleMarkAsRead,
-    handleMarkAllRead
+    handleMarkAllRead,
+    selectionMode,
+    toggleSelection
   } = options
 
   const navigateArticles = async (direction: Direction) => {
@@ -123,6 +129,18 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     if (key === 'e') {
       e.preventDefault()
       await handleMarkAsRead()
+      return
+    }
+
+    // Toggle bulk selection or mark as read: x
+    if (key === 'x') {
+      e.preventDefault()
+      if (selectedArticleId.value !== null) {
+        // If in bulk selection mode, toggle selection
+        if (selectionMode?.value && toggleSelection) {
+          toggleSelection(selectedArticleId.value, displayedArticles.value as Array<{ id: number }>, false)
+        }
+      }
       return
     }
 

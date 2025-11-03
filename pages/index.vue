@@ -70,10 +70,31 @@
               <LazyArticleCard v-for="article in displayedArticles" :key="article.id" :article="article"
                 :is-selected="selectedArticleId === article.id" :is-saved="isSaved(article.id)"
                 :show-feed-title="!selectedFeed" :all-tags-with-counts="allTagsWithCounts"
+                :selection-mode="selectionMode" :is-selected-for-bulk="isSelected(article.id)"
                 @toggle-save="toggleSaveArticle(article.id)" @toggle-read="handleToggleRead(article.id)"
-                @update-tags="handleUpdateTags" @swipe-dismiss="handleSwipeDismiss(article.id)" />
+                @update-tags="handleUpdateTags" @swipe-dismiss="handleSwipeDismiss(article.id)"
+                @toggle-selection="handleToggleSelection(article.id, $event)" />
             </TransitionGroup>
           </div>
+
+          <!-- Bulk Selection Floating Button -->
+          <button v-if="displayedArticles.length > 0 && !selectionMode"
+            @click="toggleSelectionMode"
+            class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
+            title="Select multiple articles">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+          </button>
+
+          <!-- Bulk Action Bar -->
+          <BulkActionBar
+            :selected-count="selectedCount"
+            @mark-read="handleBulkMarkRead"
+            @save="handleBulkSave"
+            @clear="handleBulkClear"
+            @exit="handleBulkExit"
+          />
         </template>
       </div>
     </div>
@@ -135,6 +156,18 @@ const {
 
 // Search functionality
 const { searchQuery, filterArticles } = useArticleSearch()
+
+// Bulk selection functionality
+const {
+  selectionMode,
+  selectedArticleIds,
+  selectedCount,
+  toggleSelectionMode,
+  isSelected,
+  toggleSelection,
+  selectAll,
+  clearSelection
+} = useBulkSelection()
 
 // Track dismissed articles for smooth removal animation
 const dismissedArticleIds = ref<Set<number>>(new Set())
@@ -429,6 +462,44 @@ const handleHeaderError = (message: string) => {
   }, 3000)
 }
 
+// Bulk selection handlers
+const handleToggleSelection = (articleId: number, shiftKey: boolean) => {
+  toggleSelection(articleId, displayedArticles.value, shiftKey)
+}
+
+const handleBulkMarkRead = async () => {
+  try {
+    const selectedIds = Array.from(selectedArticleIds.value)
+    await Promise.all(selectedIds.map(id => markAsRead(id, true)))
+    clearSelection()
+    handleHeaderSuccess(`Marked ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''} as read`)
+  } catch (error) {
+    console.error('Failed to mark articles as read:', error)
+    handleHeaderError('Failed to mark articles as read')
+  }
+}
+
+const handleBulkSave = async () => {
+  try {
+    const selectedIds = Array.from(selectedArticleIds.value)
+    await Promise.all(selectedIds.map(id => toggleSave(id)))
+    clearSelection()
+    await fetchSavedArticlesByTag()
+    handleHeaderSuccess(`Saved ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''}`)
+  } catch (error) {
+    console.error('Failed to save articles:', error)
+    handleHeaderError('Failed to save articles')
+  }
+}
+
+const handleBulkClear = () => {
+  clearSelection()
+}
+
+const handleBulkExit = () => {
+  toggleSelectionMode()
+}
+
 // Register global keyboard shortcuts
 useKeyboardShortcuts({
   helpDialogRef,
@@ -442,7 +513,9 @@ useKeyboardShortcuts({
   syncAll,
   toggleSaveArticle,
   handleMarkAsRead,
-  handleMarkAllRead
+  handleMarkAllRead,
+  selectionMode,
+  toggleSelection
 })
 </script>
 

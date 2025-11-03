@@ -40,14 +40,15 @@
       :data-article-id="article.id"
       class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all group relative cursor-pointer"
       :class="{
-        'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected,
-        'hover:translate-y-[-2px]': !isSelected && !isDragging,
+        'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected || (selectionMode && isSelectedForBulk),
+        'hover:translate-y-[-2px]': !isSelected && !isDragging && !selectionMode,
         'overflow-visible': showActionsMenu,
         'overflow-hidden': !showActionsMenu,
         'dynamic-height': dynamicHeight,
-        'cursor-grab': allowSwipe && !isDragging,
+        'cursor-grab': allowSwipe && !isDragging && !selectionMode,
         'cursor-grabbing': isDragging,
-        'hover:shadow-md dark:hover:bg-zinc-800': !isDragging,
+        'cursor-pointer': selectionMode,
+        'hover:shadow-md dark:hover:bg-zinc-800': !isDragging && !selectionMode,
         'swipe-transition': !isDragging && !isRemoving,
         'duration-200': !isDragging && !isRemoving
       }"
@@ -57,6 +58,22 @@
       }"
       @click="handleCardClick"
     >
+    <!-- Selection Checkbox Overlay -->
+    <div
+      v-if="selectionMode"
+      class="absolute top-2 left-2 z-20"
+      @click.stop="(e) => emit('toggle-selection', e.shiftKey)"
+    >
+      <div class="w-6 h-6 rounded border-2 flex items-center justify-center transition-all"
+        :class="isSelectedForBulk
+          ? 'bg-blue-600 border-blue-600'
+          : 'bg-white dark:bg-zinc-800 border-gray-300 dark:border-zinc-600 hover:border-blue-500 dark:hover:border-blue-500'"
+      >
+        <svg v-if="isSelectedForBulk" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    </div>
     <!-- Flexible height container -->
     <div
       class="card-container relative w-full"
@@ -213,13 +230,17 @@ interface Props {
   dynamicHeight?: boolean
   allowSwipe?: boolean
   allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
+  selectionMode?: boolean
+  isSelectedForBulk?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showFeedTitle: false,
   dynamicHeight: false,
   allowSwipe: true,
-  allTagsWithCounts: () => []
+  allTagsWithCounts: () => [],
+  selectionMode: false,
+  isSelectedForBulk: false
 })
 
 const emit = defineEmits<{
@@ -228,6 +249,7 @@ const emit = defineEmits<{
   'update-tags': [savedArticleId: number, tags: string[]]
   'delete-article': []
   'swipe-dismiss': []
+  'toggle-selection': [shiftKey: boolean]
 }>()
 
 const showActionsMenu = ref(false)
@@ -475,6 +497,12 @@ const handlePointerCancel = () => {
 
 // Handle click - navigate only if not swiping/dragging
 const handleCardClick = (e: MouseEvent) => {
+  // In selection mode, clicking anywhere toggles selection
+  if (props.selectionMode) {
+    emit('toggle-selection', e.shiftKey)
+    return
+  }
+
   // Prevent navigation if user was dragging or card is being removed
   if (hasMoved.value || isDragging.value || isRemoving.value || willTriggerSwipe.value) {
     // Don't navigate, just clean up

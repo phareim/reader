@@ -50,15 +50,18 @@
             :is-saved="isSaved(article.id)"
             :show-feed-title="false"
             :all-tags-with-counts="allTagsWithCounts"
+            :selection-mode="selectionMode"
+            :is-selected-for-bulk="isSelected(article.id)"
             @toggle-save="toggleSaveArticle(article.id)"
             @toggle-read="handleToggleRead(article.id)"
             @update-tags="handleUpdateTags"
+            @toggle-selection="handleToggleSelection(article.id, $event)"
           />
         </div>
 
         <!-- Empty State -->
         <div v-else class="flex flex-col items-center justify-center py-20 px-4">
-          <div class="max-w-md text-center space-y-4">
+          <div class="max-w-md text-center space-y-6">
             <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -66,6 +69,32 @@
             <p class="text-gray-600 dark:text-gray-400">
               No unread articles in this feed.
             </p>
+
+            <!-- Feed Statistics -->
+            <div v-if="selectedFeed" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-3">
+              <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Feed Statistics</h3>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div class="text-left">
+                  <div class="text-gray-500 dark:text-gray-400">Total Articles</div>
+                  <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ articles.length }}</div>
+                </div>
+                <div class="text-left">
+                  <div class="text-gray-500 dark:text-gray-400">Unread</div>
+                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ selectedFeed.unreadCount || 0 }}</div>
+                </div>
+                <div class="text-left" v-if="selectedFeed.lastFetchedAt">
+                  <div class="text-gray-500 dark:text-gray-400">Last Updated</div>
+                  <div class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatDate(selectedFeed.lastFetchedAt) }}</div>
+                </div>
+                <div class="text-left" v-if="selectedFeed.isActive !== undefined">
+                  <div class="text-gray-500 dark:text-gray-400">Status</div>
+                  <div class="text-sm font-medium" :class="selectedFeed.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
+                    {{ selectedFeed.isActive ? 'Active' : 'Inactive' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 @click="showUnreadOnly = false"
@@ -86,6 +115,25 @@
             </div>
           </div>
         </div>
+
+        <!-- Bulk Selection Floating Button -->
+        <button v-if="searchedArticles.length > 0 && !selectionMode"
+          @click="toggleSelectionMode"
+          class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
+          title="Select multiple articles">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </button>
+
+        <!-- Bulk Action Bar -->
+        <BulkActionBar
+          :selected-count="selectedCount"
+          @mark-read="handleBulkMarkRead"
+          @save="handleBulkSave"
+          @clear="handleBulkClear"
+          @exit="handleBulkExit"
+        />
       </div>
     </div>
   </div>
@@ -143,6 +191,18 @@ const {
 // Search functionality
 const { searchQuery, filterArticles } = useArticleSearch()
 
+// Bulk selection functionality
+const {
+  selectionMode,
+  selectedArticleIds,
+  selectedCount,
+  toggleSelectionMode,
+  isSelected,
+  toggleSelection,
+  selectAll,
+  clearSelection
+} = useBulkSelection()
+
 // Apply search filter to displayed articles
 const searchedArticles = computed(() => {
   return filterArticles(displayedArticles.value, searchQuery.value)
@@ -159,6 +219,23 @@ const toggleMenu = () => {
   if (hamburgerMenuRef.value) {
     hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
   }
+}
+
+// Format date helper
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 // Toggle save/unsave article
@@ -267,6 +344,44 @@ const handleHeaderError = (message: string) => {
   }, 3000)
 }
 
+// Bulk selection handlers
+const handleToggleSelection = (articleId: number, shiftKey: boolean) => {
+  toggleSelection(articleId, searchedArticles.value, shiftKey)
+}
+
+const handleBulkMarkRead = async () => {
+  try {
+    const selectedIds = Array.from(selectedArticleIds.value)
+    await Promise.all(selectedIds.map(id => markAsRead(id, true)))
+    clearSelection()
+    handleHeaderSuccess(`Marked ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''} as read`)
+  } catch (error) {
+    console.error('Failed to mark articles as read:', error)
+    handleHeaderError('Failed to mark articles as read')
+  }
+}
+
+const handleBulkSave = async () => {
+  try {
+    const selectedIds = Array.from(selectedArticleIds.value)
+    await Promise.all(selectedIds.map(id => toggleSave(id)))
+    clearSelection()
+    await fetchSavedArticlesByTag()
+    handleHeaderSuccess(`Saved ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''}`)
+  } catch (error) {
+    console.error('Failed to save articles:', error)
+    handleHeaderError('Failed to save articles')
+  }
+}
+
+const handleBulkClear = () => {
+  clearSelection()
+}
+
+const handleBulkExit = () => {
+  toggleSelectionMode()
+}
+
 // Load feeds and articles on mount
 onMounted(async () => {
   if (session.value?.user) {
@@ -304,6 +419,8 @@ useKeyboardShortcuts({
   syncAll,
   toggleSaveArticle,
   handleMarkAsRead,
-  handleMarkAllRead
+  handleMarkAllRead,
+  selectionMode,
+  toggleSelection
 })
 </script>
