@@ -155,12 +155,16 @@ const { data: session } = useAuth()
 
 const {
   feeds,
-  selectedFeed,
   refreshing: isRefreshing,
   fetchFeeds,
   refreshFeed,
   syncAll
 } = useFeeds()
+
+// Compute the selected feed based on the route parameter feedId
+const selectedFeed = computed(() =>
+  feeds.value.find(f => f.id === feedId.value)
+)
 
 const {
   articles,

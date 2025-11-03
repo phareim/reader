@@ -2,6 +2,7 @@ export interface Feed {
   id: number
   title: string
   url: string
+  description?: string | null
   siteUrl?: string | null
   faviconUrl?: string | null
   tags: string[]

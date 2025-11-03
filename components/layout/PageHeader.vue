@@ -47,16 +47,25 @@
               </span>
             </template>
             <template v-else-if="selectedFeed">
-              <img
-                v-if="selectedFeed.faviconUrl"
-                :src="selectedFeed.faviconUrl"
-                :alt="selectedFeed.title"
-                class="w-8 h-8 flex-shrink-0"
-              />
-              <span class="truncate">{{ selectedFeed.title }}</span>
-              <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                ({{ unreadCount }} unread)
-              </span>
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <img
+                  v-if="selectedFeed.faviconUrl"
+                  :src="selectedFeed.faviconUrl"
+                  :alt="selectedFeed.title"
+                  class="w-8 h-8 flex-shrink-0"
+                />
+                <div class="flex flex-col min-w-0 flex-1">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="truncate">{{ selectedFeed.title }}</span>
+                    <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      ({{ unreadCount }} unread)
+                    </span>
+                  </div>
+                  <p v-if="selectedFeed.description" class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    {{ selectedFeed.description }}
+                  </p>
+                </div>
+              </div>
             </template>
             <template v-else-if="selectedTag">
               <span v-if="selectedTag === '__inbox__'" class="truncate">📥 Inbox</span>
@@ -164,6 +173,7 @@ interface Article {
 interface Feed {
   id: number
   title: string
+  description?: string | null
   faviconUrl?: string
 }
 

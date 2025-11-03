@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
         id: feed.id,
         title: feed.title,
         url: feed.url,
+        description: feed.description,
         siteUrl: feed.siteUrl,
         faviconUrl: feed.faviconUrl,
         tags: feed.tags.map(ft => ft.tag.name),
