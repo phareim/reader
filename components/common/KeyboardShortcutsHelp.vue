@@ -100,7 +100,7 @@
                 <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Esc</kbd>
               </div>
               <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Mark selected as read (without opening)</span>
+                <span class="text-gray-700 dark:text-gray-300">Mark as read (current or all selected)</span>
                 <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">e</kbd>
               </div>
               <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">

@@ -31,6 +31,7 @@ interface UseKeyboardShortcutsOptions {
 
   // Bulk selection (optional)
   selectionMode?: Ref<boolean>
+  selectedArticleIds?: Ref<Set<number>>
   toggleSelection?: (id: number, articles: Array<{ id: number }>, shiftKey: boolean) => void
 }
 
@@ -49,6 +50,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     handleMarkAsRead,
     handleMarkAllRead,
     selectionMode,
+    selectedArticleIds,
     toggleSelection
   } = options
 
@@ -126,9 +128,17 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     }
 
     // Mark as read without opening: e
+    // In bulk mode, mark all selected articles as read
     if (key === 'e') {
       e.preventDefault()
-      await handleMarkAsRead()
+      if (selectionMode?.value && selectedArticleIds?.value && selectedArticleIds.value.size > 0) {
+        // Mark all selected articles as read
+        const selectedIds = Array.from(selectedArticleIds.value)
+        await Promise.all(selectedIds.map(id => markAsRead(id, true)))
+      } else {
+        // Mark current article as read
+        await handleMarkAsRead()
+      }
       return
     }
 

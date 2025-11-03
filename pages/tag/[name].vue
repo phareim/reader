@@ -408,6 +408,7 @@ useKeyboardShortcuts({
   handleMarkAsRead,
   handleMarkAllRead: markAllReadHandler,
   selectionMode,
+  selectedArticleIds,
   toggleSelection
 })
 </script>
