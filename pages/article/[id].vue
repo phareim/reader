@@ -42,7 +42,7 @@
           <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Article Not Found</h2>
           <p class="text-gray-600 dark:text-gray-400">{{ error }}</p>
           <NuxtLink
-            to="/"
+            :to="article?.feedId ? `/feed/${article.feedId}` : '/'"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +158,7 @@
 
             <!-- Back to Articles (Center) -->
             <NuxtLink
-              to="/"
+              :to="article?.feedId ? `/feed/${article.feedId}` : '/'"
               class="px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
             >
               <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

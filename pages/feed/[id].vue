@@ -19,6 +19,7 @@
         :selected-feed-id="feedId"
         :selected-tag="null"
         :is-refreshing="isRefreshing"
+        :is-loading="isRefreshing || articlesLoading"
         :unread-count="selectedFeed?.unreadCount || 0"
         @toggle-menu="toggleMenu"
         @mark-all-read="handleMarkAllRead"

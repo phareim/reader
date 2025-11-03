@@ -14,8 +14,8 @@
       <div class="space-y-3" v-show="hasUnreadInOtherViews">
         <!-- Tags with unread articles -->
         <div v-for="tag in tagsWithUnread" :key="tag.name">
-          <button
-            @click="$emit('select-tag', tag.name)"
+          <NuxtLink
+            :to="`/tag/${tag.name}`"
             class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left"
           >
             <div class="flex items-center gap-3">
@@ -28,13 +28,13 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
             </div>
-          </button>
+          </NuxtLink>
         </div>
 
         <!-- Inbox with unread articles -->
         <div v-if="inboxUnreadCount > 0">
-          <button
-            @click="$emit('select-tag', '__inbox__')"
+          <NuxtLink
+            to="/tag/__inbox__"
             class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left"
           >
             <div class="flex items-center gap-3">
@@ -47,7 +47,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
               </svg>
             </div>
-          </button>
+          </NuxtLink>
         </div>
 
         <!-- If no unread at all -->
@@ -99,7 +99,6 @@ withDefaults(defineProps<Props>(), {
 })
 
 defineEmits<{
-  'select-tag': [tag: string]
   'sync-all': []
 }>()
 

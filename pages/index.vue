@@ -13,6 +13,7 @@
       <PageHeader :menu-is-open="menuIsOpen" :current-article="null" :selected-feed="selectedFeed"
         :selected-feed-id="selectedFeedId" :selected-tag="selectedTag"
         :unread-count="articleCounts.unreadCount" :total-count="articleCounts.totalCount"
+        :is-loading="feedsLoading || articlesLoading"
         @toggle-menu="toggleMenu"
         @mark-all-read="handleMarkAllRead" @refresh-feed="handleRefreshFeed" @sync-all="handleSyncAll"
         @view-saved="handleViewSaved" @sign-out="handleSignOut" @success="handleHeaderSuccess"
@@ -61,7 +62,7 @@
           <EmptyState v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
             :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'" :tags-with-unread="tagsWithUnreadCounts"
             :inbox-unread-count="getInboxUnreadCount()" :total-unread-count="totalUnreadCount"
-            :has-unread-in-other-views="hasUnreadInOtherViews" @select-tag="handleSelectTag"
+            :has-unread-in-other-views="hasUnreadInOtherViews"
             @sync-all="handleSyncAll" />
 
           <!-- Article Grid -->
@@ -397,11 +398,6 @@ const getTagUnreadCount = (tag: string) => {
 const getInboxUnreadCount = () => {
   const inboxFeeds = feedsByTag.value['__inbox__'] || []
   return inboxFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
-}
-
-const handleSelectTag = (tag: string) => {
-  selectedTag.value = tag
-  selectedFeedId.value = null
 }
 
 const handleSyncAll = async () => {

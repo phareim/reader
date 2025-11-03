@@ -69,6 +69,16 @@
           </div>
         </Transition>
       </h1>
+
+      <!-- Loading Indicator -->
+      <Transition name="fade">
+        <div v-if="isLoading" class="flex-shrink-0 ml-2" title="Loading...">
+          <svg class="animate-spin h-4 w-4 text-blue-500 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      </Transition>
     </div>
 
     <!-- Search Input -->
@@ -164,6 +174,7 @@ interface Props {
   selectedFeedId: number | null
   selectedTag: string | null
   isRefreshing?: boolean
+  isLoading?: boolean
   unreadCount?: number
   totalCount?: number
   showSearch?: boolean
@@ -172,6 +183,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   selectedFeed: null,
   isRefreshing: false,
+  isLoading: false,
   unreadCount: 0,
   totalCount: 0,
   showSearch: true
@@ -247,6 +259,22 @@ watch(showSearchInput, (visible) => {
 </script>
 
 <style scoped>
+/* Fade transition for loading indicator */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+}
+
 /* Smooth fade transition for sticky header title */
 .fade-title-enter-active,
 .fade-title-leave-active {

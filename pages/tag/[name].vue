@@ -18,6 +18,7 @@
         :selected-feed="null"
         :selected-feed-id="null"
         :selected-tag="tagName"
+        :is-loading="articlesLoading"
         :unread-count="unreadArticles.length"
         @toggle-menu="toggleMenu"
         @mark-all-read="markAllReadHandler"
