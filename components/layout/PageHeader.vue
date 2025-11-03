@@ -155,6 +155,7 @@
             :is-refreshing="isRefreshing"
             @sign-out="$emit('sign-out')"
             @refresh-feed="$emit('refresh-feed')"
+            @mark-all-read="showMenu = false; $emit('mark-all-read')"
             @success="$emit('success', $event)"
             @error="$emit('error', $event)"
           />

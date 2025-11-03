@@ -301,9 +301,11 @@ const handleMarkAllRead = async () => {
   try {
     if (feedId.value !== null) {
       await markAllAsRead(feedId.value)
+      handleHeaderSuccess('All articles marked as read')
     }
   } catch (error) {
     console.error('Failed to mark all as read:', error)
+    handleHeaderError('Failed to mark all articles as read')
   }
 }
 

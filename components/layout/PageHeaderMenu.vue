@@ -45,6 +45,18 @@
       <span>{{ isRefreshing ? 'Refreshing...' : 'Refresh feed' }}</span>
     </button>
 
+    <!-- Mark all as read (only show if a feed is selected) -->
+    <button
+      v-if="selectedFeedId && selectedFeedId > 0"
+      @click="$emit('mark-all-read')"
+      class="w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors flex items-center gap-2 border-t border-gray-200 dark:border-zinc-700"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>Mark all as read</span>
+    </button>
+
     <!-- Sign Out -->
     <button
       @click="$emit('sign-out')"
@@ -72,6 +84,7 @@ withDefaults(defineProps<Props>(), {
 defineEmits<{
   'sign-out': []
   'refresh-feed': []
+  'mark-all-read': []
   'success': [message: string]
   'error': [message: string]
 }>()
