@@ -101,10 +101,6 @@
         <div
           v-else-if="showGradient"
           class="w-full h-full transition-all duration-300 ease-out gradient-placeholder"
-          :class="{
-            'translate-y-[-5px]': isSelected,
-            'group-hover:translate-y-[-2px]': !isSelected
-          }"
           :style="{
             background: placeholderGradient,
             '--hover-gradient': placeholderGradientHover
@@ -281,15 +277,17 @@ const handleImageError = () => {
 // Generate a deterministic gradient based on article ID
 const generateGradient = (id: number, hover = false): string => {
   // Use article ID as seed for consistent colors
-  const hue1 = (id * 137.508) % 360 // Golden angle for good distribution
-  const hue2 = (hue1 + 60 + (id % 120)) % 360 // Related hue
+  let hue1 = (id * 137.508) % 360 // Golden angle for good distribution
+  let hue2 = (hue1 + 60 + (id % 120)) % 360 // Related hue
+  if(hover) {
+    [hue1,hue2] = [hue2,hue1]
+  }
   const saturation = 60 + (id % 20)
   const lightness = 55 + (id % 15)
 
-  // Slightly modify gradient on hover: increase saturation and lightness
-  const hoverSaturation = hover ? saturation + 10 : saturation
-  const hoverLightness = hover ? lightness + 5 : lightness
-  const hoverLightness2 = hover ? lightness + 25 : lightness + 10
+  const hoverSaturation =  saturation
+  const hoverLightness =  lightness
+  const hoverLightness2 = lightness
 
   return `linear-gradient(135deg,
     hsl(${hue1}, ${hoverSaturation}%, ${hoverLightness}%),
