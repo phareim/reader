@@ -109,13 +109,24 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     // Open article in full view: Enter or o
     if (key === 'Enter' || key === 'o') {
       e.preventDefault()
+      // Determine the source context from the current URL
+      const currentPath = window.location.pathname
+      let sourceContext = ''
+      if (currentPath.startsWith('/feed/')) {
+        sourceContext = currentPath.substring(1) // e.g., "feed/123"
+      } else if (currentPath.startsWith('/tag/')) {
+        sourceContext = currentPath.substring(1) // e.g., "tag/technology"
+      }
+
       if (selectedArticleId.value === null && displayedArticles.value.length > 0) {
         // Navigate to first article if none selected
         const firstId = displayedArticles.value[0].id
-        window.location.href = `/article/${firstId}`
+        const query = sourceContext ? `?from=${encodeURIComponent(sourceContext)}` : ''
+        window.location.href = `/article/${firstId}${query}`
       } else if (selectedArticleId.value !== null) {
         // Navigate to selected article
-        window.location.href = `/article/${selectedArticleId.value}`
+        const query = sourceContext ? `?from=${encodeURIComponent(sourceContext)}` : ''
+        window.location.href = `/article/${selectedArticleId.value}${query}`
       }
       return
     }

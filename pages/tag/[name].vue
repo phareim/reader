@@ -81,6 +81,7 @@
                 :all-tags-with-counts="allTagsWithCounts"
                 :selection-mode="selectionMode"
                 :is-selected-for-bulk="isSelected(article.id)"
+                :source-context="`tag/${tagName}`"
                 @toggle-save="toggleSaveArticle(article.id)"
                 @toggle-read="handleToggleRead(article.id)"
                 @update-tags="handleUpdateTags"

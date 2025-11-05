@@ -231,6 +231,7 @@ interface Props {
   allTagsWithCounts?: Array<{ name: string; feedCount: number; savedArticleCount: number }>
   selectionMode?: boolean
   isSelectedForBulk?: boolean
+  sourceContext?: string // e.g., "feed/123" or "tag/technology" for back navigation
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -520,7 +521,8 @@ const handleCardClick = (e: MouseEvent) => {
   }
 
   // Otherwise, manually navigate
-  navigateTo(`/article/${props.article.id}`)
+  const query = props.sourceContext ? { from: props.sourceContext } : {}
+  navigateTo({ path: `/article/${props.article.id}`, query })
 }
 </script>
 

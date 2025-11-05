@@ -42,7 +42,7 @@
           <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Article Not Found</h2>
           <p class="text-gray-600 dark:text-gray-400">{{ error }}</p>
           <NuxtLink
-            :to="article?.feedId ? `/feed/${article.feedId}` : '/'"
+            :to="backUrl"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +146,7 @@
             <!-- Previous Button (Left) -->
             <NuxtLink
               v-if="prevArticleId"
-              :to="`/article/${prevArticleId}`"
+              :to="{ path: `/article/${prevArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
               class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
             >
               <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +158,7 @@
 
             <!-- Back to Articles (Center) -->
             <NuxtLink
-              :to="article?.feedId ? `/feed/${article.feedId}` : '/'"
+              :to="backUrl"
               class="px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
             >
               <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,7 +170,7 @@
             <!-- Next Button (Right) -->
             <NuxtLink
               v-if="nextArticleId"
-              :to="`/article/${nextArticleId}`"
+              :to="{ path: `/article/${nextArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
               class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
             >
               <span class="hidden sm:inline">Next</span>
@@ -243,6 +243,18 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const articleId = computed(() => parseInt(route.params.id as string))
+
+// Track where the user came from for better back navigation
+const backUrl = computed(() => {
+  // Check if we have a 'from' query parameter (e.g., ?from=tag/technology or ?from=feed/123)
+  const fromParam = route.query.from as string
+  if (fromParam) {
+    return `/${fromParam}`
+  }
+
+  // Default: go back to the article's feed if available, otherwise home
+  return article.value?.feedId ? `/feed/${article.value.feedId}` : '/'
+})
 
 const { data: session } = useAuth()
 
@@ -356,7 +368,7 @@ const handleSyncAll = async () => {
 }
 
 const handleViewSaved = () => {
-  router.push('/')
+  router.push('/saved')
 }
 
 const handleSignOut = async () => {
@@ -390,12 +402,16 @@ const {
 } = useSwipeGesture({
   onSwipeLeft: () => {
     if (nextArticleId.value) {
-      router.push(`/article/${nextArticleId.value}`)
+      // Preserve the 'from' query parameter when swiping
+      const query = route.query.from ? { from: route.query.from } : {}
+      router.push({ path: `/article/${nextArticleId.value}`, query })
     }
   },
   onSwipeRight: () => {
     if (prevArticleId.value) {
-      router.push(`/article/${prevArticleId.value}`)
+      // Preserve the 'from' query parameter when swiping
+      const query = route.query.from ? { from: route.query.from } : {}
+      router.push({ path: `/article/${prevArticleId.value}`, query })
     }
   },
   canSwipeLeft: computed(() => !!nextArticleId.value),
@@ -436,7 +452,7 @@ watch(() => route.params.id, async () => {
 
 // Keyboard shortcut handlers for article view
 const articleKeyboardHandlers: Record<string, (e: KeyboardEvent) => void> = {
-  'Escape': () => router.push('/'),
+  'Escape': () => router.push(backUrl.value),
   'o': () => {
     if (article.value?.url) {
       window.open(article.value.url, '_blank', 'noopener,noreferrer')
@@ -444,12 +460,16 @@ const articleKeyboardHandlers: Record<string, (e: KeyboardEvent) => void> = {
   },
   'j': () => {
     if (nextArticleId.value) {
-      router.push(`/article/${nextArticleId.value}`)
+      // Preserve the 'from' query parameter when navigating
+      const query = route.query.from ? { from: route.query.from } : {}
+      router.push({ path: `/article/${nextArticleId.value}`, query })
     }
   },
   'k': () => {
     if (prevArticleId.value) {
-      router.push(`/article/${prevArticleId.value}`)
+      // Preserve the 'from' query parameter when navigating
+      const query = route.query.from ? { from: route.query.from } : {}
+      router.push({ path: `/article/${prevArticleId.value}`, query })
     }
   }
 }
@@ -474,33 +494,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleArticleKeydown)
 })
 
-// Register keyboard shortcuts for article actions
-useKeyboardShortcuts({
-  helpDialogRef,
-  toggleMenu,
-  selectedArticleId: computed(() => articleId.value),
-  displayedArticles: computed(() => article.value ? [article.value] : []),
-  selectedFeedId: computed(() => article.value?.feedId || null),
-  showUnreadOnly: computed(() => false),
-  markAsRead,
-  refreshFeed: async (feedId: number) => {
-    if (feedId) {
-      return await refreshFeed(feedId)
-    }
-    return { success: false, newArticles: 0 }
-  },
-  syncAll,
-  toggleSaveArticle: async (articleId: number) => {
-    await toggleSave()
-  },
-  handleMarkAsRead: async () => {
-    if (article.value && !article.value.isRead) {
-      await markAsRead(articleId.value, true)
-      article.value.isRead = true
-    }
-  },
-  handleMarkAllRead: async () => {
-    // Not applicable in article view
-  }
-})
+// Note: We don't use useKeyboardShortcuts here because it's designed for article list views
+// (feed/tag/home) where you select articles in a grid. On the article detail page, we need
+// different behavior (j/k navigate between articles, o opens original URL, Escape goes back)
 </script>
