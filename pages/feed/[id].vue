@@ -180,13 +180,11 @@ const {
 
 const {
   isSaved,
-  toggleSave,
   fetchSavedArticleIds
 } = useSavedArticles()
 
 const {
   allTagsWithCounts,
-  updateSavedArticleTags,
   fetchTags
 } = useTags()
 
@@ -197,35 +195,56 @@ const {
 // Search functionality
 const { searchQuery, filterArticles } = useArticleSearch()
 
-// Bulk selection functionality
-const {
-  selectionMode,
-  selectedArticleIds,
-  selectedCount,
-  toggleSelectionMode,
-  isSelected,
-  toggleSelection,
-  selectAll,
-  clearSelection
-} = useBulkSelection()
-
 // Apply search filter to displayed articles
 const searchedArticles = computed(() => {
   return filterArticles(displayedArticles.value, searchQuery.value)
 })
 
-// Reference to hamburger menu to track its open state
-const hamburgerMenuRef = ref<any>(null)
-const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+// Shared article handlers
+const {
+  toggleSaveArticle,
+  handleToggleRead,
+  handleUpdateTags,
+  handleMarkAsRead
+} = useArticleViewHandlers()
 
-// Reference to help dialog
-const helpDialogRef = ref<any>(null)
+// Common page functionality (menu, auth, etc.)
+const {
+  hamburgerMenuRef,
+  helpDialogRef,
+  menuIsOpen,
+  toggleMenu,
+  handleSyncAll,
+  handleSignOut,
+  initializeArticlePage
+} = useArticlePageCommon()
 
-const toggleMenu = () => {
-  if (hamburgerMenuRef.value) {
-    hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
-  }
-}
+// Header messages
+const {
+  success: headerSuccess,
+  error: headerError,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+} = useHeaderMessages()
+
+// Bulk action handlers
+const {
+  selectionMode,
+  selectedArticleIds,
+  selectedCount,
+  toggleSelectionMode,
+  handleToggleSelection,
+  handleBulkMarkRead,
+  handleBulkSave,
+  handleBulkClear,
+  handleBulkExit
+} = useBulkActionHandlers({
+  searchedArticles,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+})
+
+const { isSelected, toggleSelection } = useBulkSelection()
 
 // Format date helper
 const formatDate = (dateString: string) => {
@@ -242,60 +261,6 @@ const formatDate = (dateString: string) => {
   if (diffDays < 7) return `${diffDays}d ago`
 
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-// Toggle save/unsave article
-const toggleSaveArticle = async (articleId: number) => {
-  try {
-    await toggleSave(articleId)
-    await fetchSavedArticlesByTag()
-  } catch (error) {
-    console.error('Failed to toggle save:', error)
-  }
-}
-
-// Toggle read/unread status
-const handleToggleRead = async (articleId: number) => {
-  try {
-    const article = displayedArticles.value.find(a => a.id === articleId)
-    if (article) {
-      await markAsRead(articleId, !article.isRead)
-    }
-  } catch (error) {
-    console.error('Failed to toggle read status:', error)
-  }
-}
-
-// Update tags for a saved article
-const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
-  const article = articles.value.find(a => a.savedId === savedArticleId)
-  const previousTags = article?.tags || []
-
-  if (article) {
-    article.tags = tags
-  }
-
-  try {
-    await updateSavedArticleTags(savedArticleId, tags)
-    await Promise.all([
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
-  } catch (error) {
-    console.error('Failed to update tags:', error)
-    if (article) {
-      article.tags = previousTags
-    }
-  }
-}
-
-const handleMarkAsRead = async () => {
-  if (selectedArticleId.value !== null) {
-    const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-    if (article && !article.isRead) {
-      await markAsRead(selectedArticleId.value, true)
-    }
-  }
 }
 
 const handleMarkAllRead = async () => {
@@ -316,94 +281,17 @@ const handleRefreshFeed = async () => {
   }
 }
 
-const handleSyncAll = async () => {
-  try {
-    await syncAll()
-  } catch (error) {
-    console.error('Failed to sync all feeds:', error)
-  }
-}
-
 const handleViewSaved = () => {
   router.push('/saved')
 }
 
-const handleSignOut = async () => {
-  const { signOut } = useAuth()
-  await signOut({ callbackUrl: '/login' })
-}
-
-const headerSuccess = ref<string | null>(null)
-const headerError = ref<string | null>(null)
-
-const handleHeaderSuccess = (message: string) => {
-  headerError.value = null
-  headerSuccess.value = message
-  setTimeout(() => {
-    headerSuccess.value = null
-  }, 3000)
-}
-
-const handleHeaderError = (message: string) => {
-  headerSuccess.value = null
-  headerError.value = message
-  setTimeout(() => {
-    headerError.value = null
-  }, 3000)
-}
-
-// Bulk selection handlers
-const handleToggleSelection = (articleId: number, shiftKey: boolean) => {
-  toggleSelection(articleId, searchedArticles.value, shiftKey)
-}
-
-const handleBulkMarkRead = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    await Promise.all(selectedIds.map(id => markAsRead(id, true)))
-    clearSelection()
-    handleHeaderSuccess(`Marked ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''} as read`)
-  } catch (error) {
-    console.error('Failed to mark articles as read:', error)
-    handleHeaderError('Failed to mark articles as read')
-  }
-}
-
-const handleBulkSave = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    await Promise.all(selectedIds.map(id => toggleSave(id)))
-    clearSelection()
-    await fetchSavedArticlesByTag()
-    handleHeaderSuccess(`Saved ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''}`)
-  } catch (error) {
-    console.error('Failed to save articles:', error)
-    handleHeaderError('Failed to save articles')
-  }
-}
-
-const handleBulkClear = () => {
-  clearSelection()
-}
-
-const handleBulkExit = () => {
-  toggleSelectionMode()
-}
-
 // Load feeds and articles on mount
 onMounted(async () => {
-  if (session.value?.user) {
-    await Promise.all([
-      fetchFeeds(),
-      fetchSavedArticleIds(),
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
+  await initializeArticlePage()
 
-    // Fetch articles for this feed
-    if (feedId.value) {
-      await fetchArticles(feedId.value)
-    }
+  // Fetch articles for this feed
+  if (feedId.value) {
+    await fetchArticles(feedId.value)
   }
 })
 

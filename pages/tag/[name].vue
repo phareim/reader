@@ -227,29 +227,48 @@ const {
 // Search functionality
 const { searchQuery, filterArticles } = useArticleSearch()
 
-// Bulk selection functionality
-const {
-  selectionMode,
-  selectedArticleIds,
-  selectedCount,
-  toggleSelectionMode,
-  isSelected,
-  toggleSelection,
-  selectAll,
-  clearSelection
-} = useBulkSelection()
-
 // Apply search filter to displayed articles
 const searchedArticles = computed(() => {
   return filterArticles(displayedArticles.value, searchQuery.value)
 })
 
-// Reference to hamburger menu to track its open state
-const hamburgerMenuRef = ref<any>(null)
-const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+// Common page functionality (menu, auth, etc.)
+const {
+  hamburgerMenuRef,
+  helpDialogRef,
+  menuIsOpen,
+  toggleMenu,
+  handleSyncAll,
+  handleSignOut,
+  initializeArticlePage
+} = useArticlePageCommon()
 
-// Reference to help dialog
-const helpDialogRef = ref<any>(null)
+// Header messages
+const {
+  success: headerSuccess,
+  error: headerError,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+} = useHeaderMessages()
+
+// Bulk action handlers
+const {
+  selectionMode,
+  selectedArticleIds,
+  selectedCount,
+  toggleSelectionMode,
+  handleToggleSelection,
+  handleBulkMarkRead,
+  handleBulkSave,
+  handleBulkClear,
+  handleBulkExit
+} = useBulkActionHandlers({
+  searchedArticles,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+})
+
+const { isSelected, toggleSelection } = useBulkSelection()
 
 // Group articles by feed for better organization
 const articlesByFeed = computed(() => {
@@ -275,12 +294,6 @@ const articlesByFeed = computed(() => {
   )
 })
 
-const toggleMenu = () => {
-  if (hamburgerMenuRef.value) {
-    hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
-  }
-}
-
 const handleRefreshTag = async () => {
   try {
     // Refresh all feeds in this tag
@@ -301,79 +314,8 @@ const handleRefreshTag = async () => {
   }
 }
 
-const handleSyncAll = async () => {
-  try {
-    await syncAll()
-  } catch (error) {
-    console.error('Failed to sync all feeds:', error)
-  }
-}
-
 const handleViewSaved = () => {
   router.push('/saved')
-}
-
-const handleSignOut = async () => {
-  const { signOut } = useAuth()
-  await signOut({ callbackUrl: '/login' })
-}
-
-const headerSuccess = ref<string | null>(null)
-const headerError = ref<string | null>(null)
-
-const handleHeaderSuccess = (message: string) => {
-  headerError.value = null
-  headerSuccess.value = message
-  setTimeout(() => {
-    headerSuccess.value = null
-  }, 3000)
-}
-
-const handleHeaderError = (message: string) => {
-  headerSuccess.value = null
-  headerError.value = message
-  setTimeout(() => {
-    headerError.value = null
-  }, 3000)
-}
-
-// Bulk selection handlers
-const handleToggleSelection = (articleId: number, shiftKey: boolean) => {
-  toggleSelection(articleId, searchedArticles.value, shiftKey)
-}
-
-const handleBulkMarkRead = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    await Promise.all(selectedIds.map(id => markAsRead(id, true)))
-    clearSelection()
-    handleHeaderSuccess(`Marked ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''} as read`)
-  } catch (error) {
-    console.error('Failed to mark articles as read:', error)
-    handleHeaderError('Failed to mark articles as read')
-  }
-}
-
-const handleBulkSave = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    const { toggleSave } = useSavedArticles()
-    await Promise.all(selectedIds.map(id => toggleSave(id)))
-    clearSelection()
-    await fetchSavedArticlesByTag()
-    handleHeaderSuccess(`Saved ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''}`)
-  } catch (error) {
-    console.error('Failed to save articles:', error)
-    handleHeaderError('Failed to save articles')
-  }
-}
-
-const handleBulkClear = () => {
-  clearSelection()
-}
-
-const handleBulkExit = () => {
-  toggleSelectionMode()
 }
 
 // Mark all articles in a specific feed as read
@@ -399,20 +341,13 @@ const handleMarkFeedAsRead = async (feedId: number, articles: typeof searchedArt
 
 // Load feeds and articles on mount
 onMounted(async () => {
-  if (session.value?.user) {
-    await Promise.all([
-      fetchFeeds(),
-      fetchSavedArticleIds(),
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
+  await initializeArticlePage()
 
-    // Set the selected tag to match the route
-    selectedTag.value = tagName.value
+  // Set the selected tag to match the route
+  selectedTag.value = tagName.value
 
-    // Fetch articles for this tag
-    await fetchArticles(undefined, selectedTagFeedIds.value)
-  }
+  // Fetch articles for this tag
+  await fetchArticles(undefined, selectedTagFeedIds.value)
 })
 
 // Watch for tag name changes

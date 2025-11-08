@@ -141,13 +141,11 @@ const {
 
 const {
   isSaved,
-  toggleSave,
   fetchSavedArticleIds
 } = useSavedArticles()
 
 const {
   allTagsWithCounts,
-  updateSavedArticleTags,
   fetchTags
 } = useTags()
 
@@ -158,17 +156,42 @@ const {
 // Search functionality
 const { searchQuery, filterArticles } = useArticleSearch()
 
-// Bulk selection functionality
+// Shared article handlers
 const {
-  selectionMode,
-  selectedArticleIds,
-  selectedCount,
-  toggleSelectionMode,
-  isSelected,
-  toggleSelection,
-  selectAll,
-  clearSelection
-} = useBulkSelection()
+  toggleSaveArticle,
+  handleToggleRead,
+  handleUpdateTags,
+  handleMarkAsRead,
+  handleMarkAllRead: _handleMarkAllRead
+} = useArticleViewHandlers()
+
+// Wrapper for handleMarkAllRead that passes feedId when needed
+const handleMarkAllRead = async () => {
+  if (selectedFeedId.value !== null && selectedFeedId.value > 0) {
+    await _handleMarkAllRead(selectedFeedId.value)
+  } else {
+    await _handleMarkAllRead()
+  }
+}
+
+// Common page functionality (menu, auth, etc.)
+const {
+  hamburgerMenuRef,
+  helpDialogRef,
+  menuIsOpen,
+  toggleMenu,
+  handleSyncAll,
+  handleSignOut,
+  initializeArticlePage
+} = useArticlePageCommon()
+
+// Header messages
+const {
+  success: headerSuccess,
+  error: headerError,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+} = useHeaderMessages()
 
 // Track dismissed articles for smooth removal animation
 const dismissedArticleIds = ref<Set<number>>(new Set())
@@ -202,43 +225,24 @@ const displayedArticles = computed(() => {
   return articlesToDisplay.filter(a => !dismissedArticleIds.value.has(a.id))
 })
 
-// Reference to hamburger menu to track its open state
-const hamburgerMenuRef = ref<any>(null)
-const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+// Bulk action handlers
+const {
+  selectionMode,
+  selectedArticleIds,
+  selectedCount,
+  toggleSelectionMode,
+  handleToggleSelection,
+  handleBulkMarkRead,
+  handleBulkSave,
+  handleBulkClear,
+  handleBulkExit
+} = useBulkActionHandlers({
+  searchedArticles: displayedArticles,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+})
 
-// Reference to help dialog
-const helpDialogRef = ref<any>(null)
-
-// Keyboard shortcuts are registered via composable
-
-const toggleMenu = () => {
-  if (hamburgerMenuRef.value) {
-    hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
-  }
-}
-
-// Toggle save/unsave article
-const toggleSaveArticle = async (articleId: number) => {
-  try {
-    await toggleSave(articleId)
-    // Refresh saved articles organization
-    await fetchSavedArticlesByTag()
-  } catch (error) {
-    console.error('Failed to toggle save:', error)
-  }
-}
-
-// Toggle read/unread status
-const handleToggleRead = async (articleId: number) => {
-  try {
-    const article = displayedArticles.value.find(a => a.id === articleId)
-    if (article) {
-      await markAsRead(articleId, !article.isRead)
-    }
-  } catch (error) {
-    console.error('Failed to toggle read status:', error)
-  }
-}
+const { isSelected, toggleSelection } = useBulkSelection()
 
 // Handle swipe dismiss - remove article from local display immediately
 const handleSwipeDismiss = (articleId: number) => {
@@ -247,53 +251,15 @@ const handleSwipeDismiss = (articleId: number) => {
   dismissedArticleIds.value.add(articleId)
 }
 
-// Update tags for a saved article
-const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
-  // Find the article with this savedId and optimistically update its tags
-  const article = articles.value.find(a => a.savedId === savedArticleId)
-  const previousTags = article?.tags || []
-
-  if (article) {
-    article.tags = tags
-  }
-
-  try {
-    await updateSavedArticleTags(savedArticleId, tags)
-    // Refresh tag counts and saved articles organization
-    await Promise.all([
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
-  } catch (error) {
-    console.error('Failed to update tags:', error)
-    // Revert optimistic update on error
-    if (article) {
-      article.tags = previousTags
-    }
-  }
-}
-
 // Load feeds and saved articles on mount (only if logged in)
 onMounted(async () => {
-  if (session.value?.user) {
-    await Promise.all([
-      fetchFeeds(),
-      fetchSavedArticleIds(),
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
-  }
+  await initializeArticlePage()
 })
 
 // Watch for session changes to fetch data when user logs in
 watch(() => session.value?.user, async (user) => {
   if (user) {
-    await Promise.all([
-      fetchFeeds(),
-      fetchSavedArticleIds(),
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
+    await initializeArticlePage()
   }
 })
 
@@ -350,45 +316,7 @@ watch(displayedArticles, () => {
   }
 })
 
-// Mark selected article as read without opening
-const handleMarkAsRead = async () => {
-  if (selectedArticleId.value !== null) {
-    const article = displayedArticles.value.find(a => a.id === selectedArticleId.value)
-    if (article && !article.isRead) {
-      await markAsRead(selectedArticleId.value, true)
-    }
-  }
-}
-
-const handleMarkAllRead = async () => {
-  try {
-    if (selectedFeedId.value !== null) {
-      // Mark all in specific feed
-      await markAllAsRead(selectedFeedId.value)
-    } else if (selectedTag.value !== null) {
-      // Mark all in tag - optimistically update all at once, then call API for each
-      const articlesToMark = displayedArticles.value.filter(a => !a.isRead)
-
-      // Optimistically update all articles at once
-      articlesToMark.forEach(article => {
-        article.isRead = true
-        article.readAt = new Date().toISOString()
-      })
-
-      // Then make API calls in background without awaiting each one
-      Promise.all(articlesToMark.map(article =>
-        markAsRead(article.id, true).catch(err => {
-          // Revert on error
-          article.isRead = false
-          article.readAt = null
-          console.error('Failed to mark article as read:', err)
-        })
-      ))
-    }
-  } catch (error) {
-    console.error('Failed to mark all as read:', error)
-  }
-}
+// handleMarkAsRead and handleMarkAllRead are now provided by useArticleViewHandlers
 
 const getTagUnreadCount = (tag: string) => {
   const tagFeeds = feedsByTag.value[tag] || []
@@ -398,14 +326,6 @@ const getTagUnreadCount = (tag: string) => {
 const getInboxUnreadCount = () => {
   const inboxFeeds = feedsByTag.value['__inbox__'] || []
   return inboxFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
-}
-
-const handleSyncAll = async () => {
-  try {
-    await syncAll()
-  } catch (error) {
-    console.error('Failed to sync all feeds:', error)
-  }
 }
 
 // Computed properties for EmptyState component
@@ -432,68 +352,6 @@ const handleRefreshFeed = async () => {
 const handleViewSaved = () => {
   selectedFeedId.value = -1
   selectedTag.value = null
-}
-
-const handleSignOut = async () => {
-  const { signOut } = useAuth()
-  await signOut({ callbackUrl: '/login' })
-}
-
-const headerSuccess = ref<string | null>(null)
-const headerError = ref<string | null>(null)
-
-const handleHeaderSuccess = (message: string) => {
-  headerError.value = null
-  headerSuccess.value = message
-  setTimeout(() => {
-    headerSuccess.value = null
-  }, 3000)
-}
-
-const handleHeaderError = (message: string) => {
-  headerSuccess.value = null
-  headerError.value = message
-  setTimeout(() => {
-    headerError.value = null
-  }, 3000)
-}
-
-// Bulk selection handlers
-const handleToggleSelection = (articleId: number, shiftKey: boolean) => {
-  toggleSelection(articleId, displayedArticles.value, shiftKey)
-}
-
-const handleBulkMarkRead = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    await Promise.all(selectedIds.map(id => markAsRead(id, true)))
-    clearSelection()
-    handleHeaderSuccess(`Marked ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''} as read`)
-  } catch (error) {
-    console.error('Failed to mark articles as read:', error)
-    handleHeaderError('Failed to mark articles as read')
-  }
-}
-
-const handleBulkSave = async () => {
-  try {
-    const selectedIds = Array.from(selectedArticleIds.value)
-    await Promise.all(selectedIds.map(id => toggleSave(id)))
-    clearSelection()
-    await fetchSavedArticlesByTag()
-    handleHeaderSuccess(`Saved ${selectedIds.length} article${selectedIds.length !== 1 ? 's' : ''}`)
-  } catch (error) {
-    console.error('Failed to save articles:', error)
-    handleHeaderError('Failed to save articles')
-  }
-}
-
-const handleBulkClear = () => {
-  clearSelection()
-}
-
-const handleBulkExit = () => {
-  toggleSelectionMode()
 }
 
 // Register global keyboard shortcuts

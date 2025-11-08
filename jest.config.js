@@ -1,6 +1,9 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
+  },
   moduleFileExtensions: ['js', 'ts', 'json', 'vue'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
@@ -27,4 +30,11 @@ module.exports = {
     'server/**/*.ts',
     '!**/node_modules/**',
   ],
+  globals: {
+    'vue-jest': {
+      compilerOptions: {
+        isCustomElement: (tag) => tag.startsWith('lazy-'),
+      },
+    },
+  },
 };

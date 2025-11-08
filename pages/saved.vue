@@ -105,13 +105,11 @@ const {
 } = useArticles()
 
 const {
-  toggleSave,
   fetchSavedArticleIds
 } = useSavedArticles()
 
 const {
   allTagsWithCounts,
-  updateSavedArticleTags,
   fetchTags
 } = useTags()
 
@@ -119,63 +117,37 @@ const {
   fetchSavedArticlesByTag
 } = useSavedArticlesByTag()
 
-// Reference to hamburger menu to track its open state
-const hamburgerMenuRef = ref<any>(null)
-const menuIsOpen = computed(() => hamburgerMenuRef.value?.isOpen ?? false)
+// Shared article handlers
+const {
+  toggleSaveArticle: _toggleSaveArticle,
+  handleToggleRead,
+  handleUpdateTags,
+  handleMarkAsRead
+} = useArticleViewHandlers()
 
-// Reference to help dialog
-const helpDialogRef = ref<any>(null)
+// Common page functionality (menu, auth, etc.)
+const {
+  hamburgerMenuRef,
+  helpDialogRef,
+  menuIsOpen,
+  toggleMenu,
+  handleSyncAll,
+  handleSignOut,
+  initializeArticlePage
+} = useArticlePageCommon()
 
-const toggleMenu = () => {
-  if (hamburgerMenuRef.value) {
-    hamburgerMenuRef.value.isOpen = !hamburgerMenuRef.value.isOpen
-  }
-}
+// Header messages
+const {
+  success: headerSuccess,
+  error: headerError,
+  showSuccess: handleHeaderSuccess,
+  showError: handleHeaderError
+} = useHeaderMessages()
 
-// Toggle save/unsave article
+// Override toggleSaveArticle to refresh the saved articles list
 const toggleSaveArticle = async (articleId: number) => {
-  try {
-    await toggleSave(articleId)
-    await fetchSavedArticlesByTag()
-    await fetchArticles(-1) // Refresh saved articles
-  } catch (error) {
-    console.error('Failed to toggle save:', error)
-  }
-}
-
-// Toggle read/unread status
-const handleToggleRead = async (articleId: number) => {
-  try {
-    const article = articles.value.find(a => a.id === articleId)
-    if (article) {
-      await markAsRead(articleId, !article.isRead)
-    }
-  } catch (error) {
-    console.error('Failed to toggle read status:', error)
-  }
-}
-
-// Update tags for a saved article
-const handleUpdateTags = async (savedArticleId: number, tags: string[]) => {
-  const article = articles.value.find(a => a.savedId === savedArticleId)
-  const previousTags = article?.tags || []
-
-  if (article) {
-    article.tags = tags
-  }
-
-  try {
-    await updateSavedArticleTags(savedArticleId, tags)
-    await Promise.all([
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
-  } catch (error) {
-    console.error('Failed to update tags:', error)
-    if (article) {
-      article.tags = previousTags
-    }
-  }
+  await _toggleSaveArticle(articleId)
+  await fetchArticles(-1) // Refresh saved articles
 }
 
 // Delete an article (only for manually added articles)
@@ -203,60 +175,12 @@ const handleDeleteArticle = async (articleId: number) => {
   }
 }
 
-const handleMarkAsRead = async () => {
-  if (selectedArticleId.value !== null) {
-    const article = articles.value.find(a => a.id === selectedArticleId.value)
-    if (article && !article.isRead) {
-      await markAsRead(selectedArticleId.value, true)
-    }
-  }
-}
-
-const handleSyncAll = async () => {
-  try {
-    await syncAll()
-  } catch (error) {
-    console.error('Failed to sync all feeds:', error)
-  }
-}
-
-const handleSignOut = async () => {
-  const { signOut } = useAuth()
-  await signOut({ callbackUrl: '/login' })
-}
-
-const headerSuccess = ref<string | null>(null)
-const headerError = ref<string | null>(null)
-
-const handleHeaderSuccess = (message: string) => {
-  headerError.value = null
-  headerSuccess.value = message
-  setTimeout(() => {
-    headerSuccess.value = null
-  }, 3000)
-}
-
-const handleHeaderError = (message: string) => {
-  headerSuccess.value = null
-  headerError.value = message
-  setTimeout(() => {
-    headerError.value = null
-  }, 3000)
-}
-
 // Load feeds and saved articles on mount
 onMounted(async () => {
-  if (session.value?.user) {
-    await Promise.all([
-      fetchFeeds(),
-      fetchSavedArticleIds(),
-      fetchTags(),
-      fetchSavedArticlesByTag()
-    ])
+  await initializeArticlePage()
 
-    // Fetch saved articles
-    await fetchArticles(-1)
-  }
+  // Fetch saved articles
+  await fetchArticles(-1)
 })
 
 // Register global keyboard shortcuts
