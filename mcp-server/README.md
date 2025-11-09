@@ -165,19 +165,3 @@ The MCP server:
 - Makes HTTP requests to your Reader API
 - Shares TypeScript types with the main app
 
-## What's Next?
-
-Potential enhancements:
-- Add feed management tools (add/remove feeds)
-- Article summarization with Claude
-- Smart digest generation
-- Auto-tagging suggestions
-- Search within article content
-
-## Support
-
-If you encounter issues:
-1. Check the troubleshooting section above
-2. Verify your configuration paths
-3. Make sure both the Reader app and Claude Desktop are running
-4. Check Claude Desktop logs for detailed error messages
