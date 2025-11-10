@@ -1,5 +1,4 @@
 import Parser from 'rss-parser'
-import DOMPurify from 'isomorphic-dompurify'
 import crypto from 'crypto'
 import { getRandomUnsplashImage } from './unsplash'
 
@@ -61,20 +60,10 @@ function extractDomain(url: string): string {
 }
 
 /**
- * Sanitize HTML content to prevent XSS
+ * Note: HTML sanitization is now done client-side in utils/processArticleContent.ts
+ * This prevents issues with ESM/CommonJS compatibility in serverless environments
+ * and provides defense-in-depth by sanitizing at display time.
  */
-function sanitizeHtml(html: string | undefined): string | undefined {
-  if (!html) return undefined
-
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
-      'blockquote', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
-    ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel']
-  })
-}
 
 /**
  * Normalize and validate date
@@ -169,7 +158,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
           title: item.title || 'Untitled',
           url: item.link || '',
           author: item.creator || item.author,
-          content: sanitizeHtml(rawContent),
+          content: rawContent, // Sanitization now done client-side
           summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
           imageUrl: await extractImageUrl(item, rawContent),
           publishedAt: normalizeDate(item.pubDate)

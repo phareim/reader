@@ -1,21 +1,34 @@
+import DOMPurify from 'dompurify'
+
 /**
  * Utility for processing article HTML content
  * Extracted from pages/article/[id].vue for reusability and testability
  */
 
 /**
- * Process article HTML content to make all links open in new tabs
- * This ensures external links don't navigate away from the reader
+ * Process article HTML content: sanitize and make all links open in new tabs
+ * This ensures external links don't navigate away from the reader and prevents XSS
  *
  * @param content - Raw HTML content from the article
- * @returns Processed HTML with target="_blank" and rel="noopener noreferrer" on all links
+ * @returns Sanitized HTML with target="_blank" and rel="noopener noreferrer" on all links
  */
 export function processArticleContent(content: string | null | undefined): string | null {
   if (!content) return null
 
-  // Create a temporary div to parse the HTML
+  // First, sanitize the HTML to prevent XSS attacks
+  const sanitized = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+      'blockquote', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'div', 'span'
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class']
+  })
+
+  // Create a temporary div to parse the sanitized HTML
   const div = document.createElement('div')
-  div.innerHTML = content
+  div.innerHTML = sanitized
 
   // Find all links and add target="_blank" and rel attributes
   const links = div.querySelectorAll('a')
