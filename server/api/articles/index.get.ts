@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
+  // Optional authentication - public read access allowed for specific feeds
   const user = await getAuthenticatedUser(event)
 
   const query = getQuery(event)
@@ -16,8 +17,12 @@ export default defineEventHandler(async (event) => {
   const offset = parseInt(query.offset as string) || 0
 
   try {
-    const where: Prisma.ArticleWhereInput = {
-      feed: {
+    // Base where clause - only filter by user if authenticated and no specific feedId is provided
+    const where: Prisma.ArticleWhereInput = {}
+
+    // If user is authenticated but no specific feed requested, filter by user's feeds
+    if (user && !feedIdParam) {
+      where.feed = {
         userId: user.id
       }
     }
@@ -32,10 +37,12 @@ export default defineEventHandler(async (event) => {
         })
       }
 
+      // Check if feed exists (publicly accessible)
       const feed = await prisma.feed.findFirst({
         where: {
           id: parsedFeedId,
-          userId: user.id
+          // Only filter by user if authenticated
+          ...(user ? { userId: user.id } : {})
         },
         select: { id: true }
       })
@@ -61,15 +68,18 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const ownedFeedIds = await prisma.feed.findMany({
-        where: {
-          id: { in: requestedFeedIds },
-          userId: user.id
-        },
+      // If authenticated, only return user's feeds
+      // If not authenticated, allow any feeds (for public sharing)
+      const feedFilter = user
+        ? { id: { in: requestedFeedIds }, userId: user.id }
+        : { id: { in: requestedFeedIds } }
+
+      const feeds = await prisma.feed.findMany({
+        where: feedFilter,
         select: { id: true }
       })
 
-      const allowedFeedIds = ownedFeedIds.map(feed => feed.id)
+      const allowedFeedIds = feeds.map(feed => feed.id)
 
       if (allowedFeedIds.length === 0) {
         return {
@@ -82,18 +92,21 @@ export default defineEventHandler(async (event) => {
       where.feedId = { in: allowedFeedIds }
     }
 
-    if (isRead !== undefined) {
-      where.isRead = isRead
-    }
+    // Personal filters only apply when authenticated
+    if (user) {
+      if (isRead !== undefined) {
+        where.isRead = isRead
+      }
 
-    if (isStarred !== undefined) {
-      where.isStarred = isStarred
-    }
+      if (isStarred !== undefined) {
+        where.isStarred = isStarred
+      }
 
-    if (excludeSaved) {
-      where.savedBy = {
-        none: {
-          userId: user.id
+      if (excludeSaved) {
+        where.savedBy = {
+          none: {
+            userId: user.id
+          }
         }
       }
     }

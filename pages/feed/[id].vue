@@ -118,8 +118,8 @@
           </div>
         </div>
 
-        <!-- Bulk Selection Floating Button -->
-        <button v-if="searchedArticles.length > 0 && !selectionMode"
+        <!-- Bulk Selection Floating Button (only for authenticated users) -->
+        <button v-if="session?.user && searchedArticles.length > 0 && !selectionMode"
           @click="toggleSelectionMode"
           class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
           title="Select multiple articles">
@@ -128,8 +128,9 @@
           </svg>
         </button>
 
-        <!-- Bulk Action Bar -->
+        <!-- Bulk Action Bar (only for authenticated users) -->
         <BulkActionBar
+          v-if="session?.user"
           :selected-count="selectedCount"
           @mark-read="handleBulkMarkRead"
           @save="handleBulkSave"
@@ -145,7 +146,7 @@
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 
 definePageMeta({
-  auth: true
+  auth: false // Allow public access to feeds
 })
 
 const route = useRoute()
@@ -166,6 +167,25 @@ const {
 const selectedFeed = computed(() =>
   feeds.value.find(f => f.id === feedId.value)
 )
+
+// Set up SEO meta tags for better sharing
+watch(selectedFeed, (newFeed) => {
+  if (newFeed) {
+    useSeoMeta({
+      title: `${newFeed.title} - The Librarian`,
+      description: newFeed.description || `Read articles from ${newFeed.title} on The Librarian`,
+      ogTitle: newFeed.title,
+      ogDescription: newFeed.description || `Read articles from ${newFeed.title} on The Librarian`,
+      ogType: 'website',
+      ogUrl: `${window.location.origin}/feed/${newFeed.id}`,
+      ogImage: newFeed.faviconUrl,
+      twitterCard: 'summary',
+      twitterTitle: newFeed.title,
+      twitterDescription: newFeed.description || `Read articles from ${newFeed.title} on The Librarian`,
+      twitterImage: newFeed.faviconUrl,
+    })
+  }
+}, { immediate: true })
 
 const {
   articles,
@@ -287,9 +307,12 @@ const handleViewSaved = () => {
 
 // Load feeds and articles on mount
 onMounted(async () => {
-  await initializeArticlePage()
+  // Only initialize authenticated features if logged in
+  if (session.value?.user) {
+    await initializeArticlePage()
+  }
 
-  // Fetch articles for this feed
+  // Fetch articles for this feed (publicly accessible)
   if (feedId.value) {
     await fetchArticles(feedId.value)
   }

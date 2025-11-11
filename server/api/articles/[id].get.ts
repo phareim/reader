@@ -2,14 +2,8 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import prisma from '~/server/utils/db'
 
 export default defineEventHandler(async (event) => {
+  // Optional authentication - public read access allowed
   const user = await getAuthenticatedUser(event)
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
 
   const articleId = parseInt(event.context.params?.id || '')
 
@@ -20,13 +14,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Fetch the article and verify it belongs to one of the user's feeds
+  // Fetch the article - if user is logged in, only show their articles
+  // If not logged in, allow viewing any article
   const article = await prisma.article.findFirst({
     where: {
       id: articleId,
-      feed: {
-        userId: user.id
-      }
+      // Only filter by user if authenticated
+      ...(user ? { feed: { userId: user.id } } : {})
     },
     include: {
       feed: {
@@ -36,18 +30,20 @@ export default defineEventHandler(async (event) => {
           faviconUrl: true
         }
       },
-      savedBy: {
-        where: {
-          userId: user.id
-        },
-        include: {
-          tags: {
-            include: {
-              tag: true
+      ...(user ? {
+        savedBy: {
+          where: {
+            userId: user.id
+          },
+          include: {
+            tags: {
+              include: {
+                tag: true
+              }
             }
           }
         }
-      }
+      } : {})
     }
   })
 
@@ -59,7 +55,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Transform the response
-  const savedArticle = article.savedBy[0]
+  const savedArticle = user ? (article as any).savedBy?.[0] : null
 
   return {
     id: article.id,
@@ -69,12 +65,15 @@ export default defineEventHandler(async (event) => {
     summary: article.summary,
     author: article.author,
     publishedAt: article.publishedAt?.toISOString(),
-    isRead: article.isRead,
-    readAt: article.readAt?.toISOString(),
+    // Personal data only if authenticated
+    isRead: user ? article.isRead : false,
+    readAt: user ? article.readAt?.toISOString() : null,
     feedId: article.feedId,
     feedTitle: article.feed.title,
     feedFaviconUrl: article.feed.faviconUrl,
     savedId: savedArticle?.id,
-    tags: savedArticle?.tags.map(t => t.tag.name) || []
+    tags: savedArticle?.tags.map(t => t.tag.name) || [],
+    // Indicate if user is authenticated (for UI purposes)
+    isAuthenticated: !!user
   }
 })

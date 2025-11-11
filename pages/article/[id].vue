@@ -88,29 +88,44 @@
         <!-- Article Actions Bar -->
         <div class="mb-6 flex items-center justify-between flex-wrap gap-4 p-4 bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
           <div class="flex items-center gap-2">
-            <button
-              @click="toggleSave"
-              class="px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2"
-              :class="isSaved
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700'"
-            >
-              <svg class="w-4 h-4" :fill="isSaved ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
-                <path v-if="!isSaved" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                <path v-else d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-              </svg>
-              {{ isSaved ? 'Unsave' : 'Save' }}
-            </button>
+            <!-- Only show action buttons if user is logged in -->
+            <template v-if="session?.user">
+              <button
+                @click="toggleSave"
+                class="px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2"
+                :class="isSaved
+                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700'"
+              >
+                <svg class="w-4 h-4" :fill="isSaved ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+                  <path v-if="!isSaved" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                  <path v-else d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+                </svg>
+                {{ isSaved ? 'Unsave' : 'Save' }}
+              </button>
 
-            <button
-              @click="toggleRead"
-              class="px-3 py-1.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
+              <button
+                @click="toggleRead"
+                class="px-3 py-1.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {{ article.isRead ? 'Mark unread' : 'Mark read' }}
+              </button>
+            </template>
+
+            <!-- Show sign-in prompt for non-authenticated users -->
+            <NuxtLink
+              v-else
+              to="/login"
+              class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
-              {{ article.isRead ? 'Mark unread' : 'Mark read' }}
-            </button>
+              Sign in to save
+            </NuxtLink>
           </div>
 
           <a
@@ -237,7 +252,7 @@ import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCu
 import { processArticleContent } from '~/utils/processArticleContent'
 
 definePageMeta({
-  auth: true
+  auth: false // Allow public access to articles
 })
 
 const route = useRoute()
@@ -315,6 +330,25 @@ const selectedFeed = computed(() => {
 
 // Process article content to make all links open in new tabs
 const processedContent = computed(() => processArticleContent(article.value?.content))
+
+// Set up SEO meta tags for better sharing
+watch(article, (newArticle) => {
+  if (newArticle) {
+    useSeoMeta({
+      title: newArticle.title,
+      description: newArticle.summary || `Read "${newArticle.title}" on The Librarian`,
+      ogTitle: newArticle.title,
+      ogDescription: newArticle.summary || `Read "${newArticle.title}" on The Librarian`,
+      ogType: 'article',
+      ogUrl: `${window.location.origin}/article/${newArticle.id}`,
+      ogImage: newArticle.imageUrl || newArticle.feedFaviconUrl,
+      twitterCard: 'summary_large_image',
+      twitterTitle: newArticle.title,
+      twitterDescription: newArticle.summary || `Read "${newArticle.title}" on The Librarian`,
+      twitterImage: newArticle.imageUrl || newArticle.feedFaviconUrl,
+    })
+  }
+}, { immediate: true })
 
 // Fetch article data
 const fetchArticle = async () => {
@@ -434,12 +468,16 @@ onMounted(async () => {
   window.addEventListener('keydown', handleArticleKeydown)
 
   // Fetch initial data
+  // Always fetch article (now publicly accessible)
+  // Only fetch feeds and saved IDs if logged in
   if (session.value?.user) {
     await Promise.all([
       fetchFeeds(),
       fetchSavedArticleIds(),
       fetchArticle()
     ])
+  } else {
+    await fetchArticle()
   }
 })
 
