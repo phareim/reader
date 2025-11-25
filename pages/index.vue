@@ -56,7 +56,10 @@
 
         <!-- Logged In Content -->
         <template v-else>
-          <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
+          <!-- Loading Skeletons -->
+          <div v-if="articlesLoading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+            <ArticleCardSkeleton v-for="i in 10" :key="i" />
+          </div>
 
           <!-- Empty State Component (shown when no articles OR in overview mode) -->
           <EmptyState v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
@@ -253,7 +256,13 @@ const handleSwipeDismiss = (articleId: number) => {
 
 // Load feeds and saved articles on mount (only if logged in)
 onMounted(async () => {
-  await initializeArticlePage()
+  const init = await initializeArticlePage()
+  
+  // The watch on [selectedFeedId, selectedTag, showUnreadOnly] will handle
+  // fetching articles once the relevant data is available
+  if (init.allReady) {
+    await init.allReady
+  }
 })
 
 // Watch for session changes to fetch data when user logs in

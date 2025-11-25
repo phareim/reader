@@ -38,7 +38,20 @@
           <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
         </div>
 
-        <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
+        <!-- Loading Skeletons -->
+        <div v-if="articlesLoading" class="p-4 space-y-8">
+          <div v-for="n in 2" :key="n" class="space-y-3">
+            <!-- Fake feed header -->
+            <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800 animate-pulse">
+              <div class="w-5 h-5 bg-gray-200 dark:bg-zinc-700 rounded"></div>
+              <div class="h-5 bg-gray-200 dark:bg-zinc-700 rounded w-32"></div>
+            </div>
+            <!-- Skeleton cards grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <ArticleCardSkeleton v-for="i in 5" :key="i" />
+            </div>
+          </div>
+        </div>
 
         <!-- Article Grid Grouped by Feed -->
         <div v-else-if="searchedArticles.length > 0" class="p-4 space-y-8">
@@ -198,7 +211,8 @@ const {
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  clearArticles
 } = useArticles()
 
 const {
@@ -341,18 +355,27 @@ const handleMarkFeedAsRead = async (feedId: number, articles: typeof searchedArt
 
 // Load feeds and articles on mount
 onMounted(async () => {
-  await initializeArticlePage()
+  const init = await initializeArticlePage()
+  
+  if (init.success && init.feedsReady) {
+    // Wait for feeds to be ready, then fetch articles immediately
+    // (don't wait for tags, saved articles, etc.)
+    await init.feedsReady
+    
+    // Set the selected tag to match the route
+    selectedTag.value = tagName.value
 
-  // Set the selected tag to match the route
-  selectedTag.value = tagName.value
-
-  // Fetch articles for this tag
-  await fetchArticles(undefined, selectedTagFeedIds.value)
+    // Fetch articles for this tag (starts while other data still loading)
+    await fetchArticles(undefined, selectedTagFeedIds.value)
+  }
 })
 
 // Watch for tag name changes (but not on initial mount since onMounted handles that)
 watch(tagName, async (newTagName) => {
   if (newTagName && newTagName !== selectedTag.value) {
+    // IMMEDIATELY clear old articles for instant visual feedback
+    clearArticles()
+    
     // Update the selected tag
     selectedTag.value = newTagName
 

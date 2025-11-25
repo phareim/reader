@@ -39,7 +39,10 @@
           <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
         </div>
 
-        <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
+        <!-- Loading Skeletons -->
+        <div v-if="articlesLoading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+          <ArticleCardSkeleton v-for="i in 10" :key="i" />
+        </div>
 
         <!-- Article Grid -->
         <div v-else-if="searchedArticles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
@@ -195,7 +198,8 @@ const {
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  clearArticles
 } = useArticles()
 
 const {
@@ -307,20 +311,22 @@ const handleViewSaved = () => {
 
 // Load feeds and articles on mount
 onMounted(async () => {
-  // Only initialize authenticated features if logged in
+  // Start fetching articles immediately - no need to wait for anything!
+  const articlesPromise = feedId.value ? fetchArticles(feedId.value) : Promise.resolve()
+
+  // Initialize authenticated features in parallel (non-blocking)
   if (session.value?.user) {
-    await initializeArticlePage()
+    initializeArticlePage() // Don't await - let it run in background
   }
 
-  // Fetch articles for this feed (publicly accessible)
-  if (feedId.value) {
-    await fetchArticles(feedId.value)
-  }
+  await articlesPromise
 })
 
 // Watch for feed ID changes
 watch(feedId, async (newFeedId) => {
   if (newFeedId) {
+    // IMMEDIATELY clear old articles for instant visual feedback
+    clearArticles()
     await fetchArticles(newFeedId)
   }
 })

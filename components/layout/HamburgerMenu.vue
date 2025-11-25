@@ -43,16 +43,9 @@ const success = ref<string | null>(null)
 
 const { selectedFeedId, selectedTag } = useFeeds()
 const { data: session } = useAuth()
-const { fetchTags } = useTags()
-const { fetchSavedArticlesByTag } = useSavedArticlesByTag()
 
-// Fetch tags and saved articles on mount for autocomplete
-onMounted(() => {
-  if (session.value?.user) {
-    fetchTags()
-    fetchSavedArticlesByTag()
-  }
-})
+// Note: Tags and saved articles are fetched in initializeArticlePage()
+// No need to duplicate those calls here - they're already in shared state
 
 const selectSavedTag = (tag: string) => {
   selectedFeedId.value = -1

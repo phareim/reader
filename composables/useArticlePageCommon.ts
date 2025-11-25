@@ -34,11 +34,12 @@ export const useArticlePageCommon = () => {
   }
 
   // Common initialization for all article pages
+  // Returns { feedsReady: Promise } so callers can start fetching articles early
   const initializeArticlePage = async () => {
     const { data: session } = useAuth()
 
     if (!session.value?.user) {
-      return false
+      return { success: false, feedsReady: Promise.resolve() }
     }
 
     const { fetchFeeds } = useFeeds()
@@ -46,14 +47,20 @@ export const useArticlePageCommon = () => {
     const { fetchTags } = useTags()
     const { fetchSavedArticlesByTag } = useSavedArticlesByTag()
 
-    await Promise.all([
-      fetchFeeds(),
+    // Start all fetches in parallel
+    const feedsPromise = fetchFeeds()
+    const otherPromises = Promise.all([
       fetchSavedArticleIds(),
       fetchTags(),
       fetchSavedArticlesByTag()
     ])
 
-    return true
+    // Return feedsReady promise so callers can start article fetching early
+    return {
+      success: true,
+      feedsReady: feedsPromise,
+      allReady: Promise.all([feedsPromise, otherPromises])
+    }
   }
 
   return {

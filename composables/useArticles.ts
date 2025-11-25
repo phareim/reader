@@ -170,6 +170,12 @@ export const useArticles = () => {
     }
   }
 
+  // Clear articles immediately (for navigation transitions)
+  const clearArticles = () => {
+    articles.value = []
+    selectedArticleId.value = null
+  }
+
   return {
     articles: readonly(articles),
     selectedArticleId,
@@ -183,6 +189,7 @@ export const useArticles = () => {
     markAsRead,
     markAllAsRead,
     selectNextArticle,
-    selectPreviousArticle
+    selectPreviousArticle,
+    clearArticles
   }
 }
