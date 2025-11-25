@@ -106,6 +106,7 @@ model Article {
 
   @@unique([feedId, guid])
   @@index([feedId, isRead])
+  @@index([isRead, publishedAt(sort: Desc)])
   @@index([publishedAt(sort: Desc)])
 }
 
@@ -122,6 +123,7 @@ model SavedArticle {
 
   @@unique([userId, articleId])
   @@index([userId, savedAt])
+  @@index([articleId, userId])
 }
 
 model Tag {

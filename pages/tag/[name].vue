@@ -350,9 +350,9 @@ onMounted(async () => {
   await fetchArticles(undefined, selectedTagFeedIds.value)
 })
 
-// Watch for tag name changes
+// Watch for tag name changes (but not on initial mount since onMounted handles that)
 watch(tagName, async (newTagName) => {
-  if (newTagName) {
+  if (newTagName && newTagName !== selectedTag.value) {
     // Update the selected tag
     selectedTag.value = newTagName
 

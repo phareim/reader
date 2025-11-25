@@ -6,26 +6,41 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   try {
-    const feeds = await prisma.feed.findMany({
-      where: {
-        userId: user.id
-      },
-      include: {
-        _count: {
-          select: {
-            articles: {
-              where: { isRead: false }
+    // Fetch feeds and unread counts in parallel
+    const [feeds, unreadCounts] = await Promise.all([
+      // Get feeds with tags
+      prisma.feed.findMany({
+        where: {
+          userId: user.id
+        },
+        include: {
+          tags: {
+            include: {
+              tag: true
             }
           }
         },
-        tags: {
-          include: {
-            tag: true
+        orderBy: { createdAt: 'asc' }
+      }),
+      // Get unread counts in a single aggregation query
+      prisma.article.groupBy({
+        by: ['feedId'],
+        where: {
+          isRead: false,
+          feed: {
+            userId: user.id
           }
+        },
+        _count: {
+          id: true
         }
-      },
-      orderBy: { createdAt: 'asc' }
-    })
+      })
+    ])
+
+    // Create a map of feedId -> unread count for O(1) lookup
+    const unreadCountMap = new Map(
+      unreadCounts.map(item => [item.feedId, item._count.id])
+    )
 
     return {
       feeds: feeds.map(feed => ({
@@ -36,7 +51,7 @@ export default defineEventHandler(async (event) => {
         siteUrl: feed.siteUrl,
         faviconUrl: feed.faviconUrl,
         tags: feed.tags.map(ft => ft.tag.name),
-        unreadCount: feed._count.articles,
+        unreadCount: unreadCountMap.get(feed.id) || 0,
         lastFetchedAt: feed.lastFetchedAt?.toISOString(),
         lastError: feed.lastError,
         errorCount: feed.errorCount,

@@ -263,8 +263,8 @@ watch(() => session.value?.user, async (user) => {
   }
 })
 
-// Watch for feed or tag selection changes
-watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
+// Watch for feed, tag, or unread filter changes
+watch([selectedFeedId, selectedTag, showUnreadOnly], async ([feedId, tag]) => {
   // Clear dismissed articles when changing views
   dismissedArticleIds.value.clear()
 
@@ -291,17 +291,6 @@ watch([selectedFeedId, selectedTag], async ([feedId, tag]) => {
     await fetchArticles(undefined, selectedTagFeedIds.value)
   } else {
     // No feed or tag selected - fetch all articles
-    await fetchArticles()
-  }
-})
-
-// Watch for unread filter changes
-watch(showUnreadOnly, async () => {
-  if (selectedFeedId.value !== null) {
-    await fetchArticles(selectedFeedId.value)
-  } else if (selectedTag.value !== null) {
-    await fetchArticles(undefined, selectedTagFeedIds.value)
-  } else {
     await fetchArticles()
   }
 })

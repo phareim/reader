@@ -98,9 +98,9 @@ export const useArticles = () => {
         body: { isRead }
       })
 
-      // Trigger feeds refresh to update unread counts
+      // Trigger feeds refresh in background (non-blocking)
       const { fetchFeeds } = useFeeds()
-      await fetchFeeds()
+      fetchFeeds().catch(err => console.error('Background feed refresh failed:', err))
     } catch (err: any) {
       // Revert optimistic update on error
       if (article) {
@@ -135,9 +135,9 @@ export const useArticles = () => {
         }
       })
 
-      // Trigger feeds refresh to update unread counts
+      // Trigger feeds refresh in background (non-blocking)
       const { fetchFeeds } = useFeeds()
-      await fetchFeeds()
+      fetchFeeds().catch(err => console.error('Background feed refresh failed:', err))
 
       return response
     } catch (err: any) {
