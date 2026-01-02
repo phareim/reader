@@ -55,3 +55,11 @@ export interface SyncResponse {
     newArticles: number
   }
 }
+
+// Summarization types
+export type {
+  SummarizeRequest,
+  SummarizeResponse,
+  SummarizeMetadata,
+  ArticleForSummary
+} from './summarization'
