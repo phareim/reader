@@ -3,8 +3,8 @@
  * Update tags for a feed (replaces all tags with new ones)
  */
 
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { z } from 'zod'
 
 const updateFeedTagsSchema = z.object({
@@ -12,24 +12,7 @@ const updateFeedTagsSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session?.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
 
   const feedId = parseInt(event.context.params?.id || '')
   if (isNaN(feedId)) {
@@ -52,69 +35,41 @@ export default defineEventHandler(async (event) => {
 
   const { tags: tagNames } = validation.data
 
-  // Verify feed belongs to user
-  const feed = await prisma.feed.findFirst({
-    where: {
-      id: feedId,
-      userId: user.id
-    }
-  })
+  try {
+    const supabase = getSupabaseClient(event)
 
-  if (!feed) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Feed not found'
-    })
-  }
-
-  // Use a transaction to ensure consistency
-  await prisma.$transaction(async (tx) => {
-    // 1. Delete all existing FeedTag associations for this feed
-    await tx.feedTag.deleteMany({
-      where: { feedId }
-    })
-
-    // 2. Create or find tags and create new FeedTag associations
-    for (const tagName of tagNames) {
-      // Find or create the tag
-      const tag = await tx.tag.upsert({
-        where: {
-          userId_name: {
-            userId: user.id,
-            name: tagName
-          }
-        },
-        create: {
-          userId: user.id,
-          name: tagName
-        },
-        update: {} // No update needed if it exists
+    // Use database function to update tags atomically
+    const { error } = await supabase
+      .rpc('update_feed_tags', {
+        p_user_id: user.id,
+        p_feed_id: feedId,
+        p_tag_names: tagNames
       })
 
-      // Create the FeedTag association
-      await tx.feedTag.create({
-        data: {
-          feedId,
-          tagId: tag.id
-        }
-      })
-    }
-  })
-
-  // Fetch the updated feed with tags
-  const updatedFeed = await prisma.feed.findUnique({
-    where: { id: feedId },
-    include: {
-      tags: {
-        include: {
-          tag: true
-        }
+    if (error) {
+      // Check if it's a "not found" error from the function
+      if (error.message.includes('not found') || error.message.includes('unauthorized')) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: 'Feed not found'
+        })
       }
+      throw error
     }
-  })
 
-  return {
-    success: true,
-    tags: updatedFeed?.tags.map(ft => ft.tag.name) || []
+    return {
+      success: true,
+      tags: tagNames
+    }
+  } catch (error: any) {
+    if (error.statusCode) {
+      throw error
+    }
+
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Failed to update feed tags',
+      message: error.message
+    })
   }
 })

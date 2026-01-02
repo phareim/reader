@@ -1,27 +1,8 @@
-import { Prisma } from '@prisma/client'
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
 
   const body = await readBody(event)
   const { feedId } = body ?? {}
@@ -38,15 +19,17 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const feed = await prisma.feed.findFirst({
-      where: {
-        id: targetFeedId,
-        userId: user.id
-      },
-      select: { id: true }
-    })
+    const supabase = getSupabaseClient(event)
 
-    if (!feed) {
+    // Verify feed exists and belongs to user
+    const { data: feed, error: feedError } = await supabase
+      .from('Feed')
+      .select('id')
+      .eq('id', targetFeedId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (feedError || !feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
@@ -55,27 +38,46 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const where: Prisma.ArticleWhereInput = {
-      isRead: false,
-      feed: {
-        userId: user.id
-      }
-    }
+    const supabase = getSupabaseClient(event)
+
+    // First, get all article IDs that belong to user's feeds
+    let articleQuery = supabase
+      .from('Article')
+      .select('id, Feed!inner(user_id)')
+      .eq('is_read', false)
+      .eq('Feed.user_id', user.id)
 
     if (targetFeedId !== undefined) {
-      where.feedId = targetFeedId
+      articleQuery = articleQuery.eq('feed_id', targetFeedId)
     }
 
-    const result = await prisma.article.updateMany({
-      where,
-      data: {
-        isRead: true,
-        readAt: new Date()
-      }
-    })
+    const { data: articles, error: selectError } = await articleQuery
+
+    if (selectError) {
+      throw selectError
+    }
+
+    if (!articles || articles.length === 0) {
+      return { markedCount: 0 }
+    }
+
+    // Update the articles
+    const articleIds = articles.map(a => a.id)
+    const { error, count } = await supabase
+      .from('Article')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
+      .in('id', articleIds)
+      .select('id', { count: 'exact' })
+
+    if (error) {
+      throw error
+    }
 
     return {
-      markedCount: result.count
+      markedCount: count || 0
     }
   } catch (error: any) {
     if (error.statusCode) {

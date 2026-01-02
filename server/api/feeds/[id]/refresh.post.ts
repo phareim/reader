@@ -1,27 +1,10 @@
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { parseFeed } from '~/server/utils/feedParser'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '')
 
@@ -33,14 +16,15 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const feed = await prisma.feed.findFirst({
-      where: {
-        id,
-        userId: user.id
-      }
-    })
+    // Verify feed exists and belongs to user
+    const { data: feed, error: feedQueryError } = await supabase
+      .from('Feed')
+      .select('url')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
 
-    if (!feed) {
+    if (feedQueryError || !feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
@@ -49,44 +33,50 @@ export default defineEventHandler(async (event) => {
 
     const parsedFeed = await parseFeed(feed.url)
 
-    await prisma.feed.update({
-      where: { id },
-      data: {
+    // Update feed metadata
+    const { error: updateError } = await supabase
+      .from('Feed')
+      .update({
         title: parsedFeed.title,
         description: parsedFeed.description,
-        siteUrl: parsedFeed.siteUrl,
-        faviconUrl: parsedFeed.faviconUrl,
-        lastFetchedAt: new Date(),
-        lastError: null,
-        errorCount: 0
-      }
-    })
+        site_url: parsedFeed.siteUrl,
+        favicon_url: parsedFeed.faviconUrl,
+        last_fetched_at: new Date().toISOString(),
+        last_error: null,
+        error_count: 0
+      })
+      .eq('id', id)
+
+    if (updateError) {
+      throw updateError
+    }
 
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    let newArticles = 0
-    for (const item of articlesToAdd) {
-      try {
-        await prisma.article.create({
-          data: {
-            feedId: id,
-            guid: item.guid,
-            title: item.title,
-            url: item.url,
-            author: item.author,
-            content: item.content,
-            summary: item.summary,
-            imageUrl: item.imageUrl,
-            publishedAt: item.publishedAt
-          }
-        })
-        newArticles++
-      } catch (error: any) {
-        if (error.code !== 'P2002') {
-          throw error
-        }
-      }
+    // Insert articles in batch, ignoring duplicates
+    const articlesData = articlesToAdd.map(item => ({
+      feed_id: id,
+      guid: item.guid,
+      title: item.title,
+      url: item.url,
+      author: item.author,
+      content: item.content,
+      summary: item.summary,
+      image_url: item.imageUrl,
+      published_at: item.publishedAt?.toISOString()
+    }))
+
+    const { data: insertedArticles, error: articlesError } = await supabase
+      .from('Article')
+      .insert(articlesData)
+      .select('id')
+
+    const newArticles = insertedArticles?.length || 0
+
+    // Ignore duplicate errors
+    if (articlesError && !articlesError.message.includes('duplicate')) {
+      console.error('Error inserting articles:', articlesError)
     }
 
     return {
@@ -94,42 +84,31 @@ export default defineEventHandler(async (event) => {
       newArticles
     }
   } catch (error: any) {
-    await prisma.$transaction(async (tx) => {
-      const current = await tx.feed.findFirst({
-        where: {
-          id,
-          userId: user.id
-        },
-        select: { errorCount: true }
-      })
+    // On error, increment error count and deactivate after 10 errors
+    try {
+      const { data: current } = await supabase
+        .from('Feed')
+        .select('error_count')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
 
-      if (!current) {
-        return
+      if (current) {
+        const nextErrorCount = (current.error_count || 0) + 1
+
+        await supabase
+          .from('Feed')
+          .update({
+            last_error: error.message,
+            error_count: nextErrorCount,
+            is_active: nextErrorCount >= 10 ? false : undefined
+          })
+          .eq('id', id)
+          .eq('user_id', user.id)
       }
-
-      const nextErrorCount = current.errorCount + 1
-
-      await tx.feed.updateMany({
-        where: {
-          id,
-          userId: user.id
-        },
-        data: {
-          lastError: error.message,
-          errorCount: nextErrorCount
-        }
-      })
-
-      if (nextErrorCount >= 10) {
-        await tx.feed.updateMany({
-          where: {
-            id,
-            userId: user.id
-          },
-          data: { isActive: false }
-        })
-      }
-    }).catch(() => {})
+    } catch (updateError) {
+      // Ignore errors during error tracking update
+    }
 
     throw createError({
       statusCode: 500,

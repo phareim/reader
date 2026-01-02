@@ -1,61 +1,57 @@
-import prisma from '~/server/utils/db'
 import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user (supports both session and MCP token)
   const user = await getAuthenticatedUser(event)
 
   try {
+    const supabase = getSupabaseClient(event)
+
     // Fetch feeds and unread counts in parallel
-    const [feeds, unreadCounts] = await Promise.all([
+    const [feedsResult, unreadCountsResult] = await Promise.all([
       // Get feeds with tags
-      prisma.feed.findMany({
-        where: {
-          userId: user.id
-        },
-        include: {
-          tags: {
-            include: {
-              tag: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'asc' }
-      }),
-      // Get unread counts in a single aggregation query
-      prisma.article.groupBy({
-        by: ['feedId'],
-        where: {
-          isRead: false,
-          feed: {
-            userId: user.id
-          }
-        },
-        _count: {
-          id: true
-        }
-      })
+      supabase
+        .from('Feed')
+        .select(`
+          *,
+          tags:FeedTag(
+            tag:Tag(name)
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true }),
+
+      // Get unread counts using database function
+      supabase.rpc('get_unread_counts_by_feed', { p_user_id: user.id })
     ])
+
+    if (feedsResult.error) {
+      throw createError({
+        statusCode: 500,
+        message: feedsResult.error.message
+      })
+    }
 
     // Create a map of feedId -> unread count for O(1) lookup
     const unreadCountMap = new Map(
-      unreadCounts.map(item => [item.feedId, item._count.id])
+      (unreadCountsResult.data || []).map(item => [item.feed_id, Number(item.unread_count)])
     )
 
     return {
-      feeds: feeds.map(feed => ({
+      feeds: feedsResult.data.map(feed => ({
         id: feed.id,
         title: feed.title,
         url: feed.url,
         description: feed.description,
-        siteUrl: feed.siteUrl,
-        faviconUrl: feed.faviconUrl,
+        siteUrl: feed.site_url,
+        faviconUrl: feed.favicon_url,
         tags: feed.tags.map(ft => ft.tag.name),
         unreadCount: unreadCountMap.get(feed.id) || 0,
-        lastFetchedAt: feed.lastFetchedAt?.toISOString(),
-        lastError: feed.lastError,
-        errorCount: feed.errorCount,
-        isActive: feed.isActive
+        lastFetchedAt: feed.last_fetched_at,
+        lastError: feed.last_error,
+        errorCount: feed.error_count,
+        isActive: feed.is_active
       }))
     }
   } catch (error: any) {

@@ -4,34 +4,36 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
-  const tags = await prisma.tag.findMany({
-    where: {
-      userId: user.id
-    },
-    include: {
-      _count: {
-        select: {
-          feeds: true,
-          savedArticles: true
-        }
-      }
-    },
-    orderBy: {
-      name: 'asc'
-    }
-  })
+  // Get all tags with their usage counts
+  const { data: tags, error } = await supabase
+    .from('Tag')
+    .select(`
+      *,
+      feeds:FeedTag(count),
+      saved_articles:SavedArticleTag(count)
+    `)
+    .eq('user_id', user.id)
+    .order('name', { ascending: true })
 
-  return tags.map(tag => ({
+  if (error) {
+    throw createError({
+      statusCode: 500,
+      message: error.message
+    })
+  }
+
+  return (tags || []).map(tag => ({
     id: tag.id,
     name: tag.name,
     color: tag.color,
-    createdAt: tag.createdAt,
-    feedCount: tag._count.feeds,
-    savedArticleCount: tag._count.savedArticles
+    createdAt: tag.created_at,
+    feedCount: tag.feeds.length,
+    savedArticleCount: tag.saved_articles.length
   }))
 })

@@ -1,9 +1,34 @@
-import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
+import { getHeader } from 'h3'
+import { serverSupabaseUser } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  // Optional authentication - public read access allowed
-  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
+
+  // Optional authentication - try to get user but don't fail if not authenticated
+  let user: any = null
+
+  // Check for MCP token first
+  const mcpToken = getHeader(event, 'x-mcp-token')
+  if (mcpToken) {
+    const { data: mcpUser } = await supabase
+      .from('User')
+      .select('*')
+      .eq('mcp_token', mcpToken)
+      .single()
+    user = mcpUser
+  } else {
+    // Try Supabase session
+    const supabaseUser = await serverSupabaseUser(event)
+    if (supabaseUser) {
+      const { data: appUser } = await supabase
+        .from('User')
+        .select('*')
+        .eq('auth_user_id', supabaseUser.id)
+        .single()
+      user = appUser
+    }
+  }
 
   const feedId = parseInt(event.context.params?.id || '')
 
@@ -14,35 +39,43 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Fetch the feed - if user is logged in, only show their feeds
-  // If not logged in, allow viewing any feed
-  const feed = await prisma.feed.findFirst({
-    where: {
-      id: feedId,
-      // Only filter by user if authenticated
-      ...(user ? { userId: user.id } : {})
-    },
-    include: {
-      _count: {
-        select: {
-          articles: {
-            where: user ? { isRead: false } : {}
-          }
-        }
-      },
-      tags: {
-        include: {
-          tag: true
-        }
-      }
-    }
-  })
+  // Build query for feed
+  let feedQuery = supabase
+    .from('Feed')
+    .select(`
+      *,
+      tags:FeedTag (
+        tag:Tag (
+          name
+        )
+      )
+    `)
+    .eq('id', feedId)
 
-  if (!feed) {
+  // Filter by user if authenticated
+  if (user) {
+    feedQuery = feedQuery.eq('user_id', user.id)
+  }
+
+  const { data: feed, error: feedError } = await feedQuery.single()
+
+  if (feedError || !feed) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Feed not found'
     })
+  }
+
+  // Get unread count if authenticated
+  let unreadCount = 0
+  if (user) {
+    const { count } = await supabase
+      .from('Article')
+      .select('*', { count: 'exact', head: true })
+      .eq('feed_id', feedId)
+      .eq('is_read', false)
+
+    unreadCount = count || 0
   }
 
   return {
@@ -50,12 +83,12 @@ export default defineEventHandler(async (event) => {
     title: feed.title,
     url: feed.url,
     description: feed.description,
-    siteUrl: feed.siteUrl,
-    faviconUrl: feed.faviconUrl,
-    tags: feed.tags.map(ft => ft.tag.name),
-    unreadCount: user ? feed._count.articles : 0,
-    lastFetchedAt: feed.lastFetchedAt?.toISOString(),
-    isActive: feed.isActive,
+    siteUrl: feed.site_url,
+    faviconUrl: feed.favicon_url,
+    tags: feed.tags.map((ft: any) => ft.tag.name),
+    unreadCount,
+    lastFetchedAt: feed.last_fetched_at,
+    isActive: feed.is_active,
     isAuthenticated: !!user
   }
 })

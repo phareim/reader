@@ -1,5 +1,5 @@
-import prisma from '~/server/utils/db'
 import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user (supports both session and MCP token)
@@ -15,13 +15,18 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    const supabase = getSupabaseClient(event)
+
     // Delete saved article
-    await prisma.savedArticle.deleteMany({
-      where: {
-        userId: user.id,
-        articleId: articleId
-      }
-    })
+    const { error } = await supabase
+      .from('SavedArticle')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('article_id', articleId)
+
+    if (error) {
+      throw error
+    }
 
     return {
       success: true

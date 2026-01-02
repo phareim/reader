@@ -4,11 +4,12 @@
  * This is different from unsaving - this actually deletes the article
  */
 
-import prisma from '~/server/utils/db'
 import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const articleId = parseInt(getRouterParam(event, 'id') || '')
   if (isNaN(articleId)) {
@@ -20,14 +21,19 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Get the article with its feed
-    const article = await prisma.article.findUnique({
-      where: { id: articleId },
-      include: {
-        feed: true
-      }
-    })
+    const { data: article, error: articleError } = await supabase
+      .from('Article')
+      .select(`
+        id,
+        feed:Feed!inner (
+          user_id,
+          title
+        )
+      `)
+      .eq('id', articleId)
+      .single()
 
-    if (!article) {
+    if (articleError || !article) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Article not found'
@@ -35,7 +41,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Verify the article belongs to the user's feed
-    if (article.feed.userId !== user.id) {
+    if (article.feed.user_id !== user.id) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Forbidden'
@@ -52,9 +58,14 @@ export default defineEventHandler(async (event) => {
     }
 
     // Delete the article (cascade will handle saved articles)
-    await prisma.article.delete({
-      where: { id: articleId }
-    })
+    const { error: deleteError } = await supabase
+      .from('Article')
+      .delete()
+      .eq('id', articleId)
+
+    if (deleteError) {
+      throw deleteError
+    }
 
     return {
       success: true,

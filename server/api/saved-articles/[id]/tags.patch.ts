@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { z } from 'zod'
 
 const updateSavedArticleTagsSchema = z.object({
@@ -35,69 +35,49 @@ export default defineEventHandler(async (event) => {
 
   const { tags: tagNames } = validation.data
 
-  // Verify saved article belongs to user
-  const savedArticle = await prisma.savedArticle.findFirst({
-    where: {
-      id: savedArticleId,
-      userId: user.id
-    }
-  })
+  try {
+    const supabase = getSupabaseClient(event)
 
-  if (!savedArticle) {
+    // Verify saved article belongs to user
+    const { data: savedArticle, error: savedArticleError } = await supabase
+      .from('SavedArticle')
+      .select('id')
+      .eq('id', savedArticleId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (savedArticleError || !savedArticle) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Saved article not found'
+      })
+    }
+
+    // Use database function to update tags atomically
+    const { error } = await supabase
+      .rpc('update_saved_article_tags', {
+        p_user_id: user.id,
+        p_saved_article_id: savedArticleId,
+        p_tag_names: tagNames
+      })
+
+    if (error) {
+      throw error
+    }
+
+    return {
+      success: true,
+      tags: tagNames
+    }
+  } catch (error: any) {
+    if (error.statusCode) {
+      throw error
+    }
+
     throw createError({
-      statusCode: 404,
-      statusMessage: 'Saved article not found'
+      statusCode: 500,
+      statusMessage: 'Failed to update tags',
+      message: error.message
     })
-  }
-
-  // Use a transaction to ensure consistency
-  await prisma.$transaction(async (tx) => {
-    // 1. Delete all existing SavedArticleTag associations
-    await tx.savedArticleTag.deleteMany({
-      where: { savedArticleId }
-    })
-
-    // 2. Create or find tags and create new SavedArticleTag associations
-    for (const tagName of tagNames) {
-      // Find or create the tag
-      const tag = await tx.tag.upsert({
-        where: {
-          userId_name: {
-            userId: user.id,
-            name: tagName
-          }
-        },
-        create: {
-          userId: user.id,
-          name: tagName
-        },
-        update: {} // No update needed if it exists
-      })
-
-      // Create the SavedArticleTag association
-      await tx.savedArticleTag.create({
-        data: {
-          savedArticleId,
-          tagId: tag.id
-        }
-      })
-    }
-  })
-
-  // Fetch the updated saved article with tags
-  const updatedSavedArticle = await prisma.savedArticle.findUnique({
-    where: { id: savedArticleId },
-    include: {
-      tags: {
-        include: {
-          tag: true
-        }
-      }
-    }
-  })
-
-  return {
-    success: true,
-    tags: updatedSavedArticle?.tags.map(sat => sat.tag.name) || []
   }
 })

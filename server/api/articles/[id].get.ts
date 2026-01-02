@@ -1,9 +1,34 @@
-import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
+import { getHeader } from 'h3'
+import { serverSupabaseUser } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  // Optional authentication - public read access allowed
-  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
+
+  // Optional authentication - try to get user but don't fail if not authenticated
+  let user: any = null
+
+  // Check for MCP token first
+  const mcpToken = getHeader(event, 'x-mcp-token')
+  if (mcpToken) {
+    const { data: mcpUser } = await supabase
+      .from('User')
+      .select('*')
+      .eq('mcp_token', mcpToken)
+      .single()
+    user = mcpUser
+  } else {
+    // Try Supabase session
+    const supabaseUser = await serverSupabaseUser(event)
+    if (supabaseUser) {
+      const { data: appUser } = await supabase
+        .from('User')
+        .select('*')
+        .eq('auth_user_id', supabaseUser.id)
+        .single()
+      user = appUser
+    }
+  }
 
   const articleId = parseInt(event.context.params?.id || '')
 
@@ -14,48 +39,59 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Fetch the article - if user is logged in, only show their articles
-  // If not logged in, allow viewing any article
-  const article = await prisma.article.findFirst({
-    where: {
-      id: articleId,
-      // Only filter by user if authenticated
-      ...(user ? { feed: { userId: user.id } } : {})
-    },
-    include: {
-      feed: {
-        select: {
-          id: true,
-          title: true,
-          faviconUrl: true
-        }
-      },
-      ...(user ? {
-        savedBy: {
-          where: {
-            userId: user.id
-          },
-          include: {
-            tags: {
-              include: {
-                tag: true
-              }
-            }
-          }
-        }
-      } : {})
-    }
-  })
+  // Build query for article with feed details
+  let articleQuery = supabase
+    .from('Article')
+    .select(`
+      *,
+      feed:Feed!inner (
+        id,
+        title,
+        favicon_url,
+        user_id
+      )
+    `)
+    .eq('id', articleId)
 
-  if (!article) {
+  // Filter by user if authenticated
+  if (user) {
+    articleQuery = articleQuery.eq('Feed.user_id', user.id)
+  }
+
+  const { data: article, error: articleError } = await articleQuery.single()
+
+  if (articleError || !article) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Article not found'
     })
   }
 
-  // Transform the response
-  const savedArticle = user ? (article as any).savedBy?.[0] : null
+  // If authenticated, fetch saved article info
+  let savedArticle: any = null
+  let savedTags: string[] = []
+
+  if (user) {
+    const { data: saved } = await supabase
+      .from('SavedArticle')
+      .select(`
+        id,
+        saved_at,
+        tags:SavedArticleTag (
+          tag:Tag (
+            name
+          )
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('article_id', articleId)
+      .single()
+
+    if (saved) {
+      savedArticle = saved
+      savedTags = saved.tags.map((t: any) => t.tag.name)
+    }
+  }
 
   return {
     id: article.id,
@@ -64,15 +100,15 @@ export default defineEventHandler(async (event) => {
     content: article.content,
     summary: article.summary,
     author: article.author,
-    publishedAt: article.publishedAt?.toISOString(),
+    publishedAt: article.published_at,
     // Personal data only if authenticated
-    isRead: user ? article.isRead : false,
-    readAt: user ? article.readAt?.toISOString() : null,
-    feedId: article.feedId,
+    isRead: user ? article.is_read : false,
+    readAt: user ? article.read_at : null,
+    feedId: article.feed_id,
     feedTitle: article.feed.title,
-    feedFaviconUrl: article.feed.faviconUrl,
+    feedFaviconUrl: article.feed.favicon_url,
     savedId: savedArticle?.id,
-    tags: savedArticle?.tags.map(t => t.tag.name) || [],
+    tags: savedTags,
     // Indicate if user is authenticated (for UI purposes)
     isAuthenticated: !!user
   }

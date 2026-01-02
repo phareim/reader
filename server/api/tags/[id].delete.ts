@@ -3,28 +3,12 @@
  * Delete a tag (and all its associations)
  */
 
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session?.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const tagId = parseInt(event.context.params?.id || '')
   if (isNaN(tagId)) {
@@ -35,14 +19,14 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify tag belongs to user
-  const existingTag = await prisma.tag.findFirst({
-    where: {
-      id: tagId,
-      userId: user.id
-    }
-  })
+  const { data: existingTag, error: findError } = await supabase
+    .from('Tag')
+    .select('id')
+    .eq('id', tagId)
+    .eq('user_id', user.id)
+    .single()
 
-  if (!existingTag) {
+  if (findError || !existingTag) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Tag not found'
@@ -50,9 +34,17 @@ export default defineEventHandler(async (event) => {
   }
 
   // Delete the tag (cascade will handle FeedTag and SavedArticleTag)
-  await prisma.tag.delete({
-    where: { id: tagId }
-  })
+  const { error: deleteError } = await supabase
+    .from('Tag')
+    .delete()
+    .eq('id', tagId)
+
+  if (deleteError) {
+    throw createError({
+      statusCode: 500,
+      message: deleteError.message
+    })
+  }
 
   return { success: true }
 })

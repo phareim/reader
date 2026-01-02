@@ -1,7 +1,7 @@
-import type { Feed } from '@prisma/client'
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { parseFeed } from '~/server/utils/feedParser'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface SyncResult {
   feedId: number
@@ -11,51 +11,58 @@ interface SyncResult {
   error?: string
 }
 
-async function syncFeed(feed: Pick<Feed, 'id' | 'url' | 'title' | 'userId'>): Promise<SyncResult> {
+interface FeedToSync {
+  id: number
+  url: string
+  title: string
+  user_id: string
+}
+
+async function syncFeed(feed: FeedToSync, supabase: SupabaseClient): Promise<SyncResult> {
   try {
     const parsedFeed = await parseFeed(feed.url)
 
-    await prisma.feed.updateMany({
-      where: {
-        id: feed.id,
-        userId: feed.userId
-      },
-      data: {
+    // Update feed metadata
+    await supabase
+      .from('Feed')
+      .update({
         title: parsedFeed.title,
         description: parsedFeed.description,
-        siteUrl: parsedFeed.siteUrl,
-        faviconUrl: parsedFeed.faviconUrl,
-        lastFetchedAt: new Date(),
-        lastError: null,
-        errorCount: 0
-      }
-    })
+        site_url: parsedFeed.siteUrl,
+        favicon_url: parsedFeed.faviconUrl,
+        last_fetched_at: new Date().toISOString(),
+        last_error: null,
+        error_count: 0
+      })
+      .eq('id', feed.id)
+      .eq('user_id', feed.user_id)
 
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    let articlesAdded = 0
-    for (const item of articlesToAdd) {
-      try {
-        await prisma.article.create({
-          data: {
-            feedId: feed.id,
-            guid: item.guid,
-            title: item.title,
-            url: item.url,
-            author: item.author,
-            content: item.content,
-            summary: item.summary,
-            publishedAt: item.publishedAt
-          }
-        })
-        articlesAdded++
-      } catch (error: any) {
-        // Ignore duplicate key errors (P2002)
-        if (error.code !== 'P2002') {
-          throw error
-        }
-      }
+    // Insert articles in batch, ignoring duplicates
+    const articlesData = articlesToAdd.map(item => ({
+      feed_id: feed.id,
+      guid: item.guid,
+      title: item.title,
+      url: item.url,
+      author: item.author,
+      content: item.content,
+      summary: item.summary,
+      image_url: item.imageUrl,
+      published_at: item.publishedAt?.toISOString()
+    }))
+
+    const { data: insertedArticles, error: articlesError } = await supabase
+      .from('Article')
+      .insert(articlesData)
+      .select('id')
+
+    const articlesAdded = insertedArticles?.length || 0
+
+    // Ignore duplicate errors
+    if (articlesError && !articlesError.message.includes('duplicate')) {
+      console.error('Error inserting articles:', articlesError)
     }
 
     return {
@@ -65,42 +72,31 @@ async function syncFeed(feed: Pick<Feed, 'id' | 'url' | 'title' | 'userId'>): Pr
       newArticles: articlesAdded
     }
   } catch (error: any) {
-    await prisma.$transaction(async (tx) => {
-      const current = await tx.feed.findFirst({
-        where: {
-          id: feed.id,
-          userId: feed.userId
-        },
-        select: { errorCount: true }
-      })
+    // On error, increment error count and deactivate after 10 errors
+    try {
+      const { data: current } = await supabase
+        .from('Feed')
+        .select('error_count')
+        .eq('id', feed.id)
+        .eq('user_id', feed.user_id)
+        .single()
 
-      if (!current) {
-        return
+      if (current) {
+        const nextErrorCount = (current.error_count || 0) + 1
+
+        await supabase
+          .from('Feed')
+          .update({
+            last_error: error.message,
+            error_count: nextErrorCount,
+            is_active: nextErrorCount >= 10 ? false : undefined
+          })
+          .eq('id', feed.id)
+          .eq('user_id', feed.user_id)
       }
-
-      const nextErrorCount = current.errorCount + 1
-
-      await tx.feed.updateMany({
-        where: {
-          id: feed.id,
-          userId: feed.userId
-        },
-        data: {
-          lastError: error.message,
-          errorCount: nextErrorCount
-        }
-      })
-
-      if (nextErrorCount >= 10) {
-        await tx.feed.updateMany({
-          where: {
-            id: feed.id,
-            userId: feed.userId
-          },
-          data: { isActive: false }
-        })
-      }
-    }).catch(() => {})
+    } catch (updateError) {
+      // Ignore errors during error tracking update
+    }
 
     return {
       feedId: feed.id,
@@ -112,39 +108,22 @@ async function syncFeed(feed: Pick<Feed, 'id' | 'url' | 'title' | 'userId'>): Pr
 }
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   try {
-    const feeds = await prisma.feed.findMany({
-      where: {
-        userId: user.id,
-        isActive: true
-      },
-      select: {
-        id: true,
-        url: true,
-        title: true,
-        userId: true
-      }
-    })
+    const { data: feeds, error: feedsError } = await supabase
+      .from('Feed')
+      .select('id, url, title, user_id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+
+    if (feedsError) {
+      throw createError({
+        statusCode: 500,
+        message: feedsError.message
+      })
+    }
 
     if (feeds.length === 0) {
       return {
@@ -164,7 +143,7 @@ export default defineEventHandler(async (event) => {
     for (let i = 0; i < feeds.length; i += concurrencyLimit) {
       const batch = feeds.slice(i, i + concurrencyLimit)
       const batchResults = await Promise.allSettled(
-        batch.map(feed => syncFeed(feed))
+        batch.map(feed => syncFeed(feed, supabase))
       )
 
       results.push(...batchResults.map((r, idx) =>

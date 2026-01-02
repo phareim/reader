@@ -8,13 +8,14 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { parseFeed } from '~/server/utils/feedParser'
 import { discoverFeeds } from '~/server/utils/feedDiscovery'
 import { extractArticleMetadata } from '~/server/utils/articleExtractor'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const body = await readBody(event)
   const { url } = body
@@ -38,14 +39,12 @@ export default defineEventHandler(async (event) => {
       const parsedFeed = await parseFeed(normalizedUrl)
 
       // Check if user already has this feed
-      const existingFeed = await prisma.feed.findUnique({
-        where: {
-          userId_url: {
-            userId: user.id,
-            url: normalizedUrl
-          }
-        }
-      })
+      const { data: existingFeed } = await supabase
+        .from('Feed')
+        .select('id, title, url')
+        .eq('user_id', user.id)
+        .eq('url', normalizedUrl)
+        .single()
 
       if (existingFeed) {
         return {
@@ -60,45 +59,44 @@ export default defineEventHandler(async (event) => {
       }
 
       // Add feed to database
-      const feed = await prisma.feed.create({
-        data: {
-          userId: user.id,
+      const { data: feed, error: feedError } = await supabase
+        .from('Feed')
+        .insert({
+          user_id: user.id,
           url: normalizedUrl,
           title: parsedFeed.title,
           description: parsedFeed.description,
-          siteUrl: parsedFeed.siteUrl,
-          faviconUrl: parsedFeed.faviconUrl,
-          lastFetchedAt: new Date()
-        }
-      })
+          site_url: parsedFeed.siteUrl,
+          favicon_url: parsedFeed.faviconUrl,
+          last_fetched_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (feedError) throw feedError
 
       // Add articles (limit to MAX_ARTICLES_PER_FEED)
       const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 50
       const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-      let articlesAdded = 0
-      for (const item of articlesToAdd) {
-        try {
-          await prisma.article.create({
-            data: {
-              feedId: feed.id,
-              guid: item.guid,
-              title: item.title,
-              url: item.url,
-              author: item.author,
-              content: item.content,
-              summary: item.summary,
-              publishedAt: item.publishedAt
-            }
-          })
-          articlesAdded++
-        } catch (error: any) {
-          // Ignore duplicate key errors
-          if (error.code !== 'P2002') {
-            throw error
-          }
-        }
-      }
+      const articlesData = articlesToAdd.map(item => ({
+        feed_id: feed.id,
+        guid: item.guid,
+        title: item.title,
+        url: item.url,
+        author: item.author,
+        content: item.content,
+        summary: item.summary,
+        image_url: item.imageUrl,
+        published_at: item.publishedAt?.toISOString()
+      }))
+
+      const { data: insertedArticles } = await supabase
+        .from('Article')
+        .insert(articlesData)
+        .select('id')
+
+      const articlesAdded = insertedArticles?.length || 0
 
       return {
         type: 'feed_added',
@@ -107,8 +105,8 @@ export default defineEventHandler(async (event) => {
           id: feed.id,
           title: feed.title,
           url: feed.url,
-          siteUrl: feed.siteUrl,
-          faviconUrl: feed.faviconUrl
+          siteUrl: feed.site_url,
+          faviconUrl: feed.favicon_url
         },
         articlesAdded
       }
@@ -159,14 +157,12 @@ export default defineEventHandler(async (event) => {
         const parsedFeed = await parseFeed(normalizedUrl)
 
         // Check for existing feed
-        const existingFeed = await prisma.feed.findUnique({
-          where: {
-            userId_url: {
-              userId: user.id,
-              url: normalizedUrl
-            }
-          }
-        })
+        const { data: existingFeed } = await supabase
+          .from('Feed')
+          .select('id, title, url')
+          .eq('user_id', user.id)
+          .eq('url', normalizedUrl)
+          .single()
 
         if (existingFeed) {
           return {
@@ -181,44 +177,44 @@ export default defineEventHandler(async (event) => {
         }
 
         // Add feed
-        const feed = await prisma.feed.create({
-          data: {
-            userId: user.id,
+        const { data: feed, error: feedError } = await supabase
+          .from('Feed')
+          .insert({
+            user_id: user.id,
             url: normalizedUrl,
             title: parsedFeed.title,
             description: parsedFeed.description,
-            siteUrl: parsedFeed.siteUrl,
-            faviconUrl: parsedFeed.faviconUrl,
-            lastFetchedAt: new Date()
-          }
-        })
+            site_url: parsedFeed.siteUrl,
+            favicon_url: parsedFeed.faviconUrl,
+            last_fetched_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (feedError) throw feedError
 
         // Add articles
         const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
         const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-        let articlesAdded = 0
-        for (const item of articlesToAdd) {
-          try {
-            await prisma.article.create({
-              data: {
-                feedId: feed.id,
-                guid: item.guid,
-                title: item.title,
-                url: item.url,
-                author: item.author,
-                content: item.content,
-                summary: item.summary,
-                publishedAt: item.publishedAt
-              }
-            })
-            articlesAdded++
-          } catch (error: any) {
-            if (error.code !== 'P2002') {
-              throw error
-            }
-          }
-        }
+        const articlesData = articlesToAdd.map(item => ({
+          feed_id: feed.id,
+          guid: item.guid,
+          title: item.title,
+          url: item.url,
+          author: item.author,
+          content: item.content,
+          summary: item.summary,
+          image_url: item.imageUrl,
+          published_at: item.publishedAt?.toISOString()
+        }))
+
+        const { data: insertedArticles } = await supabase
+          .from('Article')
+          .insert(articlesData)
+          .select('id')
+
+        const articlesAdded = insertedArticles?.length || 0
 
         return {
           type: 'feed_added',
@@ -227,8 +223,8 @@ export default defineEventHandler(async (event) => {
             id: feed.id,
             title: feed.title,
             url: feed.url,
-            siteUrl: feed.siteUrl,
-            faviconUrl: feed.faviconUrl
+            siteUrl: feed.site_url,
+            faviconUrl: feed.favicon_url
           },
           articlesAdded
         }

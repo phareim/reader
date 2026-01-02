@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { platform, homedir } from 'os'
 import { join } from 'path'
 
@@ -10,20 +10,27 @@ import { join } from 'path'
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
   const query = getQuery(event)
   let repoPath = query.repoPath as string | undefined
 
   // Get current user with token
-  const userData = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      mcpToken: true,
-      mcpTokenCreatedAt: true
-    }
-  })
+  const { data: userData, error } = await supabase
+    .from('User')
+    .select('mcp_token, mcp_token_created_at')
+    .eq('id', user.id)
+    .single()
 
-  // Get the public app URL from AUTH_ORIGIN
-  const appUrl = process.env.AUTH_ORIGIN || 'http://localhost:3000'
+  if (error) {
+    throw createError({
+      statusCode: 500,
+      message: error.message
+    })
+  }
+
+  // Get the public app URL from runtime config
+  const config = useRuntimeConfig()
+  const appUrl = config.public.supabaseUrl?.replace('/rest/v1', '') || 'http://localhost:3000'
 
   // Auto-detect repository path if not provided
   if (!repoPath) {
@@ -42,9 +49,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Generate config if token exists and repo path provided
-  let config = null
-  if (userData?.mcpToken && repoPath) {
-    config = {
+  let mcpConfig = null
+  if (userData?.mcp_token && repoPath) {
+    mcpConfig = {
       mcpServers: {
         'the-librarian': {
           command: 'node',
@@ -54,7 +61,7 @@ export default defineEventHandler(async (event) => {
           ],
           env: {
             READER_API_URL: appUrl,
-            MCP_TOKEN: userData.mcpToken
+            MCP_TOKEN: userData.mcp_token
           }
         }
       }
@@ -62,12 +69,12 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    hasToken: !!userData?.mcpToken,
-    tokenCreatedAt: userData?.mcpTokenCreatedAt,
+    hasToken: !!userData?.mcp_token,
+    tokenCreatedAt: userData?.mcp_token_created_at,
     appUrl,
     repoPath,
     claudeConfigPath,
     platform: os,
-    config
+    config: mcpConfig
   }
 })

@@ -1,26 +1,8 @@
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '')
   const body = await readBody(event)
@@ -40,43 +22,41 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const article = await prisma.article.findFirst({
-    where: {
-      id,
-      feed: {
-        userId: user.id
-      }
-    },
-    select: { id: true }
-  })
-
-  if (!article) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'Article not found'
-    })
-  }
-
   try {
-    await prisma.article.update({
-      where: { id },
-      data: {
-        isRead,
-        readAt: isRead ? new Date() : null
-      }
-    })
+    const supabase = getSupabaseClient(event)
+
+    // Verify article exists and belongs to user's feed
+    const { data: article, error: checkError } = await supabase
+      .from('Article')
+      .select('id, Feed!inner(user_id)')
+      .eq('id', id)
+      .eq('Feed.user_id', user.id)
+      .single()
+
+    if (checkError || !article) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Article not found'
+      })
+    }
+
+    // Update the article
+    const { error } = await supabase
+      .from('Article')
+      .update({
+        is_read: isRead,
+        read_at: isRead ? new Date().toISOString() : null
+      })
+      .eq('id', id)
+
+    if (error) {
+      throw error
+    }
 
     return { success: true }
   } catch (error: any) {
     if (error.statusCode) {
       throw error
-    }
-
-    if (error.code === 'P2025') {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'Article not found'
-      })
     }
 
     throw createError({

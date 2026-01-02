@@ -27,13 +27,31 @@ export default defineNuxtConfig({
 
   modules: [
     '@nuxtjs/tailwindcss',
-    '@sidebase/nuxt-auth',
+    '@nuxtjs/supabase',
     '@vite-pwa/nuxt'
   ],
 
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_KEY,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    redirect: true,
+    redirectOptions: {
+      login: '/login',
+      callback: '/auth/callback',
+      exclude: ['/api/*']
+    }
+  },
+
   runtimeConfig: {
-    authOrigin: AUTH_ORIGIN,
-    public: {}
+    supabase: {
+      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+    },
+    public: {
+      supabase: {
+        url: process.env.SUPABASE_URL
+      }
+    }
   },
 
   typescript: {
@@ -41,13 +59,6 @@ export default defineNuxtConfig({
     typeCheck: false
   },
 
-  auth: {
-    baseURL: '/api/auth',
-    provider: {
-      type: 'authjs'
-    },
-    globalAppMiddleware: false
-  },
 
   pwa: {
     registerType: 'autoUpdate',
@@ -148,13 +159,6 @@ export default defineNuxtConfig({
     }
   },
 
-  vite: {
-    resolve: {
-      alias: {
-        'next-auth/core': 'next-auth/core'
-      }
-    }
-  },
 
   components: {
     dirs: [

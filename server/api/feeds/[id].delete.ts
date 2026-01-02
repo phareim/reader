@@ -1,27 +1,9 @@
-import prisma from '~/server/utils/db'
-import { getServerSession } from '#auth'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
-  // Get authenticated user
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  // Get user from database
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '')
 
@@ -34,14 +16,14 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Verify feed belongs to user
-    const feed = await prisma.feed.findFirst({
-      where: {
-        id,
-        userId: user.id
-      }
-    })
+    const { data: feed, error: feedError } = await supabase
+      .from('Feed')
+      .select('id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
 
-    if (!feed) {
+    if (feedError || !feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
@@ -49,30 +31,29 @@ export default defineEventHandler(async (event) => {
     }
 
     // Count articles before deletion (for response)
-    const articleCount = await prisma.article.count({
-      where: { feedId: id }
-    })
+    const { count: articleCount } = await supabase
+      .from('Article')
+      .select('*', { count: 'exact', head: true })
+      .eq('feed_id', id)
 
     // Delete feed (articles will be cascade deleted)
-    await prisma.feed.delete({
-      where: { id }
-    })
+    const { error: deleteError } = await supabase
+      .from('Feed')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      throw deleteError
+    }
 
     return {
       success: true,
-      deletedArticles: articleCount
+      deletedArticles: articleCount || 0
     }
   } catch (error: any) {
     // If it's already a createError, rethrow it
     if (error.statusCode) {
       throw error
-    }
-
-    if (error.code === 'P2025') {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'Feed not found'
-      })
     }
 
     throw createError({

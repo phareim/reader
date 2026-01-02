@@ -1,6 +1,5 @@
-import { Prisma } from '@prisma/client'
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 
 export default defineEventHandler(async (event) => {
   // Optional authentication - public read access allowed for specific feeds
@@ -17,16 +16,20 @@ export default defineEventHandler(async (event) => {
   const offset = parseInt(query.offset as string) || 0
 
   try {
-    // Base where clause - only filter by user if authenticated and no specific feedId is provided
-    const where: Prisma.ArticleWhereInput = {}
+    const supabase = getSupabaseClient(event)
 
-    // If user is authenticated but no specific feed requested, filter by user's feeds
-    if (user && !feedIdParam) {
-      where.feed = {
-        userId: user.id
-      }
-    }
+    // Build the query dynamically
+    let articlesQuery = supabase
+      .from('Article')
+      .select(`
+        *,
+        feed:Feed!inner(
+          title,
+          favicon_url
+        )
+      `, { count: 'exact' })
 
+    // Handle single feedId
     if (feedIdParam !== undefined) {
       const parsedFeedId = Number(feedIdParam)
 
@@ -37,25 +40,25 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Check if feed exists (publicly accessible)
-      const feed = await prisma.feed.findFirst({
-        where: {
-          id: parsedFeedId,
-          // Only filter by user if authenticated
-          ...(user ? { userId: user.id } : {})
-        },
-        select: { id: true }
-      })
+      // Check if feed exists and user has access
+      const { data: feed, error: feedError } = await supabase
+        .from('Feed')
+        .select('id')
+        .eq('id', parsedFeedId)
+        .eq('user_id', user.id)
+        .single()
 
-      if (!feed) {
+      if (feedError || !feed) {
         throw createError({
           statusCode: 404,
           statusMessage: 'Feed not found'
         })
       }
 
-      where.feedId = parsedFeedId
-    } else if (feedIdsParam) {
+      articlesQuery = articlesQuery.eq('feed_id', parsedFeedId)
+    }
+    // Handle multiple feedIds
+    else if (feedIdsParam) {
       const requestedFeedIds = feedIdsParam
         .split(',')
         .map(id => Number(id.trim()))
@@ -68,16 +71,16 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // If authenticated, only return user's feeds
-      // If not authenticated, allow any feeds (for public sharing)
-      const feedFilter = user
-        ? { id: { in: requestedFeedIds }, userId: user.id }
-        : { id: { in: requestedFeedIds } }
+      // Get allowed feeds for this user
+      const { data: feeds, error: feedsError } = await supabase
+        .from('Feed')
+        .select('id')
+        .in('id', requestedFeedIds)
+        .eq('user_id', user.id)
 
-      const feeds = await prisma.feed.findMany({
-        where: feedFilter,
-        select: { id: true }
-      })
+      if (feedsError) {
+        throw feedsError
+      }
 
       const allowedFeedIds = feeds.map(feed => feed.id)
 
@@ -89,66 +92,67 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      where.feedId = { in: allowedFeedIds }
+      articlesQuery = articlesQuery.in('feed_id', allowedFeedIds)
+    }
+    // No specific feed - filter by user's feeds
+    else if (user) {
+      articlesQuery = articlesQuery.eq('Feed.user_id', user.id)
     }
 
-    // Personal filters only apply when authenticated
+    // Apply personal filters (only when authenticated)
     if (user) {
       if (isRead !== undefined) {
-        where.isRead = isRead
+        articlesQuery = articlesQuery.eq('is_read', isRead)
       }
 
       if (isStarred !== undefined) {
-        where.isStarred = isStarred
+        articlesQuery = articlesQuery.eq('is_starred', isStarred)
       }
 
       if (excludeSaved) {
-        where.savedBy = {
-          none: {
-            userId: user.id
-          }
+        // Get saved article IDs for this user
+        const { data: savedArticles } = await supabase
+          .from('SavedArticle')
+          .select('article_id')
+          .eq('user_id', user.id)
+
+        const savedArticleIds = savedArticles?.map(sa => sa.article_id) || []
+
+        if (savedArticleIds.length > 0) {
+          articlesQuery = articlesQuery.not('id', 'in', `(${savedArticleIds.join(',')})`)
         }
       }
     }
 
-    const [articles, total] = await Promise.all([
-      prisma.article.findMany({
-        where,
-        include: {
-          feed: {
-            select: {
-              title: true,
-              faviconUrl: true
-            }
-          }
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: limit,
-        skip: offset
-      }),
-      prisma.article.count({ where })
-    ])
+    // Execute query with pagination
+    const { data: articles, count, error } = await articlesQuery
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) {
+      throw error
+    }
 
     return {
-      articles: articles.map(article => ({
+      articles: (articles || []).map(article => ({
         id: article.id,
-        feedId: article.feedId,
+        feedId: article.feed_id,
         feedTitle: article.feed.title,
-        feedFavicon: article.feed.faviconUrl,
+        feedFavicon: article.feed.favicon_url,
         guid: article.guid,
         title: article.title,
         url: article.url,
         author: article.author,
         content: article.content,
         summary: article.summary,
-        imageUrl: article.imageUrl,
-        publishedAt: article.publishedAt?.toISOString(),
-        isRead: article.isRead,
-        isStarred: article.isStarred,
-        readAt: article.readAt?.toISOString()
+        imageUrl: article.image_url,
+        publishedAt: article.published_at,
+        isRead: article.is_read,
+        isStarred: article.is_starred,
+        readAt: article.read_at
       })),
-      total,
-      hasMore: offset + articles.length < total
+      total: count || 0,
+      hasMore: offset + (articles?.length || 0) < (count || 0)
     }
   } catch (error: any) {
     if (error.statusCode) {

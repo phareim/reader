@@ -3,8 +3,8 @@
  * Update a tag (rename or change color)
  */
 
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { getAuthenticatedUser } from '~/server/utils/auth'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { z } from 'zod'
 
 const updateTagSchema = z.object({
@@ -13,24 +13,8 @@ const updateTagSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const session = await getServerSession(event)
-  if (!session?.user?.email) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Unauthorized'
-    })
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
-
-  if (!user) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'User not found'
-    })
-  }
+  const user = await getAuthenticatedUser(event)
+  const supabase = getSupabaseClient(event)
 
   const tagId = parseInt(event.context.params?.id || '')
   if (isNaN(tagId)) {
@@ -52,14 +36,14 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify tag belongs to user
-  const existingTag = await prisma.tag.findFirst({
-    where: {
-      id: tagId,
-      userId: user.id
-    }
-  })
+  const { data: existingTag, error: findError } = await supabase
+    .from('Tag')
+    .select('id')
+    .eq('id', tagId)
+    .eq('user_id', user.id)
+    .single()
 
-  if (!existingTag) {
+  if (findError || !existingTag) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Tag not found'
@@ -75,20 +59,38 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const updatedTag = await prisma.tag.update({
-      where: { id: tagId },
-      data: updateData
-    })
+    const { data: updatedTag, error } = await supabase
+      .from('Tag')
+      .update(updateData)
+      .eq('id', tagId)
+      .select()
+      .single()
 
-    return updatedTag
-  } catch (error: any) {
-    // Handle unique constraint violation
-    if (error.code === 'P2002') {
-      throw createError({
-        statusCode: 409,
-        statusMessage: `Tag "${validation.data.name}" already exists`
-      })
+    if (error) {
+      // Handle unique constraint violation
+      if (error.code === '23505' || error.message.includes('duplicate')) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: `Tag "${validation.data.name}" already exists`
+        })
+      }
+      throw error
     }
-    throw error
+
+    return {
+      id: updatedTag.id,
+      userId: updatedTag.user_id,
+      name: updatedTag.name,
+      color: updatedTag.color,
+      createdAt: updatedTag.created_at
+    }
+  } catch (error: any) {
+    if (error.statusCode) {
+      throw error
+    }
+    throw createError({
+      statusCode: 500,
+      message: error.message
+    })
   }
 })

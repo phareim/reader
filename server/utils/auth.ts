@@ -1,23 +1,29 @@
 import { H3Event, getHeader, createError } from 'h3'
-import { getServerSession } from '#auth'
-import prisma from '~/server/utils/db'
+import { serverSupabaseUser, serverSupabaseServiceRole } from '#supabase/server'
 
 /**
  * Get authenticated user from either:
  * 1. MCP token (X-MCP-Token header) - looks up user by token in database
- * 2. Session cookie (next-auth)
+ * 2. Supabase session (replaces NextAuth session)
+ *
+ * This dual authentication approach preserves MCP integration while
+ * modernizing to Supabase Auth for browser-based authentication.
  */
 export async function getAuthenticatedUser(event: H3Event) {
-  // Check for MCP token first
+  // Check for MCP token first (preserve existing MCP functionality)
   const mcpToken = getHeader(event, 'x-mcp-token')
 
   if (mcpToken) {
-    // Look up user by MCP token
-    const user = await prisma.user.findUnique({
-      where: { mcpToken }
-    })
+    // Use service role client to bypass RLS for MCP token lookup
+    const supabaseService = serverSupabaseServiceRole(event)
 
-    if (!user) {
+    const { data: user, error } = await supabaseService
+      .from('User')
+      .select('*')
+      .eq('mcp_token', mcpToken)
+      .single()
+
+    if (error || !user) {
       throw createError({
         statusCode: 401,
         statusMessage: 'Invalid MCP token'
@@ -27,20 +33,25 @@ export async function getAuthenticatedUser(event: H3Event) {
     return user
   }
 
-  // Fall back to session authentication
-  const session = await getServerSession(event)
-  if (!session || !session.user?.email) {
+  // Fall back to Supabase session authentication
+  const supabaseUser = await serverSupabaseUser(event)
+
+  if (!supabaseUser) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized'
     })
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
-  })
+  // Get application user record by auth_user_id
+  const supabaseClient = serverSupabaseServiceRole(event)
+  const { data: user, error } = await supabaseClient
+    .from('User')
+    .select('*')
+    .eq('auth_user_id', supabaseUser.id)
+    .single()
 
-  if (!user) {
+  if (error || !user) {
     throw createError({
       statusCode: 401,
       statusMessage: 'User not found'

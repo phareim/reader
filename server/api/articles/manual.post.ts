@@ -5,7 +5,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import prisma from '~/server/utils/db'
+import { getSupabaseClient } from '~/server/utils/supabase'
 import { z } from 'zod'
 
 const manualArticleSchema = z.object({
@@ -34,128 +34,52 @@ export default defineEventHandler(async (event) => {
   const { title, url, content, summary, author, tags } = validation.data
 
   try {
-    // Find or create "Manual Additions" feed
-    let manualFeed = await prisma.feed.findFirst({
-      where: {
-        userId: user.id,
-        title: 'Manual Additions'
-      }
-    })
+    const supabase = getSupabaseClient(event)
 
-    if (!manualFeed) {
-      manualFeed = await prisma.feed.create({
-        data: {
-          userId: user.id,
-          title: 'Manual Additions',
-          url: 'manual://additions',
-          siteUrl: null,
-          isActive: true
-        }
+    // Use database function to handle the entire flow
+    const { data, error } = await supabase
+      .rpc('add_manual_article', {
+        p_user_id: user.id,
+        p_title: title,
+        p_url: url,
+        p_summary: summary || null,
+        p_author: author || null,
+        p_tag_names: tags || []
       })
+
+    if (error) {
+      throw error
     }
 
-    // Create the article and save it in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Check if article with this URL already exists for this user
-      const existingArticle = await tx.article.findFirst({
-        where: {
-          feedId: manualFeed!.id,
-          url: url
-        }
-      })
+    // Get the article details for the response
+    const { data: article, error: articleError } = await supabase
+      .from('Article')
+      .select('id, title, url')
+      .eq('id', data[0].article_id)
+      .single()
 
-      let article
-      if (existingArticle) {
-        // Update existing article
-        article = await tx.article.update({
-          where: { id: existingArticle.id },
-          data: {
-            title,
-            content,
-            summary,
-            author
-          }
-        })
-      } else {
-        // Create new article
-        article = await tx.article.create({
-          data: {
-            feedId: manualFeed!.id,
-            guid: `manual-${Date.now()}-${Math.random()}`,
-            title,
-            url,
-            content,
-            summary,
-            author,
-            publishedAt: new Date(),
-            isRead: false,
-            isStarred: false
-          }
-        })
-      }
+    if (articleError) {
+      throw articleError
+    }
 
-      // Save the article
-      const savedArticle = await tx.savedArticle.upsert({
-        where: {
-          userId_articleId: {
-            userId: user.id,
-            articleId: article.id
-          }
-        },
-        create: {
-          userId: user.id,
-          articleId: article.id
-        },
-        update: {
-          savedAt: new Date()
-        }
-      })
+    // Get the saved article timestamp
+    const { data: savedArticle, error: savedError } = await supabase
+      .from('SavedArticle')
+      .select('saved_at')
+      .eq('id', data[0].saved_article_id)
+      .single()
 
-      // Add tags if provided
-      if (tags && tags.length > 0) {
-        // Clear existing tags
-        await tx.savedArticleTag.deleteMany({
-          where: { savedArticleId: savedArticle.id }
-        })
-
-        // Add new tags
-        for (const tagName of tags) {
-          const tag = await tx.tag.upsert({
-            where: {
-              userId_name: {
-                userId: user.id,
-                name: tagName
-              }
-            },
-            create: {
-              userId: user.id,
-              name: tagName
-            },
-            update: {}
-          })
-
-          await tx.savedArticleTag.create({
-            data: {
-              savedArticleId: savedArticle.id,
-              tagId: tag.id
-            }
-          })
-        }
-      }
-
-      return {
-        article,
-        savedArticle
-      }
-    })
+    if (savedError) {
+      throw savedError
+    }
 
     return {
       success: true,
       article: {
-        id: result.article.id,
-        title: result.article.title,
-        url: result.article.url,
-        savedAt: result.savedArticle.savedAt.toISOString()
+        id: article.id,
+        title: article.title,
+        url: article.url,
+        savedAt: savedArticle.saved_at
       },
       tags: tags || []
     }
