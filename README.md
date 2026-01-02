@@ -185,6 +185,17 @@ npx prisma migrate reset
 - [ ] Automated background sync
 - [ ] Mobile-responsive design improvements
 
+## Quality Review Follow-Ups
+
+- [ ] Require authentication everywhere sensitive data is returned (lock down `/api/articles/[id].get.ts` and `/api/feeds/[id].get.ts` instead of letting anonymous callers enumerate other users’ content).
+- [ ] Add auth + rate limiting to `/api/claude` so the Anthropic API key cannot be abused via the public endpoint.
+- [ ] Make the feed/article pages truly public or truly private—either stop hitting auth-only APIs when logged out or update those APIs to support the anonymous “share” views advertised by the UI.
+- [ ] Ensure route protection actually runs (use a global middleware or add `middleware: 'auth'` to protected pages; the current `definePageMeta({ auth: true })` flag is inert).
+- [ ] Use Supabase insert options (`ignoreDuplicates`/`upsert`) when backfilling articles so duplicate GUIDs do not abort the entire batch during feed creation/sync.
+- [ ] Skip fetching adjacent articles (or expose a readonly public endpoint) when the user is logged out so shared article pages don’t spam 401 errors and lose swipe navigation.
+- [ ] Cache or otherwise limit Unsplash fallback requests; the current per-article call exhausts the free quota quickly during large syncs.
+- [ ] Expand the Jest suite beyond the placeholder tests to cover key composables/server handlers listed in `collectCoverageFrom`.
+
 ## Contributing
 
 Suggestions and bug reports are welcome. Find me at [X](https://x.com/phareim) on [BlueSky](https://bsky.app/profile/phareim.no).
