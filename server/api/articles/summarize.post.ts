@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
+import { fetchArticleContent } from '~/server/utils/article-content'
 import { SummarizeRequest, SummarizeResponse } from '~/types/summarization'
 import {
   buildSystemPrompt,
@@ -12,10 +13,8 @@ import {
 import { Article } from '~/types'
 
 export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
-  // Authenticate user
   const user = await getAuthenticatedUser(event)
 
-  // Parse request body
   const body = await readBody<SummarizeRequest>(event)
   const {
     feedId,
@@ -27,384 +26,147 @@ export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
     sinceDate
   } = body
 
-  // Validate that exactly one source is specified
   const sourceCount = [feedId, feedIds, tag, savedTag].filter(s => s !== undefined).length
   if (sourceCount === 0) {
-    return {
-      success: false,
-      summary: '',
-      error: 'Please specify one source: feedId, feedIds, tag, or savedTag',
-      metadata: {
-        articlesAnalyzed: 0,
-        articlesIncluded: 0,
-        generatedAt: new Date().toISOString(),
-        model: '',
-        feedTitles: [],
-        tokenUsage: { input: 0, output: 0 }
-      }
-    }
+    return emptyError('Please specify one source: feedId, feedIds, tag, or savedTag')
   }
 
   if (sourceCount > 1) {
-    return {
-      success: false,
-      summary: '',
-      error: 'Please specify only one source: feedId, feedIds, tag, or savedTag',
-      metadata: {
-        articlesAnalyzed: 0,
-        articlesIncluded: 0,
-        generatedAt: new Date().toISOString(),
-        model: '',
-        feedTitles: [],
-        tokenUsage: { input: 0, output: 0 }
-      }
-    }
+    return emptyError('Please specify only one source: feedId, feedIds, tag, or savedTag')
   }
 
-  // Validate limit
   const articleLimit = Math.min(Math.max(1, limit), 50)
 
-  // Check API key
   if (!process.env.OPENAI_API_KEY) {
-    return {
-      success: false,
-      summary: '',
-      error: 'AI summarization is not configured. Please add OPENAI_API_KEY to your .env file.',
-      metadata: {
-        articlesAnalyzed: 0,
-        articlesIncluded: 0,
-        generatedAt: new Date().toISOString(),
-        model: '',
-        feedTitles: [],
-        tokenUsage: { input: 0, output: 0 }
-      }
-    }
+    return emptyError('AI summarization is not configured. Please add OPENAI_API_KEY to your .env file.')
   }
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
     let articles: Article[] = []
     let sourceName = ''
 
-    // Fetch articles based on source type
     if (feedId !== undefined) {
-      // Single feed
       const parsedFeedId = Number(feedId)
-
       if (Number.isNaN(parsedFeedId)) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: 'Invalid feed ID'
-        })
+        throw createError({ statusCode: 400, statusMessage: 'Invalid feed ID' })
       }
 
-      // Verify feed exists and belongs to user
-      const { data: feed, error: feedError } = await supabase
-        .from('Feed')
-        .select('id, title')
-        .eq('id', parsedFeedId)
-        .eq('user_id', user.id)
-        .single()
+      const feed = await db.prepare(
+        'SELECT id, title FROM "Feed" WHERE id = ? AND user_id = ?'
+      ).bind(parsedFeedId, user.id).first()
 
-      if (feedError || !feed) {
-        throw createError({
-          statusCode: 404,
-          statusMessage: 'Feed not found'
-        })
+      if (!feed) {
+        throw createError({ statusCode: 404, statusMessage: 'Feed not found' })
       }
 
       sourceName = feed.title
-
-      // Fetch articles from this feed
-      let query = supabase
-        .from('Article')
-        .select(`
-          *,
-          feed:Feed!inner(
-            title,
-            favicon_url
-          )
-        `)
-        .eq('feed_id', parsedFeedId)
-        .eq('Feed.user_id', user.id)
-
-      // Apply filters
-      if (isRead !== undefined) {
-        query = query.eq('is_read', isRead)
-      }
-
-      if (sinceDate) {
-        query = query.gte('published_at', sinceDate)
-      }
-
-      const { data, error } = await query
-        .order('published_at', { ascending: false })
-        .limit(articleLimit)
-
-      if (error) throw error
-
-      articles = (data || []).map(transformArticle)
+      const rows = await fetchArticlesByFeedIds(db, [parsedFeedId], user.id, isRead, sinceDate, articleLimit)
+      articles = await inflateArticles(event, rows)
     } else if (feedIds !== undefined && Array.isArray(feedIds)) {
-      // Multiple feeds (for tag-based)
       const parsedFeedIds = feedIds.map(id => Number(id)).filter(id => !Number.isNaN(id))
-
       if (parsedFeedIds.length === 0) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: 'Invalid feed IDs'
-        })
+        throw createError({ statusCode: 400, statusMessage: 'Invalid feed IDs' })
       }
 
-      // Verify feeds belong to user
-      const { data: feeds, error: feedsError } = await supabase
-        .from('Feed')
-        .select('id, title')
-        .in('id', parsedFeedIds)
-        .eq('user_id', user.id)
+      const placeholders = parsedFeedIds.map(() => '?').join(',')
+      const feedsResult = await db.prepare(
+        `SELECT id, title FROM "Feed" WHERE user_id = ? AND id IN (${placeholders})`
+      ).bind(user.id, ...parsedFeedIds).all()
 
-      if (feedsError) throw feedsError
-
-      const allowedFeedIds = feeds.map(f => f.id)
-
+      const allowedFeedIds = (feedsResult.results || []).map((f: any) => f.id)
       if (allowedFeedIds.length === 0) {
-        return {
-          success: false,
-          summary: '',
-          error: 'No accessible feeds found with the specified IDs',
-          metadata: {
-            articlesAnalyzed: 0,
-            articlesIncluded: 0,
-            generatedAt: new Date().toISOString(),
-            model: '',
-            feedTitles: [],
-            tokenUsage: { input: 0, output: 0 }
-          }
-        }
+        return emptyError('No accessible feeds found with the specified IDs')
       }
 
-      sourceName = `${feeds.length} feeds`
-
-      // Fetch articles
-      let query = supabase
-        .from('Article')
-        .select(`
-          *,
-          feed:Feed!inner(
-            title,
-            favicon_url
-          )
-        `)
-        .in('feed_id', allowedFeedIds)
-        .eq('Feed.user_id', user.id)
-
-      if (isRead !== undefined) {
-        query = query.eq('is_read', isRead)
-      }
-
-      if (sinceDate) {
-        query = query.gte('published_at', sinceDate)
-      }
-
-      const { data, error } = await query
-        .order('published_at', { ascending: false })
-        .limit(articleLimit)
-
-      if (error) throw error
-
-      articles = (data || []).map(transformArticle)
+      sourceName = `${feedsResult.results?.length || 0} feeds`
+      const rows = await fetchArticlesByFeedIds(db, allowedFeedIds, user.id, isRead, sinceDate, articleLimit)
+      articles = await inflateArticles(event, rows)
     } else if (tag !== undefined) {
-      // Tag-based: fetch feeds with this tag, then their articles
-      const { data: feedTags, error: tagError } = await supabase
-        .from('FeedTag')
-        .select(`
-          feed_id,
-          Feed!inner(
-            id,
-            title,
-            user_id
-          ),
-          Tag!inner(name)
-        `)
-        .eq('Tag.name', tag)
-        .eq('Feed.user_id', user.id)
+      const tagFeeds = await db.prepare(
+        `
+        SELECT ft.feed_id
+        FROM "FeedTag" ft
+        JOIN "Tag" t ON t.id = ft.tag_id
+        WHERE t.user_id = ? AND t.name = ?
+        `
+      ).bind(user.id, tag).all()
 
-      if (tagError) throw tagError
-
-      if (!feedTags || feedTags.length === 0) {
-        return {
-          success: false,
-          summary: '',
-          error: `No feeds found with tag "${tag}"`,
-          metadata: {
-            articlesAnalyzed: 0,
-            articlesIncluded: 0,
-            generatedAt: new Date().toISOString(),
-            model: '',
-            feedTitles: [],
-            tokenUsage: { input: 0, output: 0 }
-          }
-        }
+      const tagFeedIds = (tagFeeds.results || []).map((row: any) => row.feed_id)
+      if (tagFeedIds.length === 0) {
+        return emptyError(`No feeds found with tag "${tag}"`)
       }
 
-      const tagFeedIds = feedTags.map(ft => ft.feed_id)
       sourceName = `tag: ${tag}`
-
-      // Fetch articles from these feeds
-      let query = supabase
-        .from('Article')
-        .select(`
-          *,
-          feed:Feed!inner(
-            title,
-            favicon_url
-          )
-        `)
-        .in('feed_id', tagFeedIds)
-        .eq('Feed.user_id', user.id)
-
-      if (isRead !== undefined) {
-        query = query.eq('is_read', isRead)
-      }
-
-      if (sinceDate) {
-        query = query.gte('published_at', sinceDate)
-      }
-
-      const { data, error } = await query
-        .order('published_at', { ascending: false })
-        .limit(articleLimit)
-
-      if (error) throw error
-
-      articles = (data || []).map(transformArticle)
+      const rows = await fetchArticlesByFeedIds(db, tagFeedIds, user.id, isRead, sinceDate, articleLimit)
+      articles = await inflateArticles(event, rows)
     } else if (savedTag !== undefined) {
-      // Saved articles with tag
-      let query = supabase
-        .from('SavedArticle')
-        .select(`
-          id,
-          saved_at,
-          Article!inner(
-            id,
-            title,
-            url,
-            author,
-            content,
-            summary,
-            published_at,
-            is_read,
-            is_starred,
-            read_at,
-            feed_id,
-            Feed!inner(
-              title,
-              favicon_url
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-
-      // Filter by tag if not the special __inbox__ tag
+      const params: any[] = [user.id]
+      let where = 'sa.user_id = ?'
       if (savedTag !== '__saved_untagged__') {
-        const { data: savedWithTag } = await supabase
-          .from('SavedArticleTag')
-          .select(`
-            saved_article_id,
-            Tag!inner(name)
-          `)
-          .eq('Tag.name', savedTag)
-
-        const savedArticleIds = savedWithTag?.map(st => st.saved_article_id) || []
-
-        if (savedArticleIds.length === 0) {
-          return {
-            success: false,
-            summary: '',
-            error: `No saved articles found with tag "${savedTag}"`,
-            metadata: {
-              articlesAnalyzed: 0,
-              articlesIncluded: 0,
-              generatedAt: new Date().toISOString(),
-              model: '',
-              feedTitles: [],
-              tokenUsage: { input: 0, output: 0 }
-            }
-          }
-        }
-
-        query = query.in('id', savedArticleIds)
+        where += ` AND EXISTS (
+          SELECT 1
+          FROM "SavedArticleTag" sat2
+          JOIN "Tag" t2 ON t2.id = sat2.tag_id
+          WHERE sat2.saved_article_id = sa.id AND t2.name = ?
+        )`
+        params.push(savedTag)
+      } else {
+        where += ' AND NOT EXISTS (SELECT 1 FROM "SavedArticleTag" sat2 WHERE sat2.saved_article_id = sa.id)'
       }
 
-      const { data, error } = await query
-        .order('saved_at', { ascending: false })
-        .limit(articleLimit)
-
-      if (error) throw error
+      const savedRows = await db.prepare(
+        `
+        SELECT
+          a.id,
+          a.feed_id,
+          a.guid,
+          a.title,
+          a.url,
+          a.author,
+          a.summary,
+          a.content_key,
+          a.published_at,
+          a.is_read,
+          a.is_starred,
+          a.read_at,
+          f.title AS feed_title,
+          f.favicon_url AS feed_favicon
+        FROM "SavedArticle" sa
+        JOIN "Article" a ON a.id = sa.article_id
+        JOIN "Feed" f ON f.id = a.feed_id
+        WHERE ${where}
+        ORDER BY sa.saved_at DESC
+        LIMIT ?
+        `
+      ).bind(...params, articleLimit).all()
 
       sourceName = savedTag === '__saved_untagged__' ? 'saved articles (untagged)' : `saved: ${savedTag}`
-
-      articles = (data || []).map((sa: any) => transformArticle({
-        ...sa.Article,
-        feed: sa.Article.Feed
-      }))
+      articles = await inflateArticles(event, savedRows.results || [])
     }
 
-    // Validate we have articles
     if (articles.length === 0) {
-      return {
-        success: false,
-        summary: '',
-        error: 'No articles found matching the specified criteria. Try adjusting filters or adding feeds.',
-        metadata: {
-          articlesAnalyzed: 0,
-          articlesIncluded: 0,
-          generatedAt: new Date().toISOString(),
-          model: '',
-          feedTitles: [],
-          tokenUsage: { input: 0, output: 0 }
-        }
-      }
+      return emptyError('No articles found matching the specified criteria. Try adjusting filters or adding feeds.')
     }
 
-    // Filter articles that have content
     const articlesWithContent = articles.filter(a => a.content || a.summary)
 
     if (articlesWithContent.length < 3) {
-      return {
-        success: false,
-        summary: '',
-        error: `Only ${articlesWithContent.length} articles have content available. At least 3 articles are needed for summarization.`,
-        metadata: {
-          articlesAnalyzed: articles.length,
-          articlesIncluded: 0,
-          generatedAt: new Date().toISOString(),
-          model: '',
-          feedTitles: [],
-          tokenUsage: { input: 0, output: 0 }
-        }
-      }
+      return emptyError(`Only ${articlesWithContent.length} articles have content available. At least 3 articles are needed for summarization.`, {
+        articlesAnalyzed: articles.length,
+        articlesIncluded: 0
+      })
     }
 
-    // Check token estimate
     const estimatedTokens = estimateTokenCount(articlesWithContent)
 
     if (estimatedTokens > 150000) {
-      return {
-        success: false,
-        summary: '',
-        error: `Too many articles selected (estimated ${estimatedTokens} tokens). Please reduce limit to ${Math.floor(articlesWithContent.length * 0.6)} or fewer.`,
-        metadata: {
-          articlesAnalyzed: articles.length,
-          articlesIncluded: articlesWithContent.length,
-          generatedAt: new Date().toISOString(),
-          model: '',
-          feedTitles: [],
-          tokenUsage: { input: 0, output: 0 }
-        }
-      }
+      return emptyError(`Too many articles selected (estimated ${estimatedTokens} tokens). Please reduce limit to ${Math.floor(articlesWithContent.length * 0.6)} or fewer.`, {
+        articlesAnalyzed: articles.length,
+        articlesIncluded: articlesWithContent.length
+      })
     }
 
-    // Call OpenAI API
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     })
@@ -412,27 +174,17 @@ export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
     const maxTokens = calculateMaxTokens(articlesWithContent.length)
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',  // GPT-4o is fast and high quality
+      model: 'gpt-4o',
       max_tokens: maxTokens,
       messages: [
-        {
-          role: 'system',
-          content: buildSystemPrompt()
-        },
-        {
-          role: 'user',
-          content: buildUserPrompt(articlesWithContent, sourceName)
-        }
+        { role: 'system', content: buildSystemPrompt() },
+        { role: 'user', content: buildUserPrompt(articlesWithContent, sourceName) }
       ]
     })
 
-    // Extract text from OpenAI response
     const summaryText = completion.choices[0]?.message?.content || ''
-
-    // Get unique feed titles
     const feedTitles = [...new Set(articlesWithContent.map(a => a.feedTitle))]
 
-    // Build metadata
     const metadata = {
       articlesAnalyzed: articles.length,
       articlesIncluded: articlesWithContent.length,
@@ -445,7 +197,6 @@ export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
       }
     }
 
-    // Format final newsletter
     const newsletter = formatNewsletterResponse(summaryText, metadata)
 
     return {
@@ -453,7 +204,6 @@ export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
       summary: newsletter,
       metadata
     }
-
   } catch (error: any) {
     console.error('Summarization error:', error)
 
@@ -461,57 +211,95 @@ export default defineEventHandler(async (event): Promise<SummarizeResponse> => {
       throw error
     }
 
-    // Handle Claude API errors
     if (error.message?.includes('overloaded')) {
-      return {
-        success: false,
-        summary: '',
-        error: 'The AI service is currently overloaded. Please try again in a moment.',
-        metadata: {
-          articlesAnalyzed: 0,
-          articlesIncluded: 0,
-          generatedAt: new Date().toISOString(),
-          model: '',
-          feedTitles: [],
-          tokenUsage: { input: 0, output: 0 }
-        }
-      }
+      return emptyError('The AI service is currently overloaded. Please try again in a moment.')
     }
 
-    return {
-      success: false,
-      summary: '',
-      error: error.message || 'Failed to generate summary. Please try again.',
-      metadata: {
-        articlesAnalyzed: 0,
-        articlesIncluded: 0,
-        generatedAt: new Date().toISOString(),
-        model: '',
-        feedTitles: [],
-        tokenUsage: { input: 0, output: 0 }
-      }
-    }
+    return emptyError(error.message || 'Failed to generate summary. Please try again.')
   }
 })
 
-/**
- * Transform Supabase article data to Article type
- */
-function transformArticle(data: any): Article {
-  return {
-    id: data.id,
-    feedId: data.feed_id,
-    feedTitle: data.feed?.title || data.Feed?.title || '',
-    feedFavicon: data.feed?.favicon_url || data.Feed?.favicon_url || null,
-    guid: data.guid,
-    title: data.title,
-    url: data.url,
-    author: data.author,
-    content: data.content,
-    summary: data.summary,
-    publishedAt: data.published_at,
-    isRead: data.is_read,
-    isStarred: data.is_starred,
-    readAt: data.read_at
+const emptyError = (message: string, overrides?: { articlesAnalyzed?: number; articlesIncluded?: number }) => ({
+  success: false,
+  summary: '',
+  error: message,
+  metadata: {
+    articlesAnalyzed: overrides?.articlesAnalyzed ?? 0,
+    articlesIncluded: overrides?.articlesIncluded ?? 0,
+    generatedAt: new Date().toISOString(),
+    model: '',
+    feedTitles: [],
+    tokenUsage: { input: 0, output: 0 }
   }
+})
+
+const fetchArticlesByFeedIds = async (
+  db: any,
+  feedIds: number[],
+  userId: string,
+  isRead: boolean | undefined,
+  sinceDate: string | undefined,
+  limit: number
+) => {
+  const params: any[] = [...feedIds, userId]
+  let where = `a.feed_id IN (${feedIds.map(() => '?').join(',')}) AND f.user_id = ?`
+
+  if (isRead !== undefined) {
+    where += ' AND a.is_read = ?'
+    params.push(isRead ? 1 : 0)
+  }
+
+  if (sinceDate) {
+    where += ' AND a.published_at >= ?'
+    params.push(sinceDate)
+  }
+
+  return await db.prepare(
+    `
+    SELECT
+      a.id,
+      a.feed_id,
+      a.guid,
+      a.title,
+      a.url,
+      a.author,
+      a.summary,
+      a.content_key,
+      a.published_at,
+      a.is_read,
+      a.is_starred,
+      a.read_at,
+      f.title AS feed_title,
+      f.favicon_url AS feed_favicon
+    FROM "Article" a
+    JOIN "Feed" f ON f.id = a.feed_id
+    WHERE ${where}
+    ORDER BY a.published_at DESC
+    LIMIT ?
+    `
+  ).bind(...params, limit).all().then((r: any) => r.results || [])
 }
+
+const inflateArticles = async (event: any, rows: any[]) => {
+  return await Promise.all(rows.map(async (row) => {
+    const content = await fetchArticleContent(event, row.content_key)
+    return transformArticle({ ...row, content })
+  }))
+}
+
+const transformArticle = (data: any): Article => ({
+  id: data.id,
+  feedId: data.feed_id,
+  feedTitle: data.feed_title || '',
+  feedFavicon: data.feed_favicon || null,
+  guid: data.guid,
+  title: data.title,
+  url: data.url,
+  author: data.author,
+  content: data.content,
+  summary: data.summary,
+  publishedAt: data.published_at,
+  isRead: Boolean(data.is_read),
+  isStarred: Boolean(data.is_starred),
+  readAt: data.read_at
+})

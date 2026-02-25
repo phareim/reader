@@ -1,54 +1,40 @@
-# Supabase Migration Files
+# Cloudflare D1 Schema
 
-This directory contains SQL files for the Supabase schema and functions.
+This directory contains SQL files for the Cloudflare D1 schema.
 
 ## Files
 
-### 1. `supabase-schema.sql`
-Creates all tables, indexes, and triggers in Supabase.
+### 1. `d1-schema.sql`
+Creates all tables, indexes, and triggers in D1.
 
-**Run this FIRST** in your Supabase SQL Editor:
-1. Go to your Supabase project dashboard
-2. Navigate to SQL Editor
-3. Create a new query
-4. Copy and paste the contents of `supabase-schema.sql`
-5. Click "Run" or press Cmd/Ctrl + Enter
-
-### 2. `supabase-functions.sql`
-Creates database functions for complex queries and transactions.
-
-**Run this SECOND** in your Supabase SQL Editor:
-1. Same steps as above, but with `supabase-functions.sql`
+**Run this** using Wrangler:
+1. Create the D1 database in Cloudflare
+2. Apply the schema:
+   ```bash
+   wrangler d1 execute <db-name> --file=database/d1-schema.sql
+   ```
 
 ### Data Migration
-If you need to migrate data from another source, write a one-off script against the Supabase APIs or use the Supabase import tooling. The repository no longer ships a built-in migration script.
+If you need to migrate data from another source, write a one-off script that inserts into D1 and uploads article content to R2.
 
 ## Migration Order
 
 Follow this exact order:
 
-1. ✅ Run `supabase-schema.sql` in Supabase SQL Editor
-2. ✅ Run `supabase-functions.sql` in Supabase SQL Editor
-3. ✅ Verify data in Supabase dashboard
+1. ✅ Create the D1 database
+2. ✅ Run `database/d1-schema.sql`
+3. ✅ Verify data via Wrangler or D1 dashboard
 
 ## What Gets Created
 
 ### Tables
-- `User` - Application users (linked to Supabase Auth)
+- `User` - Application users
 - `Feed` - RSS feed subscriptions
-- `Article` - Articles from feeds
+- `Article` - Article metadata (content stored in R2)
 - `Tag` - User-created tags
-- `SavedArticle` - Saved articles for later reading
+- `SavedArticle` - Saved articles for later reading (notes stored in R2)
 - `FeedTag` - Many-to-many: Feeds ↔ Tags
 - `SavedArticleTag` - Many-to-many: Saved Articles ↔ Tags
-
-### Functions
-- `get_unread_counts_by_feed()` - Aggregate unread articles by feed
-- `get_saved_article_counts_by_tag()` - Aggregate saved articles by tag
-- `save_article_with_tags()` - Save article with tag inheritance
-- `update_feed_tags()` - Atomically update feed tags
-- `update_saved_article_tags()` - Atomically update saved article tags
-- `add_manual_article()` - Add manually created articles (for MCP)
 
 ### Indexes
 All performance indexes from the SQL schema are recreated for optimal query performance.
@@ -58,9 +44,8 @@ All performance indexes from the SQL schema are recreated for optimal query perf
 If something goes wrong:
 
 1. Keep your source database intact (don't delete it)
-2. You can drop all Supabase tables and start over
-3. The migration script is idempotent for most operations
+2. You can drop all D1 tables and start over
+3. Ensure you also clean up any R2 objects created for article content
 
 ## Support
-
 See the migration plan at: `.claude/plans/dazzling-percolating-puddle.md`

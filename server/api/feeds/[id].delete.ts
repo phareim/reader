@@ -1,9 +1,10 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
+import { deleteArticleContent, deleteSavedArticleNote } from '~/server/utils/article-content'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '')
 
@@ -15,36 +16,35 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Verify feed belongs to user
-    const { data: feed, error: feedError } = await supabase
-      .from('Feed')
-      .select('id')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single()
+    const feed = await db.prepare(
+      'SELECT id FROM "Feed" WHERE id = ? AND user_id = ?'
+    ).bind(id, user.id).first()
 
-    if (feedError || !feed) {
+    if (!feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
       })
     }
 
-    // Count articles before deletion (for response)
-    const { count: articleCount } = await supabase
-      .from('Article')
-      .select('*', { count: 'exact', head: true })
-      .eq('feed_id', id)
+    const articlesResult = await db.prepare(
+      'SELECT id, content_key FROM "Article" WHERE feed_id = ?'
+    ).bind(id).all()
 
-    // Delete feed (articles will be cascade deleted)
-    const { error: deleteError } = await supabase
-      .from('Feed')
-      .delete()
-      .eq('id', id)
+    const articleCount = articlesResult.results?.length || 0
+    for (const article of articlesResult.results || []) {
+      const notesResult = await db.prepare(
+        'SELECT note_key FROM "SavedArticle" WHERE article_id = ?'
+      ).bind(article.id).all()
 
-    if (deleteError) {
-      throw deleteError
+      for (const row of notesResult.results || []) {
+        await deleteSavedArticleNote(event, row.note_key)
+      }
+
+      await deleteArticleContent(event, article.content_key)
     }
+
+    await db.prepare('DELETE FROM "Feed" WHERE id = ?').bind(id).run()
 
     return {
       success: true,

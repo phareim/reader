@@ -5,8 +5,9 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
+import { insertArticleWithContent } from '~/server/utils/article-store'
 
 const manualArticleSchema = z.object({
   title: z.string().min(1).max(500),
@@ -34,51 +35,113 @@ export default defineEventHandler(async (event) => {
   const { title, url, content, summary, author, tags } = validation.data
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
+    const manualFeedUrl = `manual://${user.id}`
 
-    // Use database function to handle the entire flow
-    const { data, error } = await supabase
-      .rpc('add_manual_article', {
-        p_user_id: user.id,
-        p_title: title,
-        p_url: url,
-        p_summary: summary || null,
-        p_author: author || null,
-        p_tag_names: tags || []
-      })
+    let feed = await db.prepare(
+      'SELECT id FROM "Feed" WHERE user_id = ? AND url = ?'
+    ).bind(user.id, manualFeedUrl).first()
 
-    if (error) {
-      throw error
+    if (!feed) {
+      const insertFeed = await db.prepare(
+        `
+        INSERT INTO "Feed" (
+          user_id,
+          url,
+          title,
+          description,
+          site_url,
+          favicon_url,
+          last_fetched_at,
+          is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      ).bind(
+        user.id,
+        manualFeedUrl,
+        'Manual Additions',
+        'Manually added articles',
+        null,
+        null,
+        new Date().toISOString(),
+        0
+      ).run()
+
+      feed = { id: insertFeed.lastRowId }
     }
 
-    // Get the article details for the response
-    const { data: article, error: articleError } = await supabase
-      .from('Article')
-      .select('id, title, url')
-      .eq('id', data[0].article_id)
-      .single()
-
-    if (articleError) {
-      throw articleError
+    if (!feed?.id) {
+      throw new Error('Failed to create manual feed')
     }
 
-    // Get the saved article timestamp
-    const { data: savedArticle, error: savedError } = await supabase
-      .from('SavedArticle')
-      .select('saved_at')
-      .eq('id', data[0].saved_article_id)
-      .single()
+    const articleInsert = await insertArticleWithContent(event, Number(feed.id), {
+      guid: url,
+      title,
+      url,
+      author,
+      content,
+      summary
+    })
 
-    if (savedError) {
-      throw savedError
+    let articleId = articleInsert.id
+    if (!articleId) {
+      const existing = await db.prepare(
+        'SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?'
+      ).bind(feed.id, url).first()
+      articleId = existing?.id || null
+    }
+
+    if (!articleId) {
+      throw new Error('Failed to create article')
+    }
+
+    await db.prepare(
+      `
+      INSERT OR IGNORE INTO "SavedArticle" (user_id, article_id, saved_at)
+      VALUES (?, ?, ?)
+      `
+    ).bind(user.id, articleId, new Date().toISOString()).run()
+
+    const savedArticle = await db.prepare(
+      `
+      SELECT id, saved_at
+      FROM "SavedArticle"
+      WHERE user_id = ? AND article_id = ?
+      `
+    ).bind(user.id, articleId).first()
+
+    if (!savedArticle) {
+      throw new Error('Failed to save article')
+    }
+
+    for (const tagName of tags || []) {
+      await db.prepare(
+        `
+        INSERT OR IGNORE INTO "Tag" (user_id, name)
+        VALUES (?, ?)
+        `
+      ).bind(user.id, tagName).run()
+
+      const tag = await db.prepare(
+        'SELECT id FROM "Tag" WHERE user_id = ? AND name = ?'
+      ).bind(user.id, tagName).first()
+
+      if (tag) {
+        await db.prepare(
+          `
+          INSERT OR IGNORE INTO "SavedArticleTag" (saved_article_id, tag_id, tagged_at)
+          VALUES (?, ?, ?)
+          `
+        ).bind(savedArticle.id, tag.id, new Date().toISOString()).run()
+      }
     }
 
     return {
       success: true,
       article: {
-        id: article.id,
-        title: article.title,
-        url: article.url,
+        id: articleId,
+        title,
+        url,
         savedAt: savedArticle.saved_at
       },
       tags: tags || []

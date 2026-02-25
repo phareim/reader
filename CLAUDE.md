@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A modern, self-hosted RSS feed reader built with Nuxt 3, Vue 3, and Supabase (Postgres + Auth). Inspired by Google Reader with features like feed organization with tags, saved articles, keyboard shortcuts, and a clean reading experience.
+A modern, self-hosted RSS feed reader built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2). Inspired by Google Reader with features like feed organization with tags, saved articles, keyboard shortcuts, and a clean reading experience.
 
 ## Development Commands
 
@@ -28,8 +28,9 @@ npm run mcp
 - **Frontend**: Nuxt 3 (Vue 3) with auto-imported components and composables
 - **Styling**: Tailwind CSS with `@tailwindcss/typography` for article content
 - **Backend**: Nitro server routes (REST-style API)
-- **Database**: Supabase Postgres
-- **Auth**: Supabase Auth with Google OAuth
+- **Database**: Cloudflare D1
+- **Storage**: Cloudflare R2 for article content
+- **Auth**: Auth.js with Google OAuth
 - **Feed Parsing**: rss-parser for RSS/Atom feeds
 - **Content Sanitization**: isomorphic-dompurify for safe HTML rendering
 
@@ -121,9 +122,9 @@ Routes follow REST conventions:
 
 ### Key Patterns
 
-**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Supabase session. Routes should return 401 if no session.
+**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Auth.js session. Routes should return 401 if no session.
 
-**Supabase Access**: Use `getSupabaseClient()` from `~/server/utils/supabase` to query data. Use service role client only where required.
+**Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content.
 
 **Feed Parsing**: Use `parseRSSFeed()` utility to handle RSS/Atom feeds with proper error handling.
 
@@ -155,10 +156,10 @@ Implemented in `useKeyboardShortcuts` composable:
 
 Required in `.env.local`:
 ```bash
-SUPABASE_URL="https://your-project.supabase.co"
-SUPABASE_KEY="your-anon-or-public-key"
-SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 AUTH_ORIGIN="http://localhost:3000"
+AUTH_SECRET="your-authjs-secret"
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
 ```
 
 Optional:
@@ -176,8 +177,8 @@ MAX_ARTICLES_PER_FEED=200
 **Adding a new component**: Create in `components/` or subdirectory. Will be auto-imported. Use `<script setup>` with TypeScript.
 
 **Modifying database schema**:
-1. Update `database/supabase-schema.sql` and `database/supabase-functions.sql`
-2. Apply SQL in Supabase SQL Editor
+1. Update `database/d1-schema.sql`
+2. Apply SQL in D1 via Wrangler
 
 ### Component Communication
 
@@ -207,7 +208,7 @@ MCP Server (mcp-server/index.ts)
     ↓ (HTTP + X-MCP-Token header)
 Nuxt API (http://localhost:3000/api/*)
     ↓
-Database (Supabase Postgres)
+Database (Cloudflare D1 + R2)
 ```
 
 The MCP server:

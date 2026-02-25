@@ -1,9 +1,10 @@
-import { getSupabaseClient } from '~/server/utils/supabase'
 import { getHeader } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
+import { getServerSession } from '#auth'
+import { getD1 } from '~/server/utils/cloudflare'
+import { fetchArticleContent, fetchSavedArticleNote } from '~/server/utils/article-content'
 
 export default defineEventHandler(async (event) => {
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   // Optional authentication - try to get user but don't fail if not authenticated
   let user: any = null
@@ -11,22 +12,16 @@ export default defineEventHandler(async (event) => {
   // Check for MCP token first
   const mcpToken = getHeader(event, 'x-mcp-token')
   if (mcpToken) {
-    const { data: mcpUser } = await supabase
-      .from('User')
-      .select('*')
-      .eq('mcp_token', mcpToken)
-      .single()
-    user = mcpUser
+    user = await db.prepare('SELECT * FROM "User" WHERE mcp_token = ?')
+      .bind(mcpToken)
+      .first()
   } else {
-    // Try Supabase session
-    const supabaseUser = await serverSupabaseUser(event)
-    if (supabaseUser) {
-      const { data: appUser } = await supabase
-        .from('User')
-        .select('*')
-        .eq('auth_user_id', supabaseUser.id)
-        .single()
-      user = appUser
+    // Try Auth.js session
+    const session = await getServerSession(event)
+    if (session?.user?.email) {
+      user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
+        .bind(session.user.email)
+        .first()
     }
   }
 
@@ -39,28 +34,21 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Build query for article with feed details
-  let articleQuery = supabase
-    .from('Article')
-    .select(`
-      *,
-      feed:Feed!inner (
-        id,
-        title,
-        favicon_url,
-        user_id
-      )
-    `)
-    .eq('id', articleId)
+  const article = await db.prepare(
+    `
+    SELECT
+      a.*,
+      f.id AS feed_id,
+      f.title AS feed_title,
+      f.favicon_url AS feed_favicon_url,
+      f.user_id AS feed_user_id
+    FROM "Article" a
+    JOIN "Feed" f ON f.id = a.feed_id
+    WHERE a.id = ?
+    `
+  ).bind(articleId).first()
 
-  // Filter by user if authenticated
-  if (user) {
-    articleQuery = articleQuery.eq('Feed.user_id', user.id)
-  }
-
-  const { data: article, error: articleError } = await articleQuery.single()
-
-  if (articleError || !article) {
+  if (!article || (user && article.feed_user_id !== user.id)) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Article not found'
@@ -72,42 +60,48 @@ export default defineEventHandler(async (event) => {
   let savedTags: string[] = []
 
   if (user) {
-    const { data: saved } = await supabase
-      .from('SavedArticle')
-      .select(`
-        id,
-        saved_at,
-        tags:SavedArticleTag (
-          tag:Tag (
-            name
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('article_id', articleId)
-      .single()
+    const saved = await db.prepare(
+      `
+      SELECT id, saved_at, note_key
+      FROM "SavedArticle"
+      WHERE user_id = ? AND article_id = ?
+      `
+    ).bind(user.id, articleId).first()
 
     if (saved) {
       savedArticle = saved
-      savedTags = saved.tags.map((t: any) => t.tag.name)
+      const tagsResult = await db.prepare(
+        `
+        SELECT t.name
+        FROM "SavedArticleTag" sat
+        JOIN "Tag" t ON t.id = sat.tag_id
+        WHERE sat.saved_article_id = ?
+        `
+      ).bind(saved.id).all()
+      savedTags = (tagsResult.results || []).map((row: any) => row.name)
     }
   }
+
+  const content = await fetchArticleContent(event, article.content_key)
+  const note = savedArticle ? await fetchSavedArticleNote(event, savedArticle.note_key) : null
 
   return {
     id: article.id,
     title: article.title,
     url: article.url,
-    content: article.content,
+    content,
     summary: article.summary,
+    imageUrl: article.image_url,
     author: article.author,
     publishedAt: article.published_at,
     // Personal data only if authenticated
-    isRead: user ? article.is_read : false,
+    isRead: user ? Boolean(article.is_read) : false,
     readAt: user ? article.read_at : null,
     feedId: article.feed_id,
-    feedTitle: article.feed.title,
-    feedFaviconUrl: article.feed.favicon_url,
+    feedTitle: article.feed_title,
+    feedFaviconUrl: article.feed_favicon_url,
     savedId: savedArticle?.id,
+    note,
     tags: savedTags,
     // Indicate if user is authenticated (for UI purposes)
     isAuthenticated: !!user

@@ -4,11 +4,11 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const tagId = parseInt(event.context.params?.id || '')
   if (isNaN(tagId)) {
@@ -18,33 +18,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Verify tag belongs to user
-  const { data: existingTag, error: findError } = await supabase
-    .from('Tag')
-    .select('id')
-    .eq('id', tagId)
-    .eq('user_id', user.id)
-    .single()
+  const existingTag = await db.prepare(
+    'SELECT id FROM "Tag" WHERE id = ? AND user_id = ?'
+  ).bind(tagId, user.id).first()
 
-  if (findError || !existingTag) {
+  if (!existingTag) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Tag not found'
     })
   }
 
-  // Delete the tag (cascade will handle FeedTag and SavedArticleTag)
-  const { error: deleteError } = await supabase
-    .from('Tag')
-    .delete()
-    .eq('id', tagId)
-
-  if (deleteError) {
-    throw createError({
-      statusCode: 500,
-      message: deleteError.message
-    })
-  }
+  await db.prepare('DELETE FROM "Tag" WHERE id = ? AND user_id = ?')
+    .bind(tagId, user.id)
+    .run()
 
   return { success: true }
 })

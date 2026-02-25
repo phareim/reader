@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 
 const updateSavedArticleTagsSchema = z.object({
@@ -36,33 +36,46 @@ export default defineEventHandler(async (event) => {
   const { tags: tagNames } = validation.data
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
 
-    // Verify saved article belongs to user
-    const { data: savedArticle, error: savedArticleError } = await supabase
-      .from('SavedArticle')
-      .select('id')
-      .eq('id', savedArticleId)
-      .eq('user_id', user.id)
-      .single()
+    const savedArticle = await db.prepare(
+      'SELECT id FROM "SavedArticle" WHERE id = ? AND user_id = ?'
+    ).bind(savedArticleId, user.id).first()
 
-    if (savedArticleError || !savedArticle) {
+    if (!savedArticle) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Saved article not found'
       })
     }
 
-    // Use database function to update tags atomically
-    const { error } = await supabase
-      .rpc('update_saved_article_tags', {
-        p_user_id: user.id,
-        p_saved_article_id: savedArticleId,
-        p_tag_names: tagNames
-      })
+    await db.prepare('DELETE FROM "SavedArticleTag" WHERE saved_article_id = ?')
+      .bind(savedArticleId)
+      .run()
 
-    if (error) {
-      throw error
+    const now = new Date().toISOString()
+    for (const tagName of tagNames) {
+      await db.prepare(
+        `
+        INSERT OR IGNORE INTO "Tag" (user_id, name)
+        VALUES (?, ?)
+        `
+      ).bind(user.id, tagName).run()
+
+      const tag = await db.prepare(
+        `
+        SELECT id FROM "Tag" WHERE user_id = ? AND name = ?
+        `
+      ).bind(user.id, tagName).first()
+
+      if (tag) {
+        await db.prepare(
+          `
+          INSERT OR IGNORE INTO "SavedArticleTag" (saved_article_id, tag_id, tagged_at)
+          VALUES (?, ?, ?)
+          `
+        ).bind(savedArticleId, tag.id, now).run()
+      }
     }
 
     return {

@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const normalizeOrigin = (origin?: string | null) => origin?.replace(/\/+$/, '')
-const envOrigin = process.env.AUTH_ORIGIN || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+const envOrigin = process.env.AUTH_ORIGIN || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL}` : undefined)
 const AUTH_ORIGIN = normalizeOrigin(envOrigin)
 
 export default defineNuxtConfig({
@@ -26,32 +26,28 @@ export default defineNuxtConfig({
   },
 
   modules: [
+    '@sidebase/nuxt-auth',
     '@nuxtjs/tailwindcss',
-    '@nuxtjs/supabase',
     '@vite-pwa/nuxt'
   ],
 
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_KEY,
-    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    redirect: true,
-    redirectOptions: {
-      login: '/login',
-      callback: '/auth/callback',
-      exclude: ['/api/*']
-    }
+  nitro: {
+    preset: 'cloudflare'
   },
 
   runtimeConfig: {
-    supabase: {
-      serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY
+    auth: {
+      secret: process.env.AUTH_SECRET,
+      googleClientId: process.env.GOOGLE_CLIENT_ID,
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET
     },
     public: {
-      supabase: {
-        url: process.env.SUPABASE_URL
-      }
+      authOrigin: AUTH_ORIGIN
     }
+  },
+
+  auth: {
+    origin: AUTH_ORIGIN
   },
 
   typescript: {

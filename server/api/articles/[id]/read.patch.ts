@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -23,35 +23,30 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
+    const article = await db.prepare(
+      `
+      SELECT a.id
+      FROM "Article" a
+      JOIN "Feed" f ON f.id = a.feed_id
+      WHERE a.id = ? AND f.user_id = ?
+      `
+    ).bind(id, user.id).first()
 
-    // Verify article exists and belongs to user's feed
-    const { data: article, error: checkError } = await supabase
-      .from('Article')
-      .select('id, Feed!inner(user_id)')
-      .eq('id', id)
-      .eq('Feed.user_id', user.id)
-      .single()
-
-    if (checkError || !article) {
+    if (!article) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Article not found'
       })
     }
 
-    // Update the article
-    const { error } = await supabase
-      .from('Article')
-      .update({
-        is_read: isRead,
-        read_at: isRead ? new Date().toISOString() : null
-      })
-      .eq('id', id)
-
-    if (error) {
-      throw error
-    }
+    await db.prepare(
+      `
+      UPDATE "Article"
+      SET is_read = ?, read_at = ?
+      WHERE id = ?
+      `
+    ).bind(isRead ? 1 : 0, isRead ? new Date().toISOString() : null, id).run()
 
     return { success: true }
   } catch (error: any) {

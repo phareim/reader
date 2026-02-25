@@ -1,10 +1,11 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { parseFeed } from '~/server/utils/feedParser'
+import { insertArticleWithContent } from '~/server/utils/article-store'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '')
 
@@ -17,14 +18,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Verify feed exists and belongs to user
-    const { data: feed, error: feedQueryError } = await supabase
-      .from('Feed')
-      .select('url')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single()
+    const feed = await db.prepare(
+      'SELECT url FROM "Feed" WHERE id = ? AND user_id = ?'
+    ).bind(id, user.id).first()
 
-    if (feedQueryError || !feed) {
+    if (!feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
@@ -33,50 +31,45 @@ export default defineEventHandler(async (event) => {
 
     const parsedFeed = await parseFeed(feed.url)
 
-    // Update feed metadata
-    const { error: updateError } = await supabase
-      .from('Feed')
-      .update({
-        title: parsedFeed.title,
-        description: parsedFeed.description,
-        site_url: parsedFeed.siteUrl,
-        favicon_url: parsedFeed.faviconUrl,
-        last_fetched_at: new Date().toISOString(),
-        last_error: null,
-        error_count: 0
-      })
-      .eq('id', id)
-
-    if (updateError) {
-      throw updateError
-    }
+    await db.prepare(
+      `
+      UPDATE "Feed"
+      SET title = ?,
+          description = ?,
+          site_url = ?,
+          favicon_url = ?,
+          last_fetched_at = ?,
+          last_error = NULL,
+          error_count = 0
+      WHERE id = ?
+      `
+    ).bind(
+      parsedFeed.title,
+      parsedFeed.description || null,
+      parsedFeed.siteUrl || null,
+      parsedFeed.faviconUrl || null,
+      new Date().toISOString(),
+      id
+    ).run()
 
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    // Insert articles in batch, ignoring duplicates
-    const articlesData = articlesToAdd.map(item => ({
-      feed_id: id,
-      guid: item.guid,
-      title: item.title,
-      url: item.url,
-      author: item.author,
-      content: item.content,
-      summary: item.summary,
-      image_url: item.imageUrl,
-      published_at: item.publishedAt?.toISOString()
-    }))
-
-    const { data: insertedArticles, error: articlesError } = await supabase
-      .from('Article')
-      .insert(articlesData)
-      .select('id')
-
-    const newArticles = insertedArticles?.length || 0
-
-    // Ignore duplicate errors
-    if (articlesError && !articlesError.message.includes('duplicate')) {
-      console.error('Error inserting articles:', articlesError)
+    let newArticles = 0
+    for (const item of articlesToAdd) {
+      const result = await insertArticleWithContent(event, id, {
+        guid: item.guid,
+        title: item.title,
+        url: item.url,
+        author: item.author,
+        content: item.content,
+        summary: item.summary,
+        imageUrl: item.imageUrl,
+        publishedAt: item.publishedAt
+      })
+      if (result.inserted) {
+        newArticles += 1
+      }
     }
 
     return {
@@ -86,25 +79,27 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     // On error, increment error count and deactivate after 10 errors
     try {
-      const { data: current } = await supabase
-        .from('Feed')
-        .select('error_count')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single()
+      const current = await db.prepare(
+        'SELECT error_count FROM "Feed" WHERE id = ? AND user_id = ?'
+      ).bind(id, user.id).first()
 
       if (current) {
         const nextErrorCount = (current.error_count || 0) + 1
-
-        await supabase
-          .from('Feed')
-          .update({
-            last_error: error.message,
-            error_count: nextErrorCount,
-            is_active: nextErrorCount >= 10 ? false : undefined
-          })
-          .eq('id', id)
-          .eq('user_id', user.id)
+        await db.prepare(
+          `
+          UPDATE "Feed"
+          SET last_error = ?,
+              error_count = ?,
+              is_active = ?
+          WHERE id = ? AND user_id = ?
+          `
+        ).bind(
+          error.message,
+          nextErrorCount,
+          nextErrorCount >= 10 ? 0 : 1,
+          id,
+          user.id
+        ).run()
       }
     } catch (updateError) {
       // Ignore errors during error tracking update

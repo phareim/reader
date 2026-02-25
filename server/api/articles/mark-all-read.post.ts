@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -19,17 +19,12 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
+    const feed = await db.prepare('SELECT id FROM "Feed" WHERE id = ? AND user_id = ?')
+      .bind(targetFeedId, user.id)
+      .first()
 
-    // Verify feed exists and belongs to user
-    const { data: feed, error: feedError } = await supabase
-      .from('Feed')
-      .select('id')
-      .eq('id', targetFeedId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (feedError || !feed) {
+    if (!feed) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Feed not found'
@@ -38,46 +33,29 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const supabase = getSupabaseClient(event)
-
-    // First, get all article IDs that belong to user's feeds
-    let articleQuery = supabase
-      .from('Article')
-      .select('id, Feed!inner(user_id)')
-      .eq('is_read', false)
-      .eq('Feed.user_id', user.id)
+    const db = getD1(event)
+    const params: any[] = [user.id]
+    let where = 'is_read = 0 AND feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?)'
 
     if (targetFeedId !== undefined) {
-      articleQuery = articleQuery.eq('feed_id', targetFeedId)
+      where += ' AND feed_id = ?'
+      params.push(targetFeedId)
     }
 
-    const { data: articles, error: selectError } = await articleQuery
+    const countResult = await db.prepare(
+      `SELECT COUNT(*) AS total FROM "Article" WHERE ${where}`
+    ).bind(...params).first()
 
-    if (selectError) {
-      throw selectError
-    }
-
-    if (!articles || articles.length === 0) {
+    if (!countResult || Number(countResult.total) === 0) {
       return { markedCount: 0 }
     }
 
-    // Update the articles
-    const articleIds = articles.map(a => a.id)
-    const { error, count } = await supabase
-      .from('Article')
-      .update({
-        is_read: true,
-        read_at: new Date().toISOString()
-      })
-      .in('id', articleIds)
-      .select('id', { count: 'exact' })
-
-    if (error) {
-      throw error
-    }
+    await db.prepare(
+      `UPDATE "Article" SET is_read = 1, read_at = ? WHERE ${where}`
+    ).bind(new Date().toISOString(), ...params).run()
 
     return {
-      markedCount: count || 0
+      markedCount: Number(countResult.total || 0)
     }
   } catch (error: any) {
     if (error.statusCode) {

@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 
 const updateFeedTagsSchema = z.object({
@@ -36,25 +36,46 @@ export default defineEventHandler(async (event) => {
   const { tags: tagNames } = validation.data
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
 
-    // Use database function to update tags atomically
-    const { error } = await supabase
-      .rpc('update_feed_tags', {
-        p_user_id: user.id,
-        p_feed_id: feedId,
-        p_tag_names: tagNames
+    const feed = await db.prepare(
+      'SELECT id FROM "Feed" WHERE id = ? AND user_id = ?'
+    ).bind(feedId, user.id).first()
+
+    if (!feed) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Feed not found'
       })
+    }
 
-    if (error) {
-      // Check if it's a "not found" error from the function
-      if (error.message.includes('not found') || error.message.includes('unauthorized')) {
-        throw createError({
-          statusCode: 404,
-          statusMessage: 'Feed not found'
-        })
+    await db.prepare('DELETE FROM "FeedTag" WHERE feed_id = ?')
+      .bind(feedId)
+      .run()
+
+    const now = new Date().toISOString()
+    for (const tagName of tagNames) {
+      await db.prepare(
+        `
+        INSERT OR IGNORE INTO "Tag" (user_id, name)
+        VALUES (?, ?)
+        `
+      ).bind(user.id, tagName).run()
+
+      const tag = await db.prepare(
+        `
+        SELECT id FROM "Tag" WHERE user_id = ? AND name = ?
+        `
+      ).bind(user.id, tagName).first()
+
+      if (tag) {
+        await db.prepare(
+          `
+          INSERT OR IGNORE INTO "FeedTag" (feed_id, tag_id, tagged_at)
+          VALUES (?, ?, ?)
+          `
+        ).bind(feedId, tag.id, now).run()
       }
-      throw error
     }
 
     return {

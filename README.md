@@ -1,6 +1,6 @@
 # The Librarian
 
-A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, and Supabase (Postgres + Auth).
+A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2).
 
 ## Features
 
@@ -9,7 +9,8 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 - ✅ Mark articles as read/unread or bulk mark all read
 - ✅ Manual feed syncing with per-user rate limiting
 - ✅ Filter by feed, tag, or read status
-- ✅ Hosted Supabase Postgres database for durable storage
+- ✅ Cloudflare D1 for relational data
+- ✅ Cloudflare R2 for article content + saved notes storage
 - ✅ HTML sanitization for safe article rendering
 - ✅ Fast, lightweight Nuxt 3 frontend
 
@@ -19,7 +20,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 
 - Node.js 22.x or later
 - npm
-- A Supabase project (Postgres + Auth)
+- Cloudflare account with Workers, D1, and R2
 
 ### Installation
 
@@ -37,12 +38,13 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 3. Configure your environment:
    ```bash
    cp .env.example .env.local
-   # Edit .env.local with your Supabase URL/keys
+   # Edit .env.local with your OAuth and API keys
    ```
 
-4. Apply the database schema and functions in Supabase:
-   - Run `database/supabase-schema.sql` in Supabase SQL Editor
-   - Run `database/supabase-functions.sql` in Supabase SQL Editor
+4. Create a D1 database and apply the schema:
+   ```bash
+   wrangler d1 execute <db-name> --file=database/d1-schema.sql
+   ```
 
 5. Start the development server:
    ```bash
@@ -61,12 +63,12 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 ## Architecture
 
 ```
-Nuxt 3 SPA ↔ Nitro server routes ↔ Supabase (Postgres + Auth)
+Nuxt 3 SPA ↔ Nitro server routes ↔ Cloudflare Workers/D1/R2
 ```
 
 ### Database Schema
 
-See `database/supabase-schema.sql` for the full schema and `database/supabase-functions.sql` for the RPC helpers.
+See `database/d1-schema.sql` for the full schema. Article content is stored in R2.
 
 ## API Endpoints
 
@@ -87,16 +89,16 @@ See `database/supabase-schema.sql` for the full schema and `database/supabase-fu
 | Styling      | Tailwind CSS              | Utility-first styling      |
 | State        | Nuxt composables          | Client-side state          |
 | Backend      | Nitro server routes       | REST-style API             |
-| Database     | Supabase Postgres         | Durable storage            |
-| Auth         | Supabase Auth             | Google OAuth sign-in       |
+| Database     | Cloudflare D1             | Relational storage         |
+| Storage     | Cloudflare R2             | Article content blobs      |
+| Auth         | Auth.js (Google OAuth)    | Google OAuth sign-in       |
 
 ## Project Structure
 
 ```
 reader/
   database/
-    supabase-schema.sql
-    supabase-functions.sql
+    d1-schema.sql
   server/
     api/
       feeds/
@@ -114,12 +116,12 @@ reader/
 Set the following environment variables:
 
 ```bash
-SUPABASE_URL="https://your-project.supabase.co"
-SUPABASE_KEY="your-anon-or-public-key"
-SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 AUTH_ORIGIN="http://localhost:3000"
 FETCH_TIMEOUT=30000
 MAX_ARTICLES_PER_FEED=200
+AUTH_SECRET="your-authjs-secret"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
 ```
 
 ## Development
@@ -133,7 +135,7 @@ npm run preview      # Preview production build locally
 npm run mcp             # MCP server for Claude Desktop
 ```
 
-To reset Supabase data during development, drop and re-run the SQL from `database/`.
+To reset D1 data during development, drop and re-run the SQL from `database/`.
 
 ## Phase 1 Features (Current)
 
@@ -162,7 +164,7 @@ To reset Supabase data during development, drop and re-run the SQL from `databas
 - [ ] Add auth + rate limiting to `/api/claude` so the Anthropic API key cannot be abused via the public endpoint.
 - [ ] Make the feed/article pages truly public or truly private—either stop hitting auth-only APIs when logged out or update those APIs to support the anonymous “share” views advertised by the UI.
 - [ ] Ensure route protection actually runs (use a global middleware or add `middleware: 'auth'` to protected pages; the current `definePageMeta({ auth: true })` flag is inert).
-- [ ] Use Supabase insert options (`ignoreDuplicates`/`upsert`) when backfilling articles so duplicate GUIDs do not abort the entire batch during feed creation/sync.
+- [ ] Use D1 `INSERT OR IGNORE` (or similar) when backfilling articles so duplicate GUIDs do not abort the entire batch during feed creation/sync.
 - [ ] Skip fetching adjacent articles (or expose a readonly public endpoint) when the user is logged out so shared article pages don’t spam 401 errors and lose swipe navigation.
 - [ ] Cache or otherwise limit Unsplash fallback requests; the current per-article call exhausts the free quota quickly during large syncs.
 - [ ] Expand the Jest suite beyond the placeholder tests to cover key composables/server handlers listed in `collectCoverageFrom`.

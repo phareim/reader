@@ -156,7 +156,7 @@ MCP Server (mcp-server/index.ts)
     ↓ (HTTP)
 Reader Nuxt API (http://localhost:3001/api/*)
     ↓
-Database (Supabase Postgres)
+Database (Cloudflare D1 + R2)
 ```
 
 The MCP server:

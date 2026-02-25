@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   // Optional authentication - public read access allowed for specific feeds
@@ -16,18 +16,9 @@ export default defineEventHandler(async (event) => {
   const offset = parseInt(query.offset as string) || 0
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
 
-    // Build the query dynamically
-    let articlesQuery = supabase
-      .from('Article')
-      .select(`
-        *,
-        feed:Feed!inner(
-          title,
-          favicon_url
-        )
-      `, { count: 'exact' })
+    let allowedFeedIds: number[] | undefined
 
     // Handle single feedId
     if (feedIdParam !== undefined) {
@@ -40,22 +31,18 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Check if feed exists and user has access
-      const { data: feed, error: feedError } = await supabase
-        .from('Feed')
-        .select('id')
-        .eq('id', parsedFeedId)
-        .eq('user_id', user.id)
-        .single()
+      const feed = await db.prepare('SELECT id FROM "Feed" WHERE id = ? AND user_id = ?')
+        .bind(parsedFeedId, user.id)
+        .first()
 
-      if (feedError || !feed) {
+      if (!feed) {
         throw createError({
           statusCode: 404,
           statusMessage: 'Feed not found'
         })
       }
 
-      articlesQuery = articlesQuery.eq('feed_id', parsedFeedId)
+      allowedFeedIds = [parsedFeedId]
     }
     // Handle multiple feedIds
     else if (feedIdsParam) {
@@ -71,88 +58,104 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Get allowed feeds for this user
-      const { data: feeds, error: feedsError } = await supabase
-        .from('Feed')
-        .select('id')
-        .in('id', requestedFeedIds)
-        .eq('user_id', user.id)
+      const placeholders = requestedFeedIds.map(() => '?').join(',')
+      const feedsResult = await db.prepare(
+        `SELECT id FROM "Feed" WHERE user_id = ? AND id IN (${placeholders})`
+      ).bind(user.id, ...requestedFeedIds).all()
 
-      if (feedsError) {
-        throw feedsError
-      }
+      allowedFeedIds = (feedsResult.results || []).map((feed: any) => feed.id)
 
-      const allowedFeedIds = feeds.map(feed => feed.id)
-
-      if (allowedFeedIds.length === 0) {
+      if (!allowedFeedIds || allowedFeedIds.length === 0) {
         return {
           articles: [],
           total: 0,
           hasMore: false
         }
       }
-
-      articlesQuery = articlesQuery.in('feed_id', allowedFeedIds)
     }
     // No specific feed - filter by user's feeds
     else if (user) {
-      articlesQuery = articlesQuery.eq('Feed.user_id', user.id)
+      const feedsResult = await db.prepare('SELECT id FROM "Feed" WHERE user_id = ?')
+        .bind(user.id)
+        .all()
+      allowedFeedIds = (feedsResult.results || []).map((feed: any) => feed.id)
     }
 
-    // Apply personal filters (only when authenticated)
-    if (user) {
-      if (isRead !== undefined) {
-        articlesQuery = articlesQuery.eq('is_read', isRead)
-      }
-
-      if (isStarred !== undefined) {
-        articlesQuery = articlesQuery.eq('is_starred', isStarred)
-      }
-
-      if (excludeSaved) {
-        // Get saved article IDs for this user
-        const { data: savedArticles } = await supabase
-          .from('SavedArticle')
-          .select('article_id')
-          .eq('user_id', user.id)
-
-        const savedArticleIds = savedArticles?.map(sa => sa.article_id) || []
-
-        if (savedArticleIds.length > 0) {
-          articlesQuery = articlesQuery.not('id', 'in', `(${savedArticleIds.join(',')})`)
-        }
+    if (!allowedFeedIds || allowedFeedIds.length === 0) {
+      return {
+        articles: [],
+        total: 0,
+        hasMore: false
       }
     }
 
-    // Execute query with pagination
-    const { data: articles, count, error } = await articlesQuery
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .range(offset, offset + limit - 1)
+    const params: any[] = []
+    let where = `a.feed_id IN (${allowedFeedIds.map(() => '?').join(',')})`
+    params.push(...allowedFeedIds)
 
-    if (error) {
-      throw error
+    if (isRead !== undefined) {
+      where += ' AND a.is_read = ?'
+      params.push(isRead ? 1 : 0)
     }
+
+    if (isStarred !== undefined) {
+      where += ' AND a.is_starred = 1'
+    }
+
+    if (excludeSaved) {
+      where += ' AND a.id NOT IN (SELECT article_id FROM "SavedArticle" WHERE user_id = ?)'
+      params.push(user.id)
+    }
+
+    const countResult = await db.prepare(
+      `SELECT COUNT(*) AS total FROM "Article" a WHERE ${where}`
+    ).bind(...params).first()
+
+    const articlesResult = await db.prepare(
+      `
+      SELECT
+        a.id,
+        a.feed_id,
+        a.guid,
+        a.title,
+        a.url,
+        a.author,
+        a.summary,
+        a.image_url,
+        a.published_at,
+        a.is_read,
+        a.is_starred,
+        a.read_at,
+        f.title AS feed_title,
+        f.favicon_url AS feed_favicon
+      FROM "Article" a
+      JOIN "Feed" f ON f.id = a.feed_id
+      WHERE ${where}
+      ORDER BY a.published_at DESC
+      LIMIT ? OFFSET ?
+      `
+    ).bind(...params, limit, offset).all()
 
     return {
-      articles: (articles || []).map(article => ({
+      articles: (articlesResult.results || []).map((article: any) => ({
         id: article.id,
         feedId: article.feed_id,
-        feedTitle: article.feed.title,
-        feedFavicon: article.feed.favicon_url,
+        feedTitle: article.feed_title,
+        feedFavicon: article.feed_favicon,
         guid: article.guid,
         title: article.title,
         url: article.url,
         author: article.author,
-        content: article.content,
+        content: null,
         summary: article.summary,
         imageUrl: article.image_url,
         publishedAt: article.published_at,
-        isRead: article.is_read,
-        isStarred: article.is_starred,
+        isRead: Boolean(article.is_read),
+        isStarred: Boolean(article.is_starred),
         readAt: article.read_at
       })),
-      total: count || 0,
-      hasMore: offset + (articles?.length || 0) < (count || 0)
+      total: Number(countResult?.total || 0),
+      hasMore: offset + (articlesResult.results?.length || 0) < Number(countResult?.total || 0)
     }
   } catch (error: any) {
     if (error.statusCode) {

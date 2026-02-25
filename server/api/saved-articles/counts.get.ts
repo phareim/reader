@@ -4,60 +4,48 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
 
-    // Get total count, tag counts, and untagged count in parallel
     const [totalCountResult, tagCountsResult, untaggedCountResult] = await Promise.all([
-      // Total saved articles
-      supabase
-        .from('SavedArticle')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-
-      // Count by tag using database function
-      supabase.rpc('get_saved_article_counts_by_tag', { p_user_id: user.id }),
-
-      // Untagged saved articles - fetch all and filter client-side
-      // (Supabase doesn't have a direct way to count by "no relationships")
-      supabase
-        .from('SavedArticle')
-        .select(`
-          id,
-          tags:SavedArticleTag(tag_id)
-        `)
-        .eq('user_id', user.id)
+      db.prepare('SELECT COUNT(*) AS total FROM "SavedArticle" WHERE user_id = ?')
+        .bind(user.id)
+        .first(),
+      db.prepare(
+        `
+        SELECT t.name, COUNT(*) AS count
+        FROM "SavedArticleTag" sat
+        JOIN "Tag" t ON t.id = sat.tag_id
+        WHERE t.user_id = ?
+        GROUP BY t.name
+        `
+      ).bind(user.id).all(),
+      db.prepare(
+        `
+        SELECT COUNT(*) AS total
+        FROM "SavedArticle" sa
+        WHERE sa.user_id = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM "SavedArticleTag" sat WHERE sat.saved_article_id = sa.id
+          )
+        `
+      ).bind(user.id).first()
     ])
 
-    if (totalCountResult.error) {
-      throw totalCountResult.error
-    }
-
-    if (tagCountsResult.error) {
-      throw tagCountsResult.error
-    }
-
-    if (untaggedCountResult.error) {
-      throw untaggedCountResult.error
-    }
-
-    // Count untagged articles (those with no SavedArticleTag relationships)
-    const untaggedCount = (untaggedCountResult.data || []).filter(
-      sa => sa.tags.length === 0
-    ).length
+    const untaggedCount = Number(untaggedCountResult?.total || 0)
 
     // Build response
     const byTag: Record<string, { tag: string; count: number }> = {}
 
-    for (const row of tagCountsResult.data || []) {
+    for (const row of tagCountsResult.results || []) {
       byTag[row.name] = {
         tag: row.name,
-        count: Number(row.count)
+        count: Number(row.count || 0)
       }
     }
 
@@ -67,7 +55,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return {
-      total: totalCountResult.count || 0,
+      total: Number(totalCountResult?.total || 0),
       byTag,
       tags: Object.keys(byTag).filter(t => t !== '__inbox__').sort()
     }

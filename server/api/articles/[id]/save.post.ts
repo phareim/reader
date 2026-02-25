@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user (supports both session and MCP token)
@@ -15,55 +15,70 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
+    const article = await db.prepare(
+      `
+      SELECT a.id, a.feed_id
+      FROM "Article" a
+      JOIN "Feed" f ON f.id = a.feed_id
+      WHERE a.id = ? AND f.user_id = ?
+      `
+    ).bind(articleId, user.id).first()
 
-    // Verify article exists and belongs to user's feed, and fetch feed tags
-    const { data: article, error: articleError } = await supabase
-      .from('Article')
-      .select(`
-        id,
-        feed:Feed!inner(
-          user_id,
-          tags:FeedTag(
-            tag:Tag(name)
-          )
-        )
-      `)
-      .eq('id', articleId)
-      .eq('Feed.user_id', user.id)
-      .single()
-
-    if (articleError || !article) {
+    if (!article) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Article not found'
       })
     }
 
-    // Get feed tag names
-    const feedTags = article.feed.tags.map(ft => ft.tag.name)
+    const feedTagsResult = await db.prepare(
+      `
+      SELECT t.id, t.name
+      FROM "FeedTag" ft
+      JOIN "Tag" t ON t.id = ft.tag_id
+      WHERE ft.feed_id = ? AND t.user_id = ?
+      `
+    ).bind(article.feed_id, user.id).all()
 
-    // Call database function to save with tag inheritance
-    const { data, error } = await supabase
-      .rpc('save_article_with_tags', {
-        p_user_id: user.id,
-        p_article_id: articleId,
-        p_feed_tags: feedTags
-      })
+    const now = new Date().toISOString()
+    const insertResult = await db.prepare(
+      `
+      INSERT OR IGNORE INTO "SavedArticle" (user_id, article_id, saved_at)
+      VALUES (?, ?, ?)
+      `
+    ).bind(user.id, articleId, now).run()
 
-    if (error) {
+    const savedArticle = await db.prepare(
+      `
+      SELECT id, saved_at
+      FROM "SavedArticle"
+      WHERE user_id = ? AND article_id = ?
+      `
+    ).bind(user.id, articleId).first()
+
+    if (!savedArticle) {
       throw createError({
         statusCode: 500,
-        message: error.message
+        message: 'Failed to save article'
       })
+    }
+
+    for (const tag of feedTagsResult.results || []) {
+      await db.prepare(
+        `
+        INSERT OR IGNORE INTO "SavedArticleTag" (saved_article_id, tag_id, tagged_at)
+        VALUES (?, ?, ?)
+        `
+      ).bind(savedArticle.id, tag.id, now).run()
     }
 
     return {
       success: true,
       savedArticle: {
-        id: data[0].saved_article_id,
+        id: savedArticle.id,
         articleId: articleId,
-        savedAt: data[0].saved_at
+        savedAt: savedArticle.saved_at
       }
     }
   } catch (error: any) {

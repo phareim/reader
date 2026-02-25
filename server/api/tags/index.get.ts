@@ -4,36 +4,33 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
-  // Get all tags with their usage counts
-  const { data: tags, error } = await supabase
-    .from('Tag')
-    .select(`
-      *,
-      feeds:FeedTag(count),
-      saved_articles:SavedArticleTag(count)
-    `)
-    .eq('user_id', user.id)
-    .order('name', { ascending: true })
+  const tagsResult = await db.prepare(
+    `
+    SELECT
+      t.id,
+      t.name,
+      t.color,
+      t.created_at,
+      (SELECT COUNT(*) FROM "FeedTag" ft WHERE ft.tag_id = t.id) AS feed_count,
+      (SELECT COUNT(*) FROM "SavedArticleTag" sat WHERE sat.tag_id = t.id) AS saved_article_count
+    FROM "Tag" t
+    WHERE t.user_id = ?
+    ORDER BY t.name ASC
+    `
+  ).bind(user.id).all()
 
-  if (error) {
-    throw createError({
-      statusCode: 500,
-      message: error.message
-    })
-  }
-
-  return (tags || []).map(tag => ({
+  return (tagsResult.results || []).map((tag: any) => ({
     id: tag.id,
     name: tag.name,
     color: tag.color,
     createdAt: tag.created_at,
-    feedCount: tag.feeds.length,
-    savedArticleCount: tag.saved_articles.length
+    feedCount: Number(tag.feed_count || 0),
+    savedArticleCount: Number(tag.saved_article_count || 0)
   }))
 })

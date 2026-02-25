@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 
 const createTagSchema = z.object({
@@ -14,7 +14,7 @@ const createTagSchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const body = await readBody(event)
   const validation = createTagSchema.safeParse(body)
@@ -30,25 +30,26 @@ export default defineEventHandler(async (event) => {
   const { name, color } = validation.data
 
   try {
-    const { data: tag, error } = await supabase
-      .from('Tag')
-      .insert({
-        user_id: user.id,
-        name,
-        color
-      })
-      .select()
-      .single()
+    await db.prepare(
+      `
+      INSERT INTO "Tag" (user_id, name, color)
+      VALUES (?, ?, ?)
+      `
+    ).bind(user.id, name, color || null).run()
 
-    if (error) {
-      // Handle unique constraint violation
-      if (error.code === '23505' || error.message.includes('duplicate')) {
-        throw createError({
-          statusCode: 409,
-          statusMessage: `Tag "${name}" already exists`
-        })
-      }
-      throw error
+    const tag = await db.prepare(
+      `
+      SELECT id, user_id, name, color, created_at
+      FROM "Tag"
+      WHERE user_id = ? AND name = ?
+      `
+    ).bind(user.id, name).first()
+
+    if (!tag) {
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to create tag'
+      })
     }
 
     return {
@@ -61,6 +62,12 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     if (error.statusCode) {
       throw error
+    }
+    if (error.message?.toLowerCase().includes('unique')) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `Tag "${name}" already exists`
+      })
     }
     throw createError({
       statusCode: 500,

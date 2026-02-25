@@ -1,122 +1,79 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user (supports both session and MCP token)
   const user = await getAuthenticatedUser(event)
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
 
     // Get optional tag filter from query params
     const query = getQuery(event)
     const tagFilter = query.tag as string | undefined
 
-    // Build base query
-    let savedArticlesQuery = supabase
-      .from('SavedArticle')
-      .select(`
-        *,
-        article:Article!inner(
-          *,
-          feed:Feed!inner(*)
-        ),
-        tags:SavedArticleTag(
-          tag:Tag(name)
-        )
-      `)
-      .eq('user_id', user.id)
-      .order('saved_at', { ascending: false })
+    const params: any[] = [user.id]
+    let where = 'sa.user_id = ?'
 
-    // Apply tag filter if provided
     if (tagFilter) {
       if (tagFilter === '__inbox__') {
-        // Special case: show untagged saved articles
-        // We need to fetch all and filter client-side or use a different approach
-        const { data: savedArticles, error } = await savedArticlesQuery
-
-        if (error) {
-          throw error
-        }
-
-        // Filter for articles with no tags
-        const untaggedArticles = (savedArticles || []).filter(sa => sa.tags.length === 0)
-
-        return {
-          articles: untaggedArticles.map(saved => ({
-            id: saved.article.id,
-            feedId: saved.article.feed_id,
-            feedTitle: saved.article.feed.title,
-            title: saved.article.title,
-            url: saved.article.url,
-            author: saved.article.author,
-            content: saved.article.content,
-            summary: saved.article.summary,
-            imageUrl: saved.article.image_url,
-            publishedAt: saved.article.published_at,
-            isRead: saved.article.is_read,
-            savedAt: saved.saved_at,
-            savedId: saved.id,
-            tags: []
-          }))
-        }
+        where += ' AND NOT EXISTS (SELECT 1 FROM "SavedArticleTag" sat2 WHERE sat2.saved_article_id = sa.id)'
       } else {
-        // Filter by specific tag - need to do client-side filtering
-        const { data: savedArticles, error } = await savedArticlesQuery
-
-        if (error) {
-          throw error
-        }
-
-        // Filter for articles with the specific tag
-        const filteredArticles = (savedArticles || []).filter(sa =>
-          sa.tags.some(t => t.tag.name === tagFilter)
-        )
-
-        return {
-          articles: filteredArticles.map(saved => ({
-            id: saved.article.id,
-            feedId: saved.article.feed_id,
-            feedTitle: saved.article.feed.title,
-            title: saved.article.title,
-            url: saved.article.url,
-            author: saved.article.author,
-            content: saved.article.content,
-            summary: saved.article.summary,
-            imageUrl: saved.article.image_url,
-            publishedAt: saved.article.published_at,
-            isRead: saved.article.is_read,
-            savedAt: saved.saved_at,
-            savedId: saved.id,
-            tags: saved.tags.map(sat => sat.tag.name)
-          }))
-        }
+        where += `
+          AND EXISTS (
+            SELECT 1
+            FROM "SavedArticleTag" sat2
+            JOIN "Tag" t2 ON t2.id = sat2.tag_id
+            WHERE sat2.saved_article_id = sa.id AND t2.name = ?
+          )
+        `
+        params.push(tagFilter)
       }
     }
 
-    // No tag filter - return all saved articles
-    const { data: savedArticles, error } = await savedArticlesQuery
-
-    if (error) {
-      throw error
-    }
+    const savedArticlesResult = await db.prepare(
+      `
+      SELECT
+        sa.id AS saved_id,
+        sa.saved_at,
+        a.id AS article_id,
+        a.feed_id,
+        a.title,
+        a.url,
+        a.author,
+        a.summary,
+        a.image_url,
+        a.published_at,
+        a.is_read,
+        f.title AS feed_title,
+        GROUP_CONCAT(DISTINCT t.name) AS tags
+      FROM "SavedArticle" sa
+      JOIN "Article" a ON a.id = sa.article_id
+      JOIN "Feed" f ON f.id = a.feed_id
+      LEFT JOIN "SavedArticleTag" sat ON sat.saved_article_id = sa.id
+      LEFT JOIN "Tag" t ON t.id = sat.tag_id
+      WHERE ${where}
+      GROUP BY sa.id
+      ORDER BY sa.saved_at DESC
+      `
+    ).bind(...params).all()
 
     return {
-      articles: (savedArticles || []).map(saved => ({
-        id: saved.article.id,
-        feedId: saved.article.feed_id,
-        feedTitle: saved.article.feed.title,
-        title: saved.article.title,
-        url: saved.article.url,
-        author: saved.article.author,
-        content: saved.article.content,
-        summary: saved.article.summary,
-        imageUrl: saved.article.image_url,
-        publishedAt: saved.article.published_at,
-        isRead: saved.article.is_read,
+      articles: (savedArticlesResult.results || []).map((saved: any) => ({
+        id: saved.article_id,
+        feedId: saved.feed_id,
+        feedTitle: saved.feed_title,
+        title: saved.title,
+        url: saved.url,
+        author: saved.author,
+        content: null,
+        summary: saved.summary,
+        imageUrl: saved.image_url,
+        publishedAt: saved.published_at,
+        isRead: Boolean(saved.is_read),
         savedAt: saved.saved_at,
-        savedId: saved.id,
-        tags: saved.tags.map(sat => sat.tag.name)
+        savedId: saved.saved_id,
+        tags: saved.tags ? String(saved.tags).split(',').sort() : []
       }))
     }
   } catch (error: any) {

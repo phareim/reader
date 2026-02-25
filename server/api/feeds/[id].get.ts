@@ -1,9 +1,9 @@
-import { getSupabaseClient } from '~/server/utils/supabase'
 import { getHeader } from 'h3'
-import { serverSupabaseUser } from '#supabase/server'
+import { getServerSession } from '#auth'
+import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   // Optional authentication - try to get user but don't fail if not authenticated
   let user: any = null
@@ -11,22 +11,16 @@ export default defineEventHandler(async (event) => {
   // Check for MCP token first
   const mcpToken = getHeader(event, 'x-mcp-token')
   if (mcpToken) {
-    const { data: mcpUser } = await supabase
-      .from('User')
-      .select('*')
-      .eq('mcp_token', mcpToken)
-      .single()
-    user = mcpUser
+    user = await db.prepare('SELECT * FROM "User" WHERE mcp_token = ?')
+      .bind(mcpToken)
+      .first()
   } else {
-    // Try Supabase session
-    const supabaseUser = await serverSupabaseUser(event)
-    if (supabaseUser) {
-      const { data: appUser } = await supabase
-        .from('User')
-        .select('*')
-        .eq('auth_user_id', supabaseUser.id)
-        .single()
-      user = appUser
+    // Try Auth.js session
+    const session = await getServerSession(event)
+    if (session?.user?.email) {
+      user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
+        .bind(session.user.email)
+        .first()
     }
   }
 
@@ -39,43 +33,40 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Build query for feed
-  let feedQuery = supabase
-    .from('Feed')
-    .select(`
-      *,
-      tags:FeedTag (
-        tag:Tag (
-          name
-        )
-      )
-    `)
-    .eq('id', feedId)
+  const feed = await db.prepare(
+    `
+    SELECT *
+    FROM "Feed"
+    WHERE id = ?
+    `
+  ).bind(feedId).first()
 
-  // Filter by user if authenticated
-  if (user) {
-    feedQuery = feedQuery.eq('user_id', user.id)
-  }
-
-  const { data: feed, error: feedError } = await feedQuery.single()
-
-  if (feedError || !feed) {
+  if (!feed || (user && feed.user_id !== user.id)) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Feed not found'
     })
   }
 
-  // Get unread count if authenticated
+  const tagsResult = await db.prepare(
+    `
+    SELECT t.name
+    FROM "FeedTag" ft
+    JOIN "Tag" t ON t.id = ft.tag_id
+    WHERE ft.feed_id = ?
+    `
+  ).bind(feedId).all()
+
   let unreadCount = 0
   if (user) {
-    const { count } = await supabase
-      .from('Article')
-      .select('*', { count: 'exact', head: true })
-      .eq('feed_id', feedId)
-      .eq('is_read', false)
-
-    unreadCount = count || 0
+    const countResult = await db.prepare(
+      `
+      SELECT COUNT(*) AS total
+      FROM "Article"
+      WHERE feed_id = ? AND is_read = 0
+      `
+    ).bind(feedId).first()
+    unreadCount = Number(countResult?.total || 0)
   }
 
   return {
@@ -85,10 +76,10 @@ export default defineEventHandler(async (event) => {
     description: feed.description,
     siteUrl: feed.site_url,
     faviconUrl: feed.favicon_url,
-    tags: feed.tags.map((ft: any) => ft.tag.name),
+    tags: (tagsResult.results || []).map((row: any) => row.name).sort(),
     unreadCount,
     lastFetchedAt: feed.last_fetched_at,
-    isActive: feed.is_active,
+    isActive: Boolean(feed.is_active),
     isAuthenticated: !!user
   }
 })

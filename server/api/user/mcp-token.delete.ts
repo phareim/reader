@@ -1,6 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 
 /**
  * DELETE /api/user/mcp-token
@@ -8,23 +8,16 @@ import { getSupabaseClient } from '~/server/utils/supabase'
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   // Clear the token
-  const { error } = await supabase
-    .from('User')
-    .update({
-      mcp_token: null,
-      mcp_token_created_at: null
-    })
-    .eq('id', user.id)
-
-  if (error) {
-    throw createError({
-      statusCode: 500,
-      message: error.message
-    })
-  }
+  await db.prepare(
+    `
+    UPDATE "User"
+    SET mcp_token = NULL, mcp_token_created_at = NULL
+    WHERE id = ?
+    `
+  ).bind(user.id).run()
 
   return {
     success: true,

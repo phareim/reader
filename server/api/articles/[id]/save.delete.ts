@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
+import { deleteSavedArticleNote } from '~/server/utils/article-content'
 
 export default defineEventHandler(async (event) => {
   // Get authenticated user (supports both session and MCP token)
@@ -15,18 +16,18 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const supabase = getSupabaseClient(event)
+    const db = getD1(event)
+    const saved = await db.prepare(
+      'SELECT id, note_key FROM "SavedArticle" WHERE user_id = ? AND article_id = ?'
+    ).bind(user.id, articleId).first()
 
-    // Delete saved article
-    const { error } = await supabase
-      .from('SavedArticle')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('article_id', articleId)
-
-    if (error) {
-      throw error
+    if (saved?.note_key) {
+      await deleteSavedArticleNote(event, saved.note_key)
     }
+
+    await db.prepare('DELETE FROM "SavedArticle" WHERE user_id = ? AND article_id = ?')
+      .bind(user.id, articleId)
+      .run()
 
     return {
       success: true

@@ -4,7 +4,7 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 
 const updateTagSchema = z.object({
@@ -14,7 +14,7 @@ const updateTagSchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const tagId = parseInt(event.context.params?.id || '')
   if (isNaN(tagId)) {
@@ -35,15 +35,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Verify tag belongs to user
-  const { data: existingTag, error: findError } = await supabase
-    .from('Tag')
-    .select('id')
-    .eq('id', tagId)
-    .eq('user_id', user.id)
-    .single()
+  const existingTag = await db.prepare(
+    'SELECT id FROM "Tag" WHERE id = ? AND user_id = ?'
+  ).bind(tagId, user.id).first()
 
-  if (findError || !existingTag) {
+  if (!existingTag) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Tag not found'
@@ -59,22 +55,42 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { data: updatedTag, error } = await supabase
-      .from('Tag')
-      .update(updateData)
-      .eq('id', tagId)
-      .select()
-      .single()
+    const updates: string[] = []
+    const params: any[] = []
 
-    if (error) {
-      // Handle unique constraint violation
-      if (error.code === '23505' || error.message.includes('duplicate')) {
-        throw createError({
-          statusCode: 409,
-          statusMessage: `Tag "${validation.data.name}" already exists`
-        })
-      }
-      throw error
+    if (updateData.name !== undefined) {
+      updates.push('name = ?')
+      params.push(updateData.name)
+    }
+
+    if (updateData.color !== undefined) {
+      updates.push('color = ?')
+      params.push(updateData.color)
+    }
+
+    if (updates.length > 0) {
+      await db.prepare(
+        `
+        UPDATE "Tag"
+        SET ${updates.join(', ')}
+        WHERE id = ? AND user_id = ?
+        `
+      ).bind(...params, tagId, user.id).run()
+    }
+
+    const updatedTag = await db.prepare(
+      `
+      SELECT id, user_id, name, color, created_at
+      FROM "Tag"
+      WHERE id = ?
+      `
+    ).bind(tagId).first()
+
+    if (!updatedTag) {
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to update tag'
+      })
     }
 
     return {
@@ -87,6 +103,12 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     if (error.statusCode) {
       throw error
+    }
+    if (error.message?.toLowerCase().includes('unique')) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `Tag "${validation.data.name}" already exists`
+      })
     }
     throw createError({
       statusCode: 500,

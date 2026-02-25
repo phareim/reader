@@ -1,10 +1,11 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { parseFeed } from '~/server/utils/feedParser'
+import { insertArticleWithContent } from '~/server/utils/article-store'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const body = await readBody(event)
   const { url } = body
@@ -19,12 +20,9 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Check if user already has this feed
-    const { data: existingFeed } = await supabase
-      .from('Feed')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('url', url)
-      .single()
+    const existingFeed = await db.prepare(
+      'SELECT id FROM "Feed" WHERE user_id = ? AND url = ?'
+    ).bind(user.id, url).first()
 
     if (existingFeed) {
       throw createError({
@@ -38,24 +36,34 @@ export default defineEventHandler(async (event) => {
     const parsedFeed = await parseFeed(url)
 
     // Create feed in database
-    const { data: feed, error: feedError } = await supabase
-      .from('Feed')
-      .insert({
-        user_id: user.id,
+    const insertFeed = await db.prepare(
+      `
+      INSERT INTO "Feed" (
+        user_id,
         url,
-        title: parsedFeed.title,
-        description: parsedFeed.description,
-        site_url: parsedFeed.siteUrl,
-        favicon_url: parsedFeed.faviconUrl,
-        last_fetched_at: new Date().toISOString()
-      })
-      .select()
-      .single()
+        title,
+        description,
+        site_url,
+        favicon_url,
+        last_fetched_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `
+    ).bind(
+      user.id,
+      url,
+      parsedFeed.title,
+      parsedFeed.description || null,
+      parsedFeed.siteUrl || null,
+      parsedFeed.faviconUrl || null,
+      new Date().toISOString()
+    ).run()
 
-    if (feedError) {
+    const feedId = insertFeed.lastRowId
+
+    if (!feedId) {
       throw createError({
         statusCode: 500,
-        message: feedError.message
+        message: 'Failed to create feed'
       })
     }
 
@@ -63,40 +71,30 @@ export default defineEventHandler(async (event) => {
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
-    // Insert articles in batch, ignoring duplicates
-    const articlesData = articlesToAdd.map(item => ({
-      feed_id: feed.id,
-      guid: item.guid,
-      title: item.title,
-      url: item.url,
-      author: item.author,
-      content: item.content,
-      summary: item.summary,
-      image_url: item.imageUrl,
-      published_at: item.publishedAt?.toISOString()
-    }))
-
-    // Use insert with onConflict to handle duplicates
-    const { data: insertedArticles, error: articlesError } = await supabase
-      .from('Article')
-      .insert(articlesData)
-      .select('id')
-
-    // Count inserted articles (ignoring duplicates)
-    const articlesAdded = insertedArticles?.length || 0
-
-    // If there's an error other than duplicate key constraint, throw it
-    if (articlesError && !articlesError.message.includes('duplicate')) {
-      console.error('Error inserting articles:', articlesError)
+    let articlesAdded = 0
+    for (const item of articlesToAdd) {
+      const result = await insertArticleWithContent(event, Number(feedId), {
+        guid: item.guid,
+        title: item.title,
+        url: item.url,
+        author: item.author,
+        content: item.content,
+        summary: item.summary,
+        imageUrl: item.imageUrl,
+        publishedAt: item.publishedAt
+      })
+      if (result.inserted) {
+        articlesAdded += 1
+      }
     }
 
     return {
       feed: {
-        id: feed.id,
-        title: feed.title,
-        url: feed.url,
-        siteUrl: feed.site_url,
-        faviconUrl: feed.favicon_url
+        id: feedId,
+        title: parsedFeed.title,
+        url,
+        siteUrl: parsedFeed.siteUrl,
+        faviconUrl: parsedFeed.faviconUrl
       },
       articlesAdded
     }

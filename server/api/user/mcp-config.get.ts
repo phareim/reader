@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { platform, homedir } from 'os'
 import { join } from 'path'
 
@@ -10,27 +10,22 @@ import { join } from 'path'
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
   const query = getQuery(event)
   let repoPath = query.repoPath as string | undefined
 
   // Get current user with token
-  const { data: userData, error } = await supabase
-    .from('User')
-    .select('mcp_token, mcp_token_created_at')
-    .eq('id', user.id)
-    .single()
-
-  if (error) {
-    throw createError({
-      statusCode: 500,
-      message: error.message
-    })
-  }
+  const userData = await db.prepare(
+    `
+    SELECT mcp_token, mcp_token_created_at
+    FROM "User"
+    WHERE id = ?
+    `
+  ).bind(user.id).first()
 
   // Get the public app URL from runtime config
   const config = useRuntimeConfig()
-  const appUrl = config.public.supabaseUrl?.replace('/rest/v1', '') || 'http://localhost:3000'
+  const appUrl = config.public.authOrigin || 'http://localhost:3000'
 
   // Auto-detect repository path if not provided
   if (!repoPath) {

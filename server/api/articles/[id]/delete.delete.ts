@@ -5,11 +5,12 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
+import { deleteArticleContent, deleteSavedArticleNote } from '~/server/utils/article-content'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const articleId = parseInt(getRouterParam(event, 'id') || '')
   if (isNaN(articleId)) {
@@ -21,19 +22,16 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Get the article with its feed
-    const { data: article, error: articleError } = await supabase
-      .from('Article')
-      .select(`
-        id,
-        feed:Feed!inner (
-          user_id,
-          title
-        )
-      `)
-      .eq('id', articleId)
-      .single()
+    const article = await db.prepare(
+      `
+      SELECT a.id, a.content_key, f.user_id, f.title AS feed_title
+      FROM "Article" a
+      JOIN "Feed" f ON f.id = a.feed_id
+      WHERE a.id = ?
+      `
+    ).bind(articleId).first()
 
-    if (articleError || !article) {
+    if (!article) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Article not found'
@@ -41,7 +39,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Verify the article belongs to the user's feed
-    if (article.feed.user_id !== user.id) {
+    if (article.user_id !== user.id) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Forbidden'
@@ -49,7 +47,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Only allow deletion of manually added articles (from Manual Additions feed)
-    if (article.feed.title !== 'Manual Additions') {
+    if (article.feed_title !== 'Manual Additions') {
       throw createError({
         statusCode: 400,
         statusMessage: 'Can only delete manually added articles',
@@ -57,15 +55,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Delete the article (cascade will handle saved articles)
-    const { error: deleteError } = await supabase
-      .from('Article')
-      .delete()
-      .eq('id', articleId)
+    const savedNotes = await db.prepare(
+      'SELECT note_key FROM "SavedArticle" WHERE article_id = ?'
+    ).bind(articleId).all()
 
-    if (deleteError) {
-      throw deleteError
+    for (const row of savedNotes.results || []) {
+      await deleteSavedArticleNote(event, row.note_key)
     }
+
+    await deleteArticleContent(event, article.content_key)
+    await db.prepare('DELETE FROM "Article" WHERE id = ?').bind(articleId).run()
 
     return {
       success: true,

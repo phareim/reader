@@ -1,61 +1,60 @@
 import { H3Event, getHeader, createError } from 'h3'
-import { serverSupabaseUser, serverSupabaseServiceRole } from '#supabase/server'
+import { getServerSession } from '#auth'
+import cuid from 'cuid'
+import { getD1 } from '~/server/utils/cloudflare'
 
 /**
  * Get authenticated user from either:
  * 1. MCP token (X-MCP-Token header) - looks up user by token in database
- * 2. Supabase session (replaces NextAuth session)
+ * 2. Auth.js session (cookie-based JWT)
  *
  * This dual authentication approach preserves MCP integration while
- * modernizing to Supabase Auth for browser-based authentication.
+ * using Auth.js for browser-based authentication.
  */
 export async function getAuthenticatedUser(event: H3Event) {
   // Check for MCP token first (preserve existing MCP functionality)
   const mcpToken = getHeader(event, 'x-mcp-token')
 
   if (mcpToken) {
-    // Use service role client to bypass RLS for MCP token lookup
-    const supabaseService = serverSupabaseServiceRole(event)
+    const db = getD1(event)
+    const result = await db.prepare('SELECT * FROM "User" WHERE mcp_token = ?').bind(mcpToken).first()
 
-    const { data: user, error } = await supabaseService
-      .from('User')
-      .select('*')
-      .eq('mcp_token', mcpToken)
-      .single()
-
-    if (error || !user) {
+    if (!result) {
       throw createError({
         statusCode: 401,
         statusMessage: 'Invalid MCP token'
       })
     }
 
-    return user
+    return result
   }
 
-  // Fall back to Supabase session authentication
-  const supabaseUser = await serverSupabaseUser(event)
+  // Fall back to Auth.js session authentication
+  const session = await getServerSession(event)
 
-  if (!supabaseUser) {
+  if (!session?.user?.email) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Unauthorized'
     })
   }
 
-  // Get application user record by auth_user_id
-  const supabaseClient = serverSupabaseServiceRole(event)
-  const { data: user, error } = await supabaseClient
-    .from('User')
-    .select('*')
-    .eq('auth_user_id', supabaseUser.id)
-    .single()
+  const db = getD1(event)
+  let user = await db.prepare('SELECT * FROM "User" WHERE email = ?').bind(session.user.email).first()
 
-  if (error || !user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'User not found'
-    })
+  if (!user) {
+    const newUserId = cuid()
+    await db.prepare(`
+      INSERT INTO "User" (id, name, email, image)
+      VALUES (?, ?, ?, ?)
+    `).bind(
+      newUserId,
+      session.user.name || null,
+      session.user.email,
+      session.user.image || null
+    ).run()
+
+    user = await db.prepare('SELECT * FROM "User" WHERE id = ?').bind(newUserId).first()
   }
 
   return user

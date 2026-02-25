@@ -8,14 +8,15 @@
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getSupabaseClient } from '~/server/utils/supabase'
+import { getD1 } from '~/server/utils/cloudflare'
 import { parseFeed } from '~/server/utils/feedParser'
 import { discoverFeeds } from '~/server/utils/feedDiscovery'
 import { extractArticleMetadata } from '~/server/utils/articleExtractor'
+import { insertArticleWithContent } from '~/server/utils/article-store'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const supabase = getSupabaseClient(event)
+  const db = getD1(event)
 
   const body = await readBody(event)
   const { url } = body
@@ -38,13 +39,9 @@ export default defineEventHandler(async (event) => {
     try {
       const parsedFeed = await parseFeed(normalizedUrl)
 
-      // Check if user already has this feed
-      const { data: existingFeed } = await supabase
-        .from('Feed')
-        .select('id, title, url')
-        .eq('user_id', user.id)
-        .eq('url', normalizedUrl)
-        .single()
+      const existingFeed = await db.prepare(
+        'SELECT id, title, url FROM "Feed" WHERE user_id = ? AND url = ?'
+      ).bind(user.id, normalizedUrl).first()
 
       if (existingFeed) {
         return {
@@ -58,55 +55,61 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // Add feed to database
-      const { data: feed, error: feedError } = await supabase
-        .from('Feed')
-        .insert({
-          user_id: user.id,
-          url: normalizedUrl,
-          title: parsedFeed.title,
-          description: parsedFeed.description,
-          site_url: parsedFeed.siteUrl,
-          favicon_url: parsedFeed.faviconUrl,
-          last_fetched_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+      const insertFeed = await db.prepare(
+        `
+        INSERT INTO "Feed" (
+          user_id,
+          url,
+          title,
+          description,
+          site_url,
+          favicon_url,
+          last_fetched_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `
+      ).bind(
+        user.id,
+        normalizedUrl,
+        parsedFeed.title,
+        parsedFeed.description || null,
+        parsedFeed.siteUrl || null,
+        parsedFeed.faviconUrl || null,
+        new Date().toISOString()
+      ).run()
 
-      if (feedError) throw feedError
+      const feedId = insertFeed.lastRowId
+      if (!feedId) {
+        throw new Error('Failed to create feed')
+      }
 
-      // Add articles (limit to MAX_ARTICLES_PER_FEED)
       const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 50
       const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
-
-      const articlesData = articlesToAdd.map(item => ({
-        feed_id: feed.id,
-        guid: item.guid,
-        title: item.title,
-        url: item.url,
-        author: item.author,
-        content: item.content,
-        summary: item.summary,
-        image_url: item.imageUrl,
-        published_at: item.publishedAt?.toISOString()
-      }))
-
-      const { data: insertedArticles } = await supabase
-        .from('Article')
-        .insert(articlesData)
-        .select('id')
-
-      const articlesAdded = insertedArticles?.length || 0
+      let articlesAdded = 0
+      for (const item of articlesToAdd) {
+        const result = await insertArticleWithContent(event, Number(feedId), {
+          guid: item.guid,
+          title: item.title,
+          url: item.url,
+          author: item.author,
+          content: item.content,
+          summary: item.summary,
+          imageUrl: item.imageUrl,
+          publishedAt: item.publishedAt
+        })
+        if (result.inserted) {
+          articlesAdded += 1
+        }
+      }
 
       return {
         type: 'feed_added',
         message: `Feed added successfully with ${articlesAdded} articles`,
         feed: {
-          id: feed.id,
-          title: feed.title,
-          url: feed.url,
-          siteUrl: feed.site_url,
-          faviconUrl: feed.favicon_url
+          id: feedId,
+          title: parsedFeed.title,
+          url: normalizedUrl,
+          siteUrl: parsedFeed.siteUrl,
+          faviconUrl: parsedFeed.faviconUrl
         },
         articlesAdded
       }
@@ -156,13 +159,9 @@ export default defineEventHandler(async (event) => {
       try {
         const parsedFeed = await parseFeed(normalizedUrl)
 
-        // Check for existing feed
-        const { data: existingFeed } = await supabase
-          .from('Feed')
-          .select('id, title, url')
-          .eq('user_id', user.id)
-          .eq('url', normalizedUrl)
-          .single()
+        const existingFeed = await db.prepare(
+          'SELECT id, title, url FROM "Feed" WHERE user_id = ? AND url = ?'
+        ).bind(user.id, normalizedUrl).first()
 
         if (existingFeed) {
           return {
@@ -176,55 +175,61 @@ export default defineEventHandler(async (event) => {
           }
         }
 
-        // Add feed
-        const { data: feed, error: feedError } = await supabase
-          .from('Feed')
-          .insert({
-            user_id: user.id,
-            url: normalizedUrl,
-            title: parsedFeed.title,
-            description: parsedFeed.description,
-            site_url: parsedFeed.siteUrl,
-            favicon_url: parsedFeed.faviconUrl,
-            last_fetched_at: new Date().toISOString()
-          })
-          .select()
-          .single()
+        const insertFeed = await db.prepare(
+          `
+          INSERT INTO "Feed" (
+            user_id,
+            url,
+            title,
+            description,
+            site_url,
+            favicon_url,
+            last_fetched_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `
+        ).bind(
+          user.id,
+          normalizedUrl,
+          parsedFeed.title,
+          parsedFeed.description || null,
+          parsedFeed.siteUrl || null,
+          parsedFeed.faviconUrl || null,
+          new Date().toISOString()
+        ).run()
 
-        if (feedError) throw feedError
+        const feedId = insertFeed.lastRowId
+        if (!feedId) {
+          throw new Error('Failed to create feed')
+        }
 
-        // Add articles
         const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
         const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
-
-        const articlesData = articlesToAdd.map(item => ({
-          feed_id: feed.id,
-          guid: item.guid,
-          title: item.title,
-          url: item.url,
-          author: item.author,
-          content: item.content,
-          summary: item.summary,
-          image_url: item.imageUrl,
-          published_at: item.publishedAt?.toISOString()
-        }))
-
-        const { data: insertedArticles } = await supabase
-          .from('Article')
-          .insert(articlesData)
-          .select('id')
-
-        const articlesAdded = insertedArticles?.length || 0
+        let articlesAdded = 0
+        for (const item of articlesToAdd) {
+          const result = await insertArticleWithContent(event, Number(feedId), {
+            guid: item.guid,
+            title: item.title,
+            url: item.url,
+            author: item.author,
+            content: item.content,
+            summary: item.summary,
+            imageUrl: item.imageUrl,
+            publishedAt: item.publishedAt
+          })
+          if (result.inserted) {
+            articlesAdded += 1
+          }
+        }
 
         return {
           type: 'feed_added',
           message: `Feed added successfully with ${articlesAdded} articles`,
           feed: {
-            id: feed.id,
-            title: feed.title,
-            url: feed.url,
-            siteUrl: feed.site_url,
-            faviconUrl: feed.favicon_url
+            id: feedId,
+            title: parsedFeed.title,
+            url: normalizedUrl,
+            siteUrl: parsedFeed.siteUrl,
+            faviconUrl: parsedFeed.faviconUrl
           },
           articlesAdded
         }
