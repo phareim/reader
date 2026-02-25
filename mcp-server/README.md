@@ -156,7 +156,7 @@ MCP Server (mcp-server/index.ts)
     ↓ (HTTP)
 Reader Nuxt API (http://localhost:3001/api/*)
     ↓
-Database (Prisma/PostgreSQL)
+Database (Supabase Postgres)
 ```
 
 The MCP server:
@@ -164,4 +164,3 @@ The MCP server:
 - Communicates with Claude via stdin/stdout using the MCP protocol
 - Makes HTTP requests to your Reader API
 - Shares TypeScript types with the main app
-

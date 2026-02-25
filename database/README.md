@@ -1,6 +1,6 @@
 # Supabase Migration Files
 
-This directory contains SQL files for migrating from Prisma to Supabase.
+This directory contains SQL files for the Supabase schema and functions.
 
 ## Files
 
@@ -20,19 +20,8 @@ Creates database functions for complex queries and transactions.
 **Run this SECOND** in your Supabase SQL Editor:
 1. Same steps as above, but with `supabase-functions.sql`
 
-### 3. Migration Script (`scripts/migrate-to-supabase.ts`)
-TypeScript script that migrates all data from Prisma to Supabase.
-
-**Run this AFTER** the SQL files:
-
-```bash
-# Ensure you have these environment variables set:
-# SUPABASE_URL
-# SUPABASE_SERVICE_ROLE_KEY
-# DATABASE_URL (your current Prisma database)
-
-npx tsx scripts/migrate-to-supabase.ts
-```
+### Data Migration
+If you need to migrate data from another source, write a one-off script against the Supabase APIs or use the Supabase import tooling. The repository no longer ships a built-in migration script.
 
 ## Migration Order
 
@@ -40,9 +29,7 @@ Follow this exact order:
 
 1. ✅ Run `supabase-schema.sql` in Supabase SQL Editor
 2. ✅ Run `supabase-functions.sql` in Supabase SQL Editor
-3. ✅ Run the migration script: `npx tsx scripts/migrate-to-supabase.ts`
-4. ✅ Verify data in Supabase dashboard
-5. ✅ Update your app code to use Supabase (see migration plan)
+3. ✅ Verify data in Supabase dashboard
 
 ## What Gets Created
 
@@ -64,16 +51,16 @@ Follow this exact order:
 - `add_manual_article()` - Add manually created articles (for MCP)
 
 ### Indexes
-All performance indexes from the Prisma schema are recreated for optimal query performance.
+All performance indexes from the SQL schema are recreated for optimal query performance.
 
 ## Rollback
 
 If something goes wrong:
 
-1. Keep your Prisma database intact (don't delete it)
+1. Keep your source database intact (don't delete it)
 2. You can drop all Supabase tables and start over
 3. The migration script is idempotent for most operations
 
 ## Support
 
-See the main migration plan at: `.claude/plans/dazzling-percolating-puddle.md`
+See the migration plan at: `.claude/plans/dazzling-percolating-puddle.md`

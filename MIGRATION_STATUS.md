@@ -5,15 +5,14 @@
 ### Phase 1: Database Setup ✅ 100%
 - [x] `database/supabase-schema.sql` - Complete database schema with 7 tables
 - [x] `database/supabase-functions.sql` - 6 database functions for complex operations
-- [x] `scripts/migrate-to-supabase.ts` - Data migration script with batch processing
 
 ### Phase 2: Authentication ✅ 100%
-- [x] `package.json` - Updated dependencies (removed Prisma/NextAuth, added Supabase)
+- [x] `package.json` - Updated dependencies (Supabase)
 - [x] `nuxt.config.ts` - Supabase configuration with OAuth redirect
 - [x] `server/utils/auth.ts` - Dual authentication (MCP token + Supabase session)
 - [x] `server/utils/supabase.ts` - Supabase client helper
 - [x] `server/api/auth/callback.get.ts` - OAuth callback handler
-- [x] Deleted old files (NextAuth handler, Prisma client, patch script)
+- [x] Deleted old files (NextAuth handler, legacy auth utilities)
 
 ### Phase 3: API Routes Refactored ✅ 100% (18/18)
 
@@ -61,7 +60,7 @@
 - [ ] Set up Supabase project (if not already done)
 - [ ] Run SQL schema in Supabase SQL Editor
 - [ ] Run database functions in Supabase SQL Editor
-- [ ] Execute data migration script: `npx tsx scripts/migrate-to-supabase.ts`
+- [ ] Migrate data (custom script or Supabase import tooling)
 - [ ] Verify data integrity (user counts, feed counts, etc.)
 - [ ] Update environment variables in production
 - [ ] Deploy application

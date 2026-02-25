@@ -6,7 +6,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
  *
  * We use the service role client for all queries because:
  * 1. We're doing manual userId filtering in code (no RLS policies)
- * 2. Simpler migration path from Prisma
+ * 2. Simpler migration path from legacy storage
  * 3. MCP token authentication requires service role access
  *
  * All queries should filter by user.id to ensure data isolation.

@@ -6,6 +6,11 @@
     <!-- Keyboard Shortcuts Help Dialog -->
     <KeyboardShortcutsHelp ref="helpDialogRef" />
 
+    <!-- Newsletter Summary Modal -->
+    <ClientOnly>
+      <NewsletterModal />
+    </ClientOnly>
+
     <!-- Main Content Area -->
     <div class="min-h-screen transition-all duration-300 ease-in-out"
       :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }">
@@ -108,6 +113,8 @@
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import booksStackIcon from '~/assets/svg/books-stack-of-three-svgrepo-com.svg'
+import NewsletterModal from '~/components/common/NewsletterModal.vue'
+
 definePageMeta({
   auth: false
 })

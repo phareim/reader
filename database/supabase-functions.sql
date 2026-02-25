@@ -1,11 +1,11 @@
 -- Supabase Database Functions for The Librarian RSS Reader
--- These functions replace complex Prisma queries and transactions
+-- These functions replace complex application queries and transactions
 -- Run this AFTER running supabase-schema.sql
 
 -- ============================================================================
 -- FUNCTION 1: Get Unread Counts by Feed
 -- ============================================================================
--- Replaces: prisma.article.groupBy({ by: ['feedId'], ... })
+-- Replaces: article group-by aggregation by feed
 -- Used in: server/api/feeds/index.get.ts
 
 CREATE OR REPLACE FUNCTION get_unread_counts_by_feed(p_user_id TEXT)

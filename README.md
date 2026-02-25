@@ -1,6 +1,6 @@
 # The Librarian
 
-A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, Prisma, and Postgres (Neon-ready).
+A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, and Supabase (Postgres + Auth).
 
 ## Features
 
@@ -9,7 +9,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 - ✅ Mark articles as read/unread or bulk mark all read
 - ✅ Manual feed syncing with per-user rate limiting
 - ✅ Filter by feed, tag, or read status
-- ✅ Hosted Postgres database for durable storage
+- ✅ Hosted Supabase Postgres database for durable storage
 - ✅ HTML sanitization for safe article rendering
 - ✅ Fast, lightweight Nuxt 3 frontend
 
@@ -19,7 +19,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 
 - Node.js 22.x or later
 - npm
-- A Postgres database (Neon works great)
+- A Supabase project (Postgres + Auth)
 
 ### Installation
 
@@ -37,13 +37,12 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 3. Configure your environment:
    ```bash
    cp .env.example .env.local
-   # Edit .env.local with your DATABASE_URL, AUTH_*, and Google OAuth values
+   # Edit .env.local with your Supabase URL/keys
    ```
 
-4. Apply the database schema (runs against Neon/Postgres):
-   ```bash
-   npx prisma migrate deploy
-   ```
+4. Apply the database schema and functions in Supabase:
+   - Run `database/supabase-schema.sql` in Supabase SQL Editor
+   - Run `database/supabase-functions.sql` in Supabase SQL Editor
 
 5. Start the development server:
    ```bash
@@ -62,33 +61,12 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 ## Architecture
 
 ```
-Nuxt 3 SPA ↔ Nitro server routes ↔ Prisma ORM ↔ Postgres (Neon)
+Nuxt 3 SPA ↔ Nitro server routes ↔ Supabase (Postgres + Auth)
 ```
 
-### Database Schema (Prisma excerpt)
+### Database Schema
 
-```prisma
-model Feed {
-  id            Int      @id @default(autoincrement())
-  userId        String
-  url           String
-  title         String
-  description   String?
-  siteUrl       String?
-  faviconUrl    String?
-  tags          String   @default("[]")
-  lastFetchedAt DateTime?
-  lastError     String?
-  errorCount    Int      @default(0)
-  isActive      Boolean  @default(true)
-  articles      Article[]
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, url])
-  @@index([userId])
-  @@index([isActive])
-}
-```
+See `database/supabase-schema.sql` for the full schema and `database/supabase-functions.sql` for the RPC helpers.
 
 ## API Endpoints
 
@@ -109,17 +87,16 @@ model Feed {
 | Styling      | Tailwind CSS              | Utility-first styling      |
 | State        | Nuxt composables          | Client-side state          |
 | Backend      | Nitro server routes       | REST-style API             |
-| ORM          | Prisma                    | Type-safe database access  |
-| Database     | Postgres (Neon or hosted) | Durable storage            |
-| Auth         | sidebase/nuxt-auth (Auth.js) | Google OAuth sign-in  |
+| Database     | Supabase Postgres         | Durable storage            |
+| Auth         | Supabase Auth             | Google OAuth sign-in       |
 
 ## Project Structure
 
 ```
 reader/
-  prisma/
-    migrations/
-    schema.prisma
+  database/
+    supabase-schema.sql
+    supabase-functions.sql
   server/
     api/
       feeds/
@@ -137,13 +114,12 @@ reader/
 Set the following environment variables:
 
 ```bash
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_KEY="your-anon-or-public-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+AUTH_ORIGIN="http://localhost:3000"
 FETCH_TIMEOUT=30000
 MAX_ARTICLES_PER_FEED=200
-AUTH_SECRET="your-authjs-secret"
-AUTH_ORIGIN="http://localhost:3000"
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
 ```
 
 ## Development
@@ -154,15 +130,10 @@ Available npm scripts:
 npm run dev          # Start development server
 npm run build        # Production build
 npm run preview      # Preview production build locally
-npm run prisma:migrate  # prisma migrate dev (generates migrations)
-npm run prisma:studio   # Prisma Studio UI
+npm run mcp             # MCP server for Claude Desktop
 ```
 
-To reset your local database (destroys all data):
-
-```bash
-npx prisma migrate reset
-```
+To reset Supabase data during development, drop and re-run the SQL from `database/`.
 
 ## Phase 1 Features (Current)
 
