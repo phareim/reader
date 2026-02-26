@@ -47,7 +47,8 @@ export default defineNuxtConfig({
   },
 
   auth: {
-    baseURL: `${AUTH_ORIGIN}/api/auth`
+    baseURL: `${AUTH_ORIGIN}/api/auth`,
+    disableServerSideAuth: true
   },
 
   typescript: {
@@ -58,6 +59,7 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    disable: true,
     manifest: {
       name: 'The Librarian',
       short_name: 'Librarian',
