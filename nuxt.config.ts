@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const normalizeOrigin = (origin?: string | null) => origin?.replace(/\/+$/, '')
 const envOrigin = process.env.AUTH_ORIGIN || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL}` : undefined)
-const AUTH_ORIGIN = normalizeOrigin(envOrigin)
+const AUTH_ORIGIN = normalizeOrigin(envOrigin) || 'http://localhost:3000'
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -32,7 +32,7 @@ export default defineNuxtConfig({
   ],
 
   nitro: {
-    preset: 'cloudflare'
+    preset: 'cloudflare-module'
   },
 
   runtimeConfig: {
@@ -47,7 +47,7 @@ export default defineNuxtConfig({
   },
 
   auth: {
-    origin: AUTH_ORIGIN
+    baseURL: `${AUTH_ORIGIN}/api/auth`
   },
 
   typescript: {

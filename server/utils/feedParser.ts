@@ -1,20 +1,7 @@
-import Parser from 'rss-parser'
-import crypto from 'crypto'
+import { extract } from '@extractus/feed-extractor'
 import { getRandomUnsplashImage } from './unsplash'
 
-const parser = new Parser({
-  timeout: Number(process.env.FETCH_TIMEOUT) || 30000,
-  customFields: {
-    item: [
-      ['content:encoded', 'contentEncoded'],
-      ['description', 'description'],
-      ['media:content', 'mediaContent'],
-      ['media:thumbnail', 'mediaThumbnail'],
-      ['enclosure', 'enclosure'],
-      ['itunes:image', 'itunesImage']
-    ]
-  }
-})
+const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
 export interface ParsedFeed {
   title: string
@@ -38,13 +25,23 @@ export interface ParsedArticle {
 /**
  * Generate a stable GUID for an article using fallback logic
  */
-function generateGuid(item: any): string {
-  // Prefer guid, then link, then hash of title + pubDate
+async function generateGuid(item: any): Promise<string> {
+  // Prefer id/guid, then link, then hash of title + pubDate
+  if (item.id) return item.id
   if (item.guid) return item.guid
   if (item.link) return item.link
 
-  const hashInput = `${item.title || ''}|${item.pubDate || ''}`
-  return crypto.createHash('md5').update(hashInput).digest('hex')
+  const hashInput = `${item.title || ''}|${item.pubDate || item.published || ''}`
+  if (globalThis.crypto?.subtle) {
+    const data = new TextEncoder().encode(hashInput)
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data)
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 32)
+  }
+
+  return hashInput
 }
 
 /**
@@ -137,7 +134,26 @@ async function extractImageUrl(item: any, rawContent?: string): Promise<string |
  */
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   try {
-    const feed = await parser.parseURL(url)
+    const feed = await extract(
+      url,
+      {
+        normalization: true,
+        useISODateFormat: false,
+        descriptionMaxLen: 500,
+        getExtraEntryFields: (entry) => ({
+          contentEncoded: entry['content:encoded'],
+          mediaContent: entry['media:content'],
+          mediaThumbnail: entry['media:thumbnail'],
+          enclosure: entry.enclosure,
+          itunesImage: entry['itunes:image'],
+          itunes: entry.itunes,
+          author: entry.author || entry.creator || entry['dc:creator']
+        })
+      },
+      {
+        signal: AbortSignal.timeout(fetchTimeout)
+      }
+    )
 
     if (!feed.title) {
       throw new Error('Feed has no title')
@@ -148,20 +164,20 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
 
     const items: ParsedArticle[] = await Promise.all(
-      feed.items.map(async (item) => {
+      (feed.entries || []).map(async (item) => {
         // Extract content (prefer full content over description)
         const rawContent = (item as any).contentEncoded || item.content || item.description
-        const rawSummary = item.contentSnippet || item.description
+        const rawSummary = item.summary || item.description
 
         return {
-          guid: generateGuid(item),
+          guid: await generateGuid(item),
           title: item.title || 'Untitled',
           url: item.link || '',
-          author: item.creator || item.author,
+          author: (item as any).author,
           content: rawContent, // Sanitization now done client-side
           summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
           imageUrl: await extractImageUrl(item, rawContent),
-          publishedAt: normalizeDate(item.pubDate)
+          publishedAt: normalizeDate(item.published)
         }
       })
     )

@@ -174,16 +174,14 @@ const migrateArticles = async () => {
 
     if (batch.length === 0) break
 
-    const mapped: SupabaseRow[] = []
-
-    for (const row of batch) {
+    const mapped = await mapWithConcurrency(batch, async (row) => {
       let contentKey: string | null = null
       if (row.content) {
         contentKey = `articles/${row.id}.html`
         await putR2Object(config.bucketName, contentKey, row.content, 'text/html; charset=utf-8')
       }
 
-      mapped.push({
+      return {
         id: row.id,
         feed_id: row.feed_id,
         guid: row.guid,
@@ -198,8 +196,8 @@ const migrateArticles = async () => {
         is_starred: row.is_starred ? 1 : 0,
         read_at: row.read_at,
         created_at: row.created_at
-      })
-    }
+      }
+    })
 
     await insertBatch('Article', mapped, [
       'id',
@@ -249,23 +247,21 @@ const migrateSavedArticles = async () => {
 
     if (batch.length === 0) break
 
-    const mapped: SupabaseRow[] = []
-
-    for (const row of batch) {
+    const mapped = await mapWithConcurrency(batch, async (row) => {
       let noteKey: string | null = null
       if (row.note) {
         noteKey = `notes/${row.id}.txt`
         await putR2Object(config.bucketName, noteKey, row.note, 'text/plain; charset=utf-8')
       }
 
-      mapped.push({
+      return {
         id: row.id,
         user_id: row.user_id,
         article_id: row.article_id,
         saved_at: row.saved_at,
         note_key: noteKey
-      })
-    }
+      }
+    })
 
     await insertBatch('SavedArticle', mapped, [
       'id',
@@ -281,7 +277,7 @@ const migrateSavedArticles = async () => {
 }
 
 const migrateFeedTags = async () => {
-  const rows = await fetchAll('FeedTag', ['feed_id', 'tag_id', 'tagged_at'])
+  const rows = await fetchAll('FeedTag', ['feed_id', 'tag_id', 'tagged_at'], 'feed_id')
   if (rows.length === 0) {
     console.log('FeedTag: none found')
     return
@@ -291,7 +287,7 @@ const migrateFeedTags = async () => {
 }
 
 const migrateSavedArticleTags = async () => {
-  const rows = await fetchAll('SavedArticleTag', ['saved_article_id', 'tag_id', 'tagged_at'])
+  const rows = await fetchAll('SavedArticleTag', ['saved_article_id', 'tag_id', 'tagged_at'], 'saved_article_id')
   if (rows.length === 0) {
     console.log('SavedArticleTag: none found')
     return
@@ -300,8 +296,8 @@ const migrateSavedArticleTags = async () => {
   await insertBatch('SavedArticleTag', rows, ['saved_article_id', 'tag_id', 'tagged_at'])
 }
 
-const fetchAll = async (table: string, columns: string[]) => {
-  const total = await fetchTotal(table)
+const fetchAll = async (table: string, columns: string[], countColumn = 'id') => {
+  const total = await fetchTotal(table, countColumn)
   if (!total) return []
 
   const limit = 1000
@@ -309,7 +305,7 @@ const fetchAll = async (table: string, columns: string[]) => {
   const rows: SupabaseRow[] = []
 
   while (offset < total) {
-    const batch = await fetchBatch(table, columns, limit, offset)
+    const batch = await fetchBatch(table, columns, limit, offset, countColumn)
     if (batch.length === 0) break
     rows.push(...batch)
     offset += batch.length
@@ -318,9 +314,9 @@ const fetchAll = async (table: string, columns: string[]) => {
   return rows
 }
 
-const fetchTotal = async (table: string) => {
+const fetchTotal = async (table: string, countColumn = 'id') => {
   const url = new URL(`${REST_BASE}/${table}`)
-  url.searchParams.set('select', 'id')
+  url.searchParams.set('select', countColumn)
   url.searchParams.set('limit', '1')
 
   const response = await fetch(url.toString(), {
@@ -341,12 +337,12 @@ const fetchTotal = async (table: string) => {
   return Number.isFinite(total) ? total : 0
 }
 
-const fetchBatch = async (table: string, columns: string[], limit: number, offset: number) => {
+const fetchBatch = async (table: string, columns: string[], limit: number, offset: number, orderColumn = 'id') => {
   const url = new URL(`${REST_BASE}/${table}`)
   url.searchParams.set('select', columns.join(','))
   url.searchParams.set('limit', String(limit))
   url.searchParams.set('offset', String(offset))
-  url.searchParams.set('order', 'id.asc')
+  url.searchParams.set('order', `${orderColumn}.asc`)
 
   const response = await fetch(url.toString(), {
     headers: REQUEST_HEADERS
@@ -425,6 +421,23 @@ const putR2Object = async (bucket: string, key: string, body: string, contentTyp
   } finally {
     fs.unlinkSync(tmpFile)
   }
+}
+
+const mapWithConcurrency = async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+  const concurrency = Number(process.env.R2_CONCURRENCY || 5)
+  const results: R[] = []
+  let index = 0
+
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (index < items.length) {
+      const current = index
+      index += 1
+      results[current] = await worker(items[current])
+    }
+  })
+
+  await Promise.all(runners)
+  return results
 }
 
 const withRetries = async (fn: () => Promise<void>, attempts: number) => {

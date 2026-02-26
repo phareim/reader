@@ -4,6 +4,7 @@ const config = useRuntimeConfig()
 
 export default NuxtAuthHandler({
   secret: config.auth.secret,
+  origin: config.public.authOrigin,
   trustHost: true,
   providers: [
     GoogleProvider({

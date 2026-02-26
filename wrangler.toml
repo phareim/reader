@@ -1,9 +1,10 @@
 name = "reader-service"
 main = ".output/server/index.mjs"
 compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
 
-[assets]
-directory = ".output/public"
+[site]
+bucket = ".output/public"
 
 [[d1_databases]]
 binding = "DB"
