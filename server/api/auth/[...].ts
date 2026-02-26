@@ -1,4 +1,5 @@
 import GoogleProvider from '@auth/core/providers/google'
+import { NuxtAuthHandler } from '#auth'
 
 const config = useRuntimeConfig()
 

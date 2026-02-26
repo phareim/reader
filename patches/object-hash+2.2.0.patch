@@ -1,0 +1,15 @@
+diff --git a/node_modules/object-hash/index.js b/node_modules/object-hash/index.js
+index 5dfc814..e8c9a63 100644
+--- a/node_modules/object-hash/index.js
++++ b/node_modules/object-hash/index.js
+@@ -54,7 +54,11 @@ var _excludeValues = false;
+ var _excludeKeys = null;
+ var _respectType = false;
+ var _respectFunctionProperties = true;
+-var hashes = crypto.getHashes ? crypto.getHashes().slice() : ['sha1', 'md5'];
++var hashes = ['sha1', 'md5'];
++try {
++  if (crypto.getHashes) hashes = crypto.getHashes().slice();
++} catch (_) {
++}
+*** End Patch}Here we're adding patch file. But we already modified node_modules; patch file should be from original -> patched. But we'll keep. Need to revert node_modules? It's okay. We'll also update postinstall. Let's edit package.json. But note we use apply_patch; ok. We'll update "postinstall". Let's patch package.json. However we earlier had postinstall "nuxt prepare". We'll change to "patch-package && nuxt prepare". We'll also add patch-package to dependencies already dev. ok.
