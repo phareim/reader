@@ -78,13 +78,13 @@ definePageMeta({
   auth: false
 })
 
-const { signIn, status } = useAuth()
+const { signIn, status, data: session } = useAuth()
 const loading = ref(false)
 const error = ref<string | null>(null)
 
 // Redirect if already authenticated
-watch(status, (newStatus) => {
-  if (newStatus === 'authenticated') {
+watch([status, session], ([newStatus, newSession]) => {
+  if (newStatus === 'authenticated' && newSession?.user) {
     navigateTo('/')
   }
 }, { immediate: true })

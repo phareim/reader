@@ -11,7 +11,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
   }
 
   // If user is logged in and trying to access login page, redirect to home
-  if (session.value?.user && to.path === '/login') {
+  if (status.value === 'authenticated' && session.value?.user && to.path === '/login') {
     return navigateTo('/')
   }
 })
