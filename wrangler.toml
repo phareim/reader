@@ -16,4 +16,4 @@ binding = "ARTICLE_BUCKET"
 bucket_name = "reader-articles"
 
 [vars]
-AUTH_ORIGIN = "http://localhost:3000"
+AUTH_ORIGIN = "https://reader-service.aiwdm.workers.dev"
