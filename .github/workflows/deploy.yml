@@ -18,6 +18,8 @@ jobs:
       - run: npm install
 
       - run: npm run build
+        env:
+          AUTH_ORIGIN: https://reader.phareim.no
 
       - uses: cloudflare/wrangler-action@v3
         with:
