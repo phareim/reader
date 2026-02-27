@@ -7,7 +7,7 @@ export default defineEventHandler((event) => {
   if (!authHandler) {
     const config = useRuntimeConfig(event)
     authHandler = NuxtAuthHandler({
-      secret: config.auth.secret,
+      secret: config.auth.secret || 'dev-secret-do-not-use-in-production',
       origin: config.public.authOrigin,
       trustHost: true,
       providers: [
