@@ -1,7 +1,7 @@
 name = "reader-service"
 main = ".output/server/index.mjs"
-compatibility_date = "2024-10-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat_v2"]
 
 [site]
 bucket = ".output/public"
@@ -11,9 +11,15 @@ binding = "DB"
 database_name = "reader-service"
 database_id = "2ccea3e6-cd78-45f5-9395-1094f964b273"
 
+[[routes]]
+pattern = "reader.phareim.no"
+zone_name = "phareim.no"
+custom_domain = true
+
 [[r2_buckets]]
 binding = "ARTICLE_BUCKET"
 bucket_name = "reader-articles"
 
 [vars]
-AUTH_ORIGIN = "https://reader-service.aiwdm.workers.dev"
+AUTH_ORIGIN = "https://reader.phareim.no"
+NUXT_PUBLIC_AUTH_ORIGIN = "https://reader.phareim.no"
