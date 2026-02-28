@@ -48,7 +48,7 @@ const error = ref<string | null>(null)
 // Check for error query param
 const route = useRoute()
 if (route.query.error) {
-  error.value = 'Failed to sign in with Google: \n' + error.value
+  error.value = 'Failed to sign in with Google: \n' + route.query.error
 }
 
 // Redirect if already authenticated
