@@ -33,7 +33,7 @@
         </div>
 
         <!-- Not Logged In State -->
-        <div v-if="!session?.user" class="flex flex-col items-center justify-center py-20 px-4">
+        <div v-if="!loggedIn" class="flex flex-col items-center justify-center py-20 px-4">
           <div class="max-w-md text-center space-y-6">
             <svg class="w-20 h-20 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor"
               viewBox="0 0 24 24">
@@ -115,11 +115,7 @@ import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import booksStackIcon from '~/assets/svg/books-stack-of-three-svgrepo-com.svg'
 import NewsletterModal from '~/components/common/NewsletterModal.vue'
 
-definePageMeta({
-  auth: false
-})
-
-const { data: session } = useAuth()
+const { loggedIn, user } = useUserSession()
 
 const {
   feeds,
@@ -273,8 +269,8 @@ onMounted(async () => {
 })
 
 // Watch for session changes to fetch data when user logs in
-watch(() => session.value?.user, async (user) => {
-  if (user) {
+watch(loggedIn, async (isLoggedIn) => {
+  if (isLoggedIn) {
     await initializeArticlePage()
   }
 })

@@ -84,11 +84,10 @@
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 
 definePageMeta({
-  auth: true
+  middleware: 'auth'
 })
 
 const router = useRouter()
-const { data: session } = useAuth()
 
 const {
   feeds,

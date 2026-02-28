@@ -42,7 +42,6 @@ const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 
 const { selectedFeedId, selectedTag } = useFeeds()
-const { data: session } = useAuth()
 
 // Note: Tags and saved articles are fetched in initializeArticlePage()
 // No need to duplicate those calls here - they're already in shared state

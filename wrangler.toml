@@ -20,6 +20,3 @@ custom_domain = true
 binding = "ARTICLE_BUCKET"
 bucket_name = "reader-articles"
 
-[vars]
-AUTH_ORIGIN = "https://reader.phareim.no"
-NUXT_PUBLIC_AUTH_ORIGIN = "https://reader.phareim.no"

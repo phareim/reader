@@ -1,8 +1,4 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const normalizeOrigin = (origin?: string | null) => origin?.replace(/\/+$/, '')
-const envOrigin = process.env.AUTH_ORIGIN || (process.env.CF_PAGES_URL ? `https://${process.env.CF_PAGES_URL}` : undefined)
-const AUTH_ORIGIN = normalizeOrigin(envOrigin) || 'http://localhost:3000'
-
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
@@ -26,7 +22,7 @@ export default defineNuxtConfig({
   },
 
   modules: [
-    '@sidebase/nuxt-auth',
+    'nuxt-auth-utils',
     '@nuxtjs/tailwindcss',
     '@vite-pwa/nuxt'
   ],
@@ -36,19 +32,15 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    auth: {
-      secret: process.env.AUTH_SECRET,
-      googleClientId: process.env.GOOGLE_CLIENT_ID,
-      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET
+    oauth: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET
+      }
     },
-    public: {
-      authOrigin: AUTH_ORIGIN
+    session: {
+      password: process.env.NUXT_SESSION_PASSWORD
     }
-  },
-
-  auth: {
-    baseURL: `${AUTH_ORIGIN}/api/auth`,
-    disableServerSideAuth: true
   },
 
   typescript: {
@@ -87,7 +79,7 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: '/',
-      navigateFallbackDenylist: [/^\/auth\/callback/, /^\/api\//],
+      navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
       additionalManifestEntries: [
         { url: '/', revision: null }
       ],

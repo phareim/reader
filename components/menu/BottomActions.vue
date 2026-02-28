@@ -11,7 +11,7 @@
     </button>
 
     <!-- Sign Out Button - Only show when logged in -->
-    <button v-if="session?.user" @click="handleSignOut"
+    <button v-if="loggedIn" @click="handleSignOut"
       class="w-full text-left px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-2">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -35,7 +35,7 @@
 <script setup lang="ts">
 const syncLoading = ref(false)
 const { syncAll } = useFeeds()
-const { data: session, signOut } = useAuth()
+const { loggedIn, clear } = useUserSession()
 
 const emit = defineEmits(['success', 'error'])
 
@@ -53,6 +53,7 @@ const handleSyncAll = async () => {
 }
 
 const handleSignOut = async () => {
-  await signOut({ callbackUrl: '/login' })
+  await clear()
+  navigateTo('/login')
 }
 </script>

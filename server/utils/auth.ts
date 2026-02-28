@@ -1,15 +1,14 @@
 import { H3Event, getHeader, createError } from 'h3'
-import { getServerSession } from '#auth'
 import cuid from 'cuid'
 import { getD1 } from '~/server/utils/cloudflare'
 
 /**
  * Get authenticated user from either:
  * 1. MCP token (X-MCP-Token header) - looks up user by token in database
- * 2. Auth.js session (cookie-based JWT)
+ * 2. nuxt-auth-utils session (cookie-based)
  *
  * This dual authentication approach preserves MCP integration while
- * using Auth.js for browser-based authentication.
+ * using nuxt-auth-utils for browser-based authentication.
  */
 export async function getAuthenticatedUser(event: H3Event) {
   // Check for MCP token first (preserve existing MCP functionality)
@@ -29,8 +28,8 @@ export async function getAuthenticatedUser(event: H3Event) {
     return result
   }
 
-  // Fall back to Auth.js session authentication
-  const session = await getServerSession(event)
+  // Fall back to nuxt-auth-utils session authentication
+  const session = await getUserSession(event)
 
   if (!session?.user?.email) {
     throw createError({

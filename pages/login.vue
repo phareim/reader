@@ -74,32 +74,26 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({
-  auth: false
-})
-
-const { signIn, status, data: session } = useAuth()
+const { loggedIn } = useUserSession()
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+// Check for error query param
+const route = useRoute()
+if (route.query.error) {
+  error.value = 'Failed to sign in with Google. Please try again.'
+}
+
 // Redirect if already authenticated
-watch([status, session], ([newStatus, newSession]) => {
-  if (newStatus === 'authenticated' && newSession?.user) {
+watch(loggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
     navigateTo('/')
   }
 }, { immediate: true })
 
-const signInWithGoogle = async () => {
+const signInWithGoogle = () => {
   loading.value = true
   error.value = null
-
-  try {
-    await signIn('google', { callbackUrl: '/' })
-  } catch (err: any) {
-    error.value = 'Failed to sign in with Google. Please try again.'
-    console.error('Sign in error:', err)
-  } finally {
-    loading.value = false
-  }
+  navigateTo('/auth/google', { external: true })
 }
 </script>

@@ -1,5 +1,4 @@
 import { getHeader } from 'h3'
-import { getServerSession } from '#auth'
 import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
@@ -15,8 +14,8 @@ export default defineEventHandler(async (event) => {
       .bind(mcpToken)
       .first()
   } else {
-    // Try Auth.js session
-    const session = await getServerSession(event)
+    // Try nuxt-auth-utils session
+    const session = await getUserSession(event)
     if (session?.user?.email) {
       user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
         .bind(session.user.email)

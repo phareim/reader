@@ -122,7 +122,7 @@
         </div>
 
         <!-- Bulk Selection Floating Button (only for authenticated users) -->
-        <button v-if="session?.user && searchedArticles.length > 0 && !selectionMode"
+        <button v-if="loggedIn && searchedArticles.length > 0 && !selectionMode"
           @click="toggleSelectionMode"
           class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
           title="Select multiple articles">
@@ -133,7 +133,7 @@
 
         <!-- Bulk Action Bar (only for authenticated users) -->
         <BulkActionBar
-          v-if="session?.user"
+          v-if="loggedIn"
           :selected-count="selectedCount"
           @mark-read="handleBulkMarkRead"
           @save="handleBulkSave"
@@ -148,15 +148,11 @@
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 
-definePageMeta({
-  auth: false // Allow public access to feeds
-})
-
 const route = useRoute()
 const router = useRouter()
 const feedId = computed(() => parseInt(route.params.id as string))
 
-const { data: session } = useAuth()
+const { loggedIn, user } = useUserSession()
 
 const {
   feeds,
@@ -315,7 +311,7 @@ onMounted(async () => {
   const articlesPromise = feedId.value ? fetchArticles(feedId.value) : Promise.resolve()
 
   // Initialize authenticated features in parallel (non-blocking)
-  if (session.value?.user) {
+  if (loggedIn.value) {
     initializeArticlePage() // Don't await - let it run in background
   }
 

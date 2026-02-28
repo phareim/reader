@@ -89,7 +89,7 @@
         <div class="mb-6 flex items-center justify-between flex-wrap gap-4 p-4 bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
           <div class="flex items-center gap-2">
             <!-- Only show action buttons if user is logged in -->
-            <template v-if="session?.user">
+            <template v-if="loggedIn">
               <button
                 @click="toggleSave"
                 class="px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2"
@@ -251,10 +251,6 @@ import { useToast } from '~/composables/useToast'
 import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCurve'
 import { processArticleContent } from '~/utils/processArticleContent'
 
-definePageMeta({
-  auth: false // Allow public access to articles
-})
-
 const route = useRoute()
 const router = useRouter()
 const articleId = computed(() => parseInt(route.params.id as string))
@@ -271,7 +267,7 @@ const backUrl = computed(() => {
   return article.value?.feedId ? `/feed/${article.value.feedId}` : '/'
 })
 
-const { data: session } = useAuth()
+const { loggedIn, user, clear } = useUserSession()
 
 const {
   feeds,
@@ -406,8 +402,8 @@ const handleViewSaved = () => {
 }
 
 const handleSignOut = async () => {
-  const { signOut } = useAuth()
-  await signOut({ callbackUrl: '/login' })
+  await clear()
+  navigateTo('/login')
 }
 
 // Toast notifications
@@ -470,7 +466,7 @@ onMounted(async () => {
   // Fetch initial data
   // Always fetch article (now publicly accessible)
   // Only fetch feeds and saved IDs if logged in
-  if (session.value?.user) {
+  if (loggedIn.value) {
     await Promise.all([
       fetchFeeds(),
       fetchSavedArticleIds(),

@@ -308,7 +308,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  auth: true
+  middleware: 'auth'
 })
 
 const loading = ref(false)

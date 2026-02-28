@@ -134,7 +134,7 @@ import { ref, onMounted } from 'vue'
 
 // Require authentication for this page
 definePageMeta({
-  auth: true
+  middleware: 'auth'
 })
 
 const { sendMessage: sendToClaude, summarizeText } = useClaude()

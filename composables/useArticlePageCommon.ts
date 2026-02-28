@@ -4,7 +4,7 @@
  */
 export const useArticlePageCommon = () => {
   const { syncAll } = useFeeds()
-  const { signOut } = useAuth()
+  const { clear } = useUserSession()
 
   // Menu management
   const hamburgerMenuRef = ref<any>(null)
@@ -30,15 +30,16 @@ export const useArticlePageCommon = () => {
 
   // Sign out
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' })
+    await clear()
+    navigateTo('/login')
   }
 
   // Common initialization for all article pages
   // Returns { feedsReady: Promise } so callers can start fetching articles early
   const initializeArticlePage = async () => {
-    const { data: session } = useAuth()
+    const { loggedIn } = useUserSession()
 
-    if (!session.value?.user) {
+    if (!loggedIn.value) {
       return { success: false, feedsReady: Promise.resolve() }
     }
 

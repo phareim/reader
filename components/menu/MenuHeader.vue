@@ -15,17 +15,17 @@
     >
       The Librarian
     </NuxtLink>
-    <img v-if="session?.user?.image" :src="session.user.image" :alt="session.user.name"
+    <img v-if="user?.image" :src="session.user.image" :alt="session.user.name"
       class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-zinc-700" />
     <div v-else
       class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
-      {{ session?.user?.name?.charAt(0) || '?' }}
+      {{ user?.name?.charAt(0) || '?' }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const { data: session } = useAuth()
+const { user } = useUserSession()
 
 defineEmits(['close', 'select-all-feeds'])
 </script>
