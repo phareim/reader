@@ -30,7 +30,7 @@ npm run mcp
 - **Backend**: Nitro server routes (REST-style API)
 - **Database**: Cloudflare D1
 - **Storage**: Cloudflare R2 for article content
-- **Auth**: Better Auth with Google OAuth
+- **Auth**: Better Auth with email/password and Google OAuth
 - **Feed Parsing**: rss-parser for RSS/Atom feeds
 - **Content Sanitization**: isomorphic-dompurify for safe HTML rendering
 
@@ -122,15 +122,23 @@ Routes follow REST conventions:
 
 ### Key Patterns
 
-**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Better Auth session. Routes should return 401 if no session.
+**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Better Auth session (email/password or Google OAuth). Routes should return 401 if no session. Auth config is in `server/utils/better-auth.ts`, client composable in `composables/useAuth.ts`.
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content.
 
 **Feed Parsing**: Use `parseRSSFeed()` utility to handle RSS/Atom feeds with proper error handling.
 
+**Feed Sync**: Use `syncSingleFeed()` from `server/utils/feedSync.ts` for syncing a single feed (shared by both `/api/sync` and `/api/feeds/:id/refresh`).
+
+**Tag Operations**: Use `getOrCreateTag()` from `server/utils/tags.ts` for get-or-create tag pattern (shared by feed tags, saved article tags, and manual article endpoints).
+
+**Toast Messages**: Use `useToast()` composable for success/error messages with auto-dismiss. All pages use this (do not use raw refs with setTimeout).
+
 **HTML Sanitization**: Use `DOMPurify.sanitize()` on article content before displaying (done client-side in Article.vue).
 
-**Optimistic Updates**: Some actions (like marking as read, saving) update local state immediately before API call for snappy UX.
+**Optimistic Updates**: Some actions (like marking as read, saving) update local state immediately before API call for snappy UX. When using `useState` with `Set`, always replace the Set (create a new one) rather than mutating in place, since Vue's reactivity doesn't track Set mutations.
+
+**Date Formatting**: Use `formatRelativeDate()` from `utils/formatDate.ts` for relative time display (e.g., "5 minutes ago"). Do not create local formatDate functions in components.
 
 ### Keyboard Shortcuts
 
@@ -158,6 +166,10 @@ Required in `.env.local`:
 ```bash
 BETTER_AUTH_URL="http://localhost:3000"
 BETTER_AUTH_SECRET="your-better-auth-secret"
+```
+
+Optional (Google OAuth — email/password works without these):
+```bash
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 ```
