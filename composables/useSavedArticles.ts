@@ -23,8 +23,8 @@ export const useSavedArticles = () => {
   }
 
   const saveArticle = async (articleId: number) => {
-    // Optimistic update
-    savedArticleIds.value.add(articleId)
+    // Optimistic update — replace Set to trigger Vue reactivity
+    savedArticleIds.value = new Set([...savedArticleIds.value, articleId])
 
     try {
       await $fetch(`/api/articles/${articleId}/save`, {
@@ -32,15 +32,19 @@ export const useSavedArticles = () => {
       })
     } catch (err: any) {
       // Revert on error
-      savedArticleIds.value.delete(articleId)
+      const reverted = new Set(savedArticleIds.value)
+      reverted.delete(articleId)
+      savedArticleIds.value = reverted
       error.value = err.message || 'Failed to save article'
       throw err
     }
   }
 
   const unsaveArticle = async (articleId: number) => {
-    // Optimistic update
-    savedArticleIds.value.delete(articleId)
+    // Optimistic update — replace Set to trigger Vue reactivity
+    const updated = new Set(savedArticleIds.value)
+    updated.delete(articleId)
+    savedArticleIds.value = updated
 
     try {
       await $fetch(`/api/articles/${articleId}/save`, {
@@ -48,7 +52,7 @@ export const useSavedArticles = () => {
       })
     } catch (err: any) {
       // Revert on error
-      savedArticleIds.value.add(articleId)
+      savedArticleIds.value = new Set([...savedArticleIds.value, articleId])
       error.value = err.message || 'Failed to unsave article'
       throw err
     }

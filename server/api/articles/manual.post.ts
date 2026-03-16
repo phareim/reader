@@ -8,6 +8,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
+import { getOrCreateTag } from '~/server/utils/tags'
 
 const manualArticleSchema = z.object({
   title: z.string().min(1).max(500),
@@ -114,26 +115,12 @@ export default defineEventHandler(async (event) => {
       throw new Error('Failed to save article')
     }
 
+    const now = new Date().toISOString()
     for (const tagName of tags || []) {
+      const tagId = await getOrCreateTag(db, user.id, tagName)
       await db.prepare(
-        `
-        INSERT OR IGNORE INTO "Tag" (user_id, name)
-        VALUES (?, ?)
-        `
-      ).bind(user.id, tagName).run()
-
-      const tag = await db.prepare(
-        'SELECT id FROM "Tag" WHERE user_id = ? AND name = ?'
-      ).bind(user.id, tagName).first()
-
-      if (tag) {
-        await db.prepare(
-          `
-          INSERT OR IGNORE INTO "SavedArticleTag" (saved_article_id, tag_id, tagged_at)
-          VALUES (?, ?, ?)
-          `
-        ).bind(savedArticle.id, tag.id, new Date().toISOString()).run()
-      }
+        'INSERT OR IGNORE INTO "SavedArticleTag" (saved_article_id, tag_id, tagged_at) VALUES (?, ?, ?)'
+      ).bind(savedArticle.id, tagId, now).run()
     }
 
     return {

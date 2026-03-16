@@ -110,6 +110,7 @@ export function useToast() {
     showSuccess,
     showError,
     clearAll,
+    clearMessages: clearAll,
     clearSuccess,
     clearError
   }

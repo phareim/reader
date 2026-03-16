@@ -243,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatDistanceToNow } from 'date-fns'
+import { formatRelativeDate } from '~/utils/formatDate'
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import { useSwipeGesture } from '~/composables/useSwipeGesture'
 import { useArticleNavigation } from '~/composables/useArticleNavigation'
@@ -412,14 +412,7 @@ const { success: headerSuccess, error: headerError, showSuccess, showError } = u
 const handleHeaderSuccess = (message: string) => showSuccess(message)
 const handleHeaderError = (message: string) => showError(message)
 
-const formatDate = (date?: string) => {
-  if (!date) return 'Unknown date'
-  try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true })
-  } catch {
-    return 'Unknown date'
-  }
-}
+const formatDate = formatRelativeDate
 
 // Setup swipe gesture handling
 const {

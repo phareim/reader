@@ -53,10 +53,7 @@ export const useFeeds = () => {
   // Get feeds for currently selected tag
   const selectedTagFeeds = computed(() => {
     if (!selectedTag.value) return []
-    if (selectedTag.value === '__inbox__') {
-      return feeds.value.filter(f => f.tags.length === 0)
-    }
-    return feeds.value.filter(f => f.tags.includes(selectedTag.value))
+    return feedsByTag.value[selectedTag.value] || []
   })
 
   // Get feed IDs for currently selected tag

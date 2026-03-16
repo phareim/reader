@@ -205,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatDistanceToNow } from 'date-fns'
+import { formatRelativeDate } from '~/utils/formatDate'
 
 interface Article {
   id: number
@@ -364,14 +364,7 @@ const toggleActionsMenu = () => {
   showActionsMenu.value = !showActionsMenu.value
 }
 
-const formatDate = (date?: string) => {
-  if (!date) return 'Unknown date'
-  try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true })
-  } catch {
-    return 'Unknown date'
-  }
-}
+const formatDate = formatRelativeDate
 
 const truncateSummary = (summary: string, maxChars = 200) => {
   if (summary.length <= maxChars) return summary

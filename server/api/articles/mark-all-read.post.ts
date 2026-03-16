@@ -7,6 +7,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const { feedId } = body ?? {}
 
+  const db = getD1(event)
   let targetFeedId: number | undefined
 
   if (feedId !== undefined) {
@@ -19,7 +20,6 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const db = getD1(event)
     const feed = await db.prepare('SELECT id FROM "Feed" WHERE id = ? AND user_id = ?')
       .bind(targetFeedId, user.id)
       .first()
@@ -33,7 +33,6 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const db = getD1(event)
     const params: any[] = [user.id]
     let where = 'is_read = 0 AND feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?)'
 

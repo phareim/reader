@@ -5,6 +5,7 @@
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
+import { getOrCreateTag } from '~/server/utils/tags'
 import { z } from 'zod'
 
 const updateFeedTagsSchema = z.object({
@@ -55,27 +56,10 @@ export default defineEventHandler(async (event) => {
 
     const now = new Date().toISOString()
     for (const tagName of tagNames) {
+      const tagId = await getOrCreateTag(db, user.id, tagName)
       await db.prepare(
-        `
-        INSERT OR IGNORE INTO "Tag" (user_id, name)
-        VALUES (?, ?)
-        `
-      ).bind(user.id, tagName).run()
-
-      const tag = await db.prepare(
-        `
-        SELECT id FROM "Tag" WHERE user_id = ? AND name = ?
-        `
-      ).bind(user.id, tagName).first()
-
-      if (tag) {
-        await db.prepare(
-          `
-          INSERT OR IGNORE INTO "FeedTag" (feed_id, tag_id, tagged_at)
-          VALUES (?, ?, ?)
-          `
-        ).bind(feedId, tag.id, now).run()
-      }
+        'INSERT OR IGNORE INTO "FeedTag" (feed_id, tag_id, tagged_at) VALUES (?, ?, ?)'
+      ).bind(feedId, tagId, now).run()
     }
 
     return {

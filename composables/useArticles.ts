@@ -148,28 +148,6 @@ export const useArticles = () => {
     }
   }
 
-  const selectNextArticle = () => {
-    const currentIndex = displayedArticles.value.findIndex(
-      a => a.id === selectedArticleId.value
-    )
-    if (currentIndex < displayedArticles.value.length - 1) {
-      selectedArticleId.value = displayedArticles.value[currentIndex + 1].id
-      // Auto-mark as read
-      markAsRead(selectedArticleId.value, true)
-    }
-  }
-
-  const selectPreviousArticle = () => {
-    const currentIndex = displayedArticles.value.findIndex(
-      a => a.id === selectedArticleId.value
-    )
-    if (currentIndex > 0) {
-      selectedArticleId.value = displayedArticles.value[currentIndex - 1].id
-      // Auto-mark as read
-      markAsRead(selectedArticleId.value, true)
-    }
-  }
-
   // Clear articles immediately (for navigation transitions)
   const clearArticles = () => {
     articles.value = []
@@ -188,8 +166,6 @@ export const useArticles = () => {
     fetchArticles,
     markAsRead,
     markAllAsRead,
-    selectNextArticle,
-    selectPreviousArticle,
     clearArticles
   }
 }

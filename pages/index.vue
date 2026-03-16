@@ -197,7 +197,7 @@ const {
   error: headerError,
   showSuccess: handleHeaderSuccess,
   showError: handleHeaderError
-} = useHeaderMessages()
+} = useToast()
 
 // Track dismissed articles for smooth removal animation
 const dismissedArticleIds = ref<Set<number>>(new Set())

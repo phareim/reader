@@ -141,7 +141,7 @@ const {
   error: headerError,
   showSuccess: handleHeaderSuccess,
   showError: handleHeaderError
-} = useHeaderMessages()
+} = useToast()
 
 // Override toggleSaveArticle to refresh the saved articles list
 const toggleSaveArticle = async (articleId: number) => {
@@ -161,16 +161,10 @@ const handleDeleteArticle = async (articleId: number) => {
     await fetchSavedArticlesByTag()
     await fetchFeeds()
 
-    headerSuccess.value = 'Article deleted successfully'
-    setTimeout(() => {
-      headerSuccess.value = null
-    }, 3000)
+    handleHeaderSuccess('Article deleted successfully')
   } catch (error: any) {
     console.error('Failed to delete article:', error)
-    headerError.value = error.data?.message || error.message || 'Failed to delete article'
-    setTimeout(() => {
-      headerError.value = null
-    }, 5000)
+    handleHeaderError(error.data?.message || error.message || 'Failed to delete article')
   }
 }
 

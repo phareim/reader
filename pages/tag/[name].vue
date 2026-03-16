@@ -261,7 +261,7 @@ const {
   error: headerError,
   showSuccess: handleHeaderSuccess,
   showError: handleHeaderError
-} = useHeaderMessages()
+} = useToast()
 
 // Bulk action handlers
 const {
