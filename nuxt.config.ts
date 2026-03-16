@@ -22,7 +22,6 @@ export default defineNuxtConfig({
   },
 
   modules: [
-    'nuxt-auth-utils',
     '@nuxtjs/tailwindcss',
     '@vite-pwa/nuxt'
   ],
@@ -32,15 +31,8 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    oauth: {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET
-      }
-    },
-    session: {
-      password: process.env.NUXT_SESSION_PASSWORD
-    }
+    betterAuthSecret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
+    betterAuthUrl: process.env.BETTER_AUTH_URL || process.env.AUTH_ORIGIN,
   },
 
   typescript: {

@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-const { loggedIn } = useUserSession()
+const { loggedIn, signInWithGoogle: doSignIn } = useAuth()
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -61,6 +61,6 @@ watch(loggedIn, (isLoggedIn) => {
 const signInWithGoogle = () => {
   loading.value = true
   error.value = null
-  navigateTo('/auth/google', { external: true })
+  doSignIn()
 }
 </script>

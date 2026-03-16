@@ -30,7 +30,7 @@ npm run mcp
 - **Backend**: Nitro server routes (REST-style API)
 - **Database**: Cloudflare D1
 - **Storage**: Cloudflare R2 for article content
-- **Auth**: Auth.js with Google OAuth
+- **Auth**: Better Auth with Google OAuth
 - **Feed Parsing**: rss-parser for RSS/Atom feeds
 - **Content Sanitization**: isomorphic-dompurify for safe HTML rendering
 
@@ -122,7 +122,7 @@ Routes follow REST conventions:
 
 ### Key Patterns
 
-**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Auth.js session. Routes should return 401 if no session.
+**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Better Auth session. Routes should return 401 if no session.
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content.
 
@@ -156,8 +156,8 @@ Implemented in `useKeyboardShortcuts` composable:
 
 Required in `.env.local`:
 ```bash
-AUTH_ORIGIN="http://localhost:3000"
-AUTH_SECRET="your-authjs-secret"
+BETTER_AUTH_URL="http://localhost:3000"
+BETTER_AUTH_SECRET="your-better-auth-secret"
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 ```

@@ -267,7 +267,7 @@ const backUrl = computed(() => {
   return article.value?.feedId ? `/feed/${article.value.feedId}` : '/'
 })
 
-const { loggedIn, user, clear } = useUserSession()
+const { loggedIn, user, signOut } = useAuth()
 
 const {
   feeds,
@@ -402,7 +402,7 @@ const handleViewSaved = () => {
 }
 
 const handleSignOut = async () => {
-  await clear()
+  await signOut()
   navigateTo('/login')
 }
 

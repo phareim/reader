@@ -35,7 +35,7 @@
 <script setup lang="ts">
 const syncLoading = ref(false)
 const { syncAll } = useFeeds()
-const { loggedIn, clear } = useUserSession()
+const { loggedIn, signOut } = useAuth()
 
 const emit = defineEmits(['success', 'error'])
 
@@ -53,7 +53,7 @@ const handleSyncAll = async () => {
 }
 
 const handleSignOut = async () => {
-  await clear()
+  await signOut()
   navigateTo('/login')
 }
 </script>

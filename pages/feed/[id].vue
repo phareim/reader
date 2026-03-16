@@ -152,7 +152,7 @@ const route = useRoute()
 const router = useRouter()
 const feedId = computed(() => parseInt(route.params.id as string))
 
-const { loggedIn, user } = useUserSession()
+const { loggedIn, user } = useAuth()
 
 const {
   feeds,

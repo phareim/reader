@@ -115,7 +115,7 @@ import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import booksStackIcon from '~/assets/svg/books-stack-of-three-svgrepo-com.svg'
 import NewsletterModal from '~/components/common/NewsletterModal.vue'
 
-const { loggedIn, user } = useUserSession()
+const { loggedIn, user } = useAuth()
 
 const {
   feeds,

@@ -1,5 +1,6 @@
 import { getHeader } from 'h3'
 import { getD1 } from '~/server/utils/cloudflare'
+import { getAuth } from '~/server/utils/better-auth'
 
 export default defineEventHandler(async (event) => {
   const db = getD1(event)
@@ -14,12 +15,17 @@ export default defineEventHandler(async (event) => {
       .bind(mcpToken)
       .first()
   } else {
-    // Try nuxt-auth-utils session
-    const session = await getUserSession(event)
-    if (session?.user?.email) {
-      user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
-        .bind(session.user.email)
-        .first()
+    // Try Better Auth session
+    try {
+      const auth = getAuth(event)
+      const session = await auth.api.getSession({ headers: event.headers })
+      if (session?.user?.email) {
+        user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
+          .bind(session.user.email)
+          .first()
+      }
+    } catch {
+      // Not authenticated - that's OK for public feed access
     }
   }
 

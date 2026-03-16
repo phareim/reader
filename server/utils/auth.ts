@@ -1,14 +1,14 @@
 import { H3Event, getHeader, createError } from 'h3'
-import cuid from 'cuid'
 import { getD1 } from '~/server/utils/cloudflare'
+import { getAuth } from '~/server/utils/better-auth'
 
 /**
  * Get authenticated user from either:
  * 1. MCP token (X-MCP-Token header) - looks up user by token in database
- * 2. nuxt-auth-utils session (cookie-based)
+ * 2. Better Auth session (cookie-based)
  *
  * This dual authentication approach preserves MCP integration while
- * using nuxt-auth-utils for browser-based authentication.
+ * using Better Auth for browser-based authentication.
  */
 export async function getAuthenticatedUser(event: H3Event) {
   // Check for MCP token first (preserve existing MCP functionality)
@@ -28,8 +28,11 @@ export async function getAuthenticatedUser(event: H3Event) {
     return result
   }
 
-  // Fall back to nuxt-auth-utils session authentication
-  const session = await getUserSession(event)
+  // Fall back to Better Auth session authentication
+  const auth = getAuth(event)
+  const session = await auth.api.getSession({
+    headers: event.headers
+  })
 
   if (!session?.user?.email) {
     throw createError({
@@ -38,22 +41,16 @@ export async function getAuthenticatedUser(event: H3Event) {
     })
   }
 
+  // Better Auth manages user creation via the account/session tables,
+  // but we still need to look up the user in our User table for app-specific fields
   const db = getD1(event)
-  let user = await db.prepare('SELECT * FROM "User" WHERE email = ?').bind(session.user.email).first()
+  const user = await db.prepare('SELECT * FROM "User" WHERE email = ?').bind(session.user.email).first()
 
   if (!user) {
-    const newUserId = cuid()
-    await db.prepare(`
-      INSERT INTO "User" (id, name, email, image)
-      VALUES (?, ?, ?, ?)
-    `).bind(
-      newUserId,
-      session.user.name || null,
-      session.user.email,
-      session.user.image || null
-    ).run()
-
-    user = await db.prepare('SELECT * FROM "User" WHERE id = ?').bind(newUserId).first()
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Unauthorized'
+    })
   }
 
   return user

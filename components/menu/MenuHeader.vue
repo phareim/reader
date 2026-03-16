@@ -15,7 +15,7 @@
     >
       The Librarian
     </NuxtLink>
-    <img v-if="user?.image" :src="session.user.image" :alt="session.user.name"
+    <img v-if="user?.image" :src="user.image" :alt="user.name"
       class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-zinc-700" />
     <div v-else
       class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
@@ -25,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-const { user } = useUserSession()
+const { user } = useAuth()
 
 defineEmits(['close', 'select-all-feeds'])
 </script>
