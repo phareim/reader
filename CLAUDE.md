@@ -30,7 +30,7 @@ npm run mcp
 - **Backend**: Nitro server routes (REST-style API)
 - **Database**: Cloudflare D1
 - **Storage**: Cloudflare R2 for article content
-- **Auth**: Better Auth with email/password and Google OAuth
+- **Auth**: Email/password with PBKDF2 hashing + cookie sessions (zero deps)
 - **Feed Parsing**: rss-parser for RSS/Atom feeds
 - **Content Sanitization**: isomorphic-dompurify for safe HTML rendering
 
@@ -122,7 +122,7 @@ Routes follow REST conventions:
 
 ### Key Patterns
 
-**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token auth or Better Auth session (email/password or Google OAuth). Routes should return 401 if no session. Auth config is in `server/utils/better-auth.ts`, client composable in `composables/useAuth.ts`.
+**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token (via `X-MCP-Token` header) or session cookie. Use `getOptionalUser()` for endpoints that work both authenticated and anonymous. Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto API), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content.
 
@@ -162,17 +162,7 @@ Implemented in `useKeyboardShortcuts` composable:
 
 ### Environment Variables
 
-Required in `.env.local`:
-```bash
-BETTER_AUTH_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="your-better-auth-secret"
-```
-
-Optional (Google OAuth — email/password works without these):
-```bash
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-```
+No auth-specific env vars required — sessions use the D1 database directly.
 
 Optional:
 ```bash

@@ -38,8 +38,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 3. Configure your environment:
    ```bash
    cp .env.example .env.local
-   # Edit .env.local — only BETTER_AUTH_SECRET is required
-   # Email/password login works out of the box; Google OAuth is optional
+   # Edit .env.local with any optional API keys
    ```
 
 4. Create a D1 database and apply the schema:
@@ -92,7 +91,7 @@ See `database/d1-schema.sql` for the full schema. Article content is stored in R
 | Backend      | Nitro server routes       | REST-style API             |
 | Database     | Cloudflare D1             | Relational storage         |
 | Storage     | Cloudflare R2             | Article content blobs      |
-| Auth         | Better Auth               | Email/password + Google OAuth |
+| Auth         | Custom (PBKDF2 + cookies) | Email/password login         |
 
 ## Project Structure
 
@@ -114,21 +113,16 @@ reader/
 
 ## Configuration
 
-Set the following environment variables in `.env.local`:
+Optional environment variables in `.env.local`:
 
 ```bash
-# Required
-BETTER_AUTH_SECRET="your-secret"
-BETTER_AUTH_URL="http://localhost:3000"
-
-# Optional — Google OAuth (email/password works without these)
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-
-# Optional
 FETCH_TIMEOUT=30000
 MAX_ARTICLES_PER_FEED=200
+ANTHROPIC_API_KEY="your-key"    # For AI features
+OPENAI_API_KEY="your-key"       # For AI features
 ```
+
+No auth-specific env vars needed — authentication uses the D1 database directly.
 
 ## Development
 
@@ -152,7 +146,7 @@ To reset D1 data during development, drop and re-run the SQL from `database/`.
 - ✅ Basic UI with Tailwind CSS
 - ✅ Cloudflare D1 database + R2 storage
 - ✅ HTML sanitization
-- ✅ Email/password + Google OAuth login
+- ✅ Email/password login
 
 ## Phase 2 Roadmap
 
