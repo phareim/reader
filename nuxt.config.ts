@@ -30,10 +30,7 @@ export default defineNuxtConfig({
     preset: 'cloudflare-module'
   },
 
-  runtimeConfig: {
-    betterAuthSecret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
-    betterAuthUrl: process.env.BETTER_AUTH_URL || process.env.AUTH_ORIGIN,
-  },
+  runtimeConfig: {},
 
   typescript: {
     strict: false,

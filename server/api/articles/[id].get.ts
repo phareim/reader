@@ -1,34 +1,10 @@
-import { getHeader } from 'h3'
 import { getD1 } from '~/server/utils/cloudflare'
 import { fetchArticleContent, fetchSavedArticleNote } from '~/server/utils/article-content'
-import { getAuth } from '~/server/utils/better-auth'
+import { getOptionalUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const db = getD1(event)
-
-  // Optional authentication - try to get user but don't fail if not authenticated
-  let user: any = null
-
-  // Check for MCP token first
-  const mcpToken = getHeader(event, 'x-mcp-token')
-  if (mcpToken) {
-    user = await db.prepare('SELECT * FROM "User" WHERE mcp_token = ?')
-      .bind(mcpToken)
-      .first()
-  } else {
-    // Try Better Auth session
-    try {
-      const auth = getAuth(event)
-      const session = await auth.api.getSession({ headers: event.headers })
-      if (session?.user?.email) {
-        user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
-          .bind(session.user.email)
-          .first()
-      }
-    } catch {
-      // Not authenticated - that's OK for public article access
-    }
-  }
+  const user = await getOptionalUser(event)
 
   const articleId = parseInt(event.context.params?.id || '')
 
@@ -99,7 +75,6 @@ export default defineEventHandler(async (event) => {
     imageUrl: article.image_url,
     author: article.author,
     publishedAt: article.published_at,
-    // Personal data only if authenticated
     isRead: user ? Boolean(article.is_read) : false,
     readAt: user ? article.read_at : null,
     feedId: article.feed_id,
@@ -108,7 +83,6 @@ export default defineEventHandler(async (event) => {
     savedId: savedArticle?.id,
     note,
     tags: savedTags,
-    // Indicate if user is authenticated (for UI purposes)
     isAuthenticated: !!user
   }
 })

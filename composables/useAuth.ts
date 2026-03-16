@@ -1,56 +1,54 @@
-import { authClient } from '~/lib/auth-client'
-
 /**
- * Composable that wraps Better Auth's client to provide
- * email/password and Google OAuth authentication.
+ * Minimal auth composable — email/password only.
+ * Talks to our own /api/auth/* endpoints.
  */
 export const useAuth = () => {
-  const session = authClient.useSession()
+  const user = useState<{ id: string; email: string; name: string; image?: string } | null>('auth_user', () => null)
+  const loggedIn = computed(() => !!user.value)
 
-  const loggedIn = computed(() => !!session.value?.data?.user)
-  const user = computed(() => session.value?.data?.user || null)
+  const fetchSession = async () => {
+    try {
+      const res = await $fetch<{ user: any }>('/api/auth/session')
+      user.value = res.user
+    } catch {
+      user.value = null
+    }
+  }
 
-  const signInWithGoogle = () => {
-    authClient.signIn.social({
-      provider: 'google',
-      callbackURL: '/',
-    })
+  // Fetch session on first call (SSR + client)
+  if (user.value === null) {
+    fetchSession()
   }
 
   const signIn = async (email: string, password: string) => {
-    const result = await authClient.signIn.email({
-      email,
-      password,
+    const res = await $fetch<{ user: any }>('/api/auth/sign-in', {
+      method: 'POST',
+      body: { email, password },
     })
-    if (result.error) {
-      throw new Error(result.error.message || 'Sign in failed')
-    }
-    return result
+    user.value = res.user
+    return res
   }
 
   const signUp = async (email: string, password: string, name?: string) => {
-    const result = await authClient.signUp.email({
-      email,
-      password,
-      name: name || email.split('@')[0],
+    const res = await $fetch<{ user: any }>('/api/auth/sign-up', {
+      method: 'POST',
+      body: { email, password, name },
     })
-    if (result.error) {
-      throw new Error(result.error.message || 'Sign up failed')
-    }
-    return result
+    user.value = res.user
+    return res
   }
 
   const signOut = async () => {
-    await authClient.signOut()
+    await $fetch('/api/auth/sign-out', { method: 'POST' })
+    user.value = null
   }
 
   return {
-    session,
-    loggedIn,
     user,
+    loggedIn,
+    fetchSession,
     signIn,
     signUp,
-    signInWithGoogle,
     signOut,
   }
 }

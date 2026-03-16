@@ -1,33 +1,9 @@
-import { getHeader } from 'h3'
 import { getD1 } from '~/server/utils/cloudflare'
-import { getAuth } from '~/server/utils/better-auth'
+import { getOptionalUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const db = getD1(event)
-
-  // Optional authentication - try to get user but don't fail if not authenticated
-  let user: any = null
-
-  // Check for MCP token first
-  const mcpToken = getHeader(event, 'x-mcp-token')
-  if (mcpToken) {
-    user = await db.prepare('SELECT * FROM "User" WHERE mcp_token = ?')
-      .bind(mcpToken)
-      .first()
-  } else {
-    // Try Better Auth session
-    try {
-      const auth = getAuth(event)
-      const session = await auth.api.getSession({ headers: event.headers })
-      if (session?.user?.email) {
-        user = await db.prepare('SELECT * FROM "User" WHERE email = ?')
-          .bind(session.user.email)
-          .first()
-      }
-    } catch {
-      // Not authenticated - that's OK for public feed access
-    }
-  }
+  const user = await getOptionalUser(event)
 
   const feedId = parseInt(event.context.params?.id || '')
 
@@ -39,11 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const feed = await db.prepare(
-    `
-    SELECT *
-    FROM "Feed"
-    WHERE id = ?
-    `
+    'SELECT * FROM "Feed" WHERE id = ?'
   ).bind(feedId).first()
 
   if (!feed || (user && feed.user_id !== user.id)) {
@@ -65,11 +37,7 @@ export default defineEventHandler(async (event) => {
   let unreadCount = 0
   if (user) {
     const countResult = await db.prepare(
-      `
-      SELECT COUNT(*) AS total
-      FROM "Article"
-      WHERE feed_id = ? AND is_read = 0
-      `
+      'SELECT COUNT(*) AS total FROM "Article" WHERE feed_id = ? AND is_read = 0'
     ).bind(feedId).first()
     unreadCount = Number(countResult?.total || 0)
   }
