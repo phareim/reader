@@ -53,7 +53,7 @@
           </div>
         </div>
 
-        <!-- AI Summary Section -->
+        <!-- AI Summary Section (standalone, not part of v-if/else chain) -->
         <div v-if="!articlesLoading && unreadArticles.length > 0" class="px-4 pt-4">
           <!-- Generate Button -->
           <button
@@ -114,7 +114,7 @@
         </div>
 
         <!-- Article Grid Grouped by Feed -->
-        <div v-else-if="searchedArticles.length > 0" class="p-4 space-y-8">
+        <div v-if="!articlesLoading && searchedArticles.length > 0" class="p-4 space-y-8">
           <div v-for="group in articlesByFeed" :key="group.feed.id" class="space-y-3">
             <!-- Feed Header -->
             <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800">
@@ -165,7 +165,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-else class="flex flex-col items-center justify-center py-20 px-4">
+        <div v-if="!articlesLoading && searchedArticles.length === 0" class="flex flex-col items-center justify-center py-20 px-4">
           <div class="max-w-md text-center space-y-6">
             <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
