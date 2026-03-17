@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS "Article" (
   is_starred INTEGER DEFAULT 0,
   read_at TEXT,
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+  full_text_status TEXT DEFAULT 'pending',
+  full_text_error TEXT,
   UNIQUE(feed_id, guid)
 );
 

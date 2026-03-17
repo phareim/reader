@@ -5,9 +5,35 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   const body = await readBody(event)
-  const { feedId } = body ?? {}
+  const { feedId, articleIds } = body ?? {}
 
   const db = getD1(event)
+
+  // If specific article IDs are provided, mark exactly those as read
+  if (articleIds && Array.isArray(articleIds) && articleIds.length > 0) {
+    const ids = articleIds.map(Number).filter(id => !Number.isNaN(id))
+    if (ids.length === 0) {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid article IDs' })
+    }
+
+    try {
+      const placeholders = ids.map(() => '?').join(',')
+      // Verify ownership and mark as read
+      const now = new Date().toISOString()
+      const result = await db.prepare(
+        `UPDATE "Article" SET is_read = 1, read_at = ?
+         WHERE id IN (${placeholders})
+           AND is_read = 0
+           AND feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?)`
+      ).bind(now, ...ids, user.id).run()
+
+      return { markedCount: result.meta?.changes || 0 }
+    } catch (error: any) {
+      if (error.statusCode) throw error
+      throw createError({ statusCode: 500, statusMessage: 'Failed to mark articles as read', message: error.message })
+    }
+  }
+
   let targetFeedId: number | undefined
 
   if (feedId !== undefined) {

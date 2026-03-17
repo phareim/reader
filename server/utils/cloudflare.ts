@@ -3,6 +3,7 @@ import { createError } from 'h3'
 type CloudflareEnv = {
   DB?: any
   ARTICLE_BUCKET?: any
+  AI?: any
 }
 
 const getEnv = (event: any): CloudflareEnv => {
@@ -25,6 +26,17 @@ export const getD1 = (event: any) => {
     })
   }
   return env.DB
+}
+
+export const getAI = (event: any) => {
+  const env = getEnv(event)
+  if (!env.AI) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Workers AI binding (AI) is not configured.'
+    })
+  }
+  return env.AI
 }
 
 export const getArticleBucket = (event: any) => {

@@ -20,3 +20,6 @@ custom_domain = true
 binding = "ARTICLE_BUCKET"
 bucket_name = "reader-articles"
 
+[ai]
+binding = "AI"
+

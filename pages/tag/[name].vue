@@ -53,6 +53,66 @@
           </div>
         </div>
 
+        <!-- AI Summary Section -->
+        <div v-if="!articlesLoading && unreadArticles.length > 0" class="px-4 pt-4">
+          <!-- Generate Button -->
+          <button
+            v-if="!summaryLoading && !summaryText"
+            @click="generateSummary"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Generate AI Summary
+          </button>
+
+          <!-- Loading State -->
+          <div v-if="summaryLoading" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-3 animate-pulse">
+            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 pt-2">Generating summary...</p>
+          </div>
+
+          <!-- Summary Display -->
+          <div v-if="summaryText && !summaryLoading" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-4">
+            <div
+              class="prose prose-sm dark:prose-invert max-w-none summary-content"
+              v-html="renderedSummary"
+            />
+            <div class="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-zinc-800">
+              <button
+                @click="markSummarizedAsRead"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Mark all {{ summaryArticleIds.length }} articles as read
+              </button>
+              <button
+                @click="dismissSummary"
+                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-if="summaryError && !summaryLoading" class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 flex items-center gap-3">
+            <p class="text-sm text-red-600 dark:text-red-400 flex-1">{{ summaryError }}</p>
+            <button
+              @click="generateSummary"
+              class="px-3 py-1 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+
         <!-- Article Grid Grouped by Feed -->
         <div v-else-if="searchedArticles.length > 0" class="p-4 space-y-8">
           <div v-for="group in articlesByFeed" :key="group.feed.id" class="space-y-3">
@@ -183,6 +243,8 @@
 
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
+import { marked } from 'marked'
+import DOMPurify from 'isomorphic-dompurify'
 
 definePageMeta({
   middleware: 'auth'
@@ -282,6 +344,81 @@ const {
 
 const { isSelected, toggleSelection } = useBulkSelection()
 
+// AI Summary state
+const summaryLoading = ref(false)
+const summaryText = ref('')
+const summaryError = ref('')
+const summaryArticleIds = ref<number[]>([])
+
+const renderedSummary = computed(() => {
+  if (!summaryText.value) return ''
+  try {
+    const html = marked.parse(summaryText.value, { breaks: true, gfm: true })
+    return DOMPurify.sanitize(html as string, { ADD_ATTR: ['target', 'rel'] })
+  } catch {
+    return '<p class="text-red-600">Error rendering summary</p>'
+  }
+})
+
+const generateSummary = async () => {
+  summaryLoading.value = true
+  summaryError.value = ''
+  summaryText.value = ''
+  summaryArticleIds.value = []
+
+  try {
+    const { data, error } = await useFetch(`/api/tags/${encodeURIComponent(tagName.value)}/summary`, {
+      method: 'POST',
+      body: { limit: 20 }
+    })
+
+    if (error.value) {
+      summaryError.value = error.value.data?.message || 'Failed to generate summary'
+      return
+    }
+
+    const result = data.value as any
+    if (!result?.success) {
+      summaryError.value = result?.error || 'Failed to generate summary'
+      return
+    }
+
+    summaryText.value = result.summary
+    summaryArticleIds.value = result.articleIds || []
+  } catch (err: any) {
+    summaryError.value = err.message || 'Failed to generate summary'
+  } finally {
+    summaryLoading.value = false
+  }
+}
+
+const markSummarizedAsRead = async () => {
+  if (summaryArticleIds.value.length === 0) return
+
+  try {
+    await $fetch('/api/articles/mark-all-read', {
+      method: 'POST',
+      body: { articleIds: summaryArticleIds.value }
+    })
+
+    // Update local state
+    summaryArticleIds.value.forEach(id => {
+      markAsRead(id, true)
+    })
+
+    handleHeaderSuccess(`Marked ${summaryArticleIds.value.length} articles as read`)
+    dismissSummary()
+  } catch (err: any) {
+    handleHeaderError('Failed to mark articles as read')
+  }
+}
+
+const dismissSummary = () => {
+  summaryText.value = ''
+  summaryArticleIds.value = []
+  summaryError.value = ''
+}
+
 // Group articles by feed for better organization
 const articlesByFeed = computed(() => {
   const grouped = new Map<number, { feed: { id: number; title: string; faviconUrl?: string }; articles: typeof searchedArticles.value }>()
@@ -373,6 +510,7 @@ watch(tagName, async (newTagName) => {
   if (newTagName && newTagName !== selectedTag.value) {
     // IMMEDIATELY clear old articles for instant visual feedback
     clearArticles()
+    dismissSummary()
     
     // Update the selected tag
     selectedTag.value = newTagName
@@ -401,3 +539,19 @@ useKeyboardShortcuts({
   toggleSelection
 })
 </script>
+
+<style scoped>
+.summary-content :deep(a) {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+.summary-content :deep(a):hover {
+  color: #2563eb;
+}
+.dark .summary-content :deep(a) {
+  color: #60a5fa;
+}
+.dark .summary-content :deep(a):hover {
+  color: #93c5fd;
+}
+</style>
