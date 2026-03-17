@@ -1,4 +1,5 @@
 import { getSessionUser } from '~/server/utils/session'
+import { toPublicUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const user = await getSessionUser(event)
@@ -7,12 +8,5 @@ export default defineEventHandler(async (event) => {
     return { user: null }
   }
 
-  return {
-    user: {
-      id: (user as any).id,
-      email: (user as any).email,
-      name: (user as any).name,
-      image: (user as any).image,
-    }
-  }
+  return { user: toPublicUser(user) }
 })

@@ -7,7 +7,7 @@ const ITERATIONS = 100_000
 const KEY_LENGTH = 32
 const SALT_LENGTH = 16
 
-function toHex(buffer: ArrayBuffer): string {
+export function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
@@ -55,5 +55,13 @@ export async function verifyPassword(password: string, stored: string): Promise<
     key,
     KEY_LENGTH * 8
   )
-  return toHex(derived) === hashHex
+  const derivedBytes = new Uint8Array(derived)
+  const expectedBytes = fromHex(hashHex)
+  if (derivedBytes.length !== expectedBytes.length) return false
+  // Constant-time comparison to prevent timing attacks
+  let diff = 0
+  for (let i = 0; i < derivedBytes.length; i++) {
+    diff |= derivedBytes[i] ^ expectedBytes[i]
+  }
+  return diff === 0
 }

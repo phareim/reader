@@ -122,7 +122,7 @@ Routes follow REST conventions:
 
 ### Key Patterns
 
-**Authentication**: API routes use `getAuthenticatedUser()` to resolve either MCP token (via `X-MCP-Token` header) or session cookie. Use `getOptionalUser()` for endpoints that work both authenticated and anonymous. Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto API), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
+**Authentication**: `getOptionalUser()` is the core auth primitive — it resolves MCP token (via `X-MCP-Token` header) or session cookie, returning `null` if unauthenticated. `getAuthenticatedUser()` wraps it and throws 401. Use `toPublicUser(user)` from `server/utils/auth.ts` to shape user objects for API responses (ensures consistent `{ id, email, name, image }` shape). Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto, constant-time comparison), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content.
 

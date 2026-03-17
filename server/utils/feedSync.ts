@@ -75,28 +75,13 @@ export async function syncSingleFeed(event: any, feed: FeedInfo): Promise<SyncRe
     }
   } catch (error: any) {
     try {
-      const current = await db.prepare(
-        'SELECT error_count FROM "Feed" WHERE id = ? AND user_id = ?'
-      ).bind(feed.id, feed.user_id).first()
-
-      if (current) {
-        const nextErrorCount = ((current.error_count as number) || 0) + 1
-        await db.prepare(
-          `
-          UPDATE "Feed"
-          SET last_error = ?,
-              error_count = ?,
-              is_active = ?
-          WHERE id = ? AND user_id = ?
-          `
-        ).bind(
-          error.message,
-          nextErrorCount,
-          nextErrorCount >= 10 ? 0 : 1,
-          feed.id,
-          feed.user_id
-        ).run()
-      }
+      await db.prepare(
+        `UPDATE "Feed"
+         SET last_error = ?,
+             error_count = error_count + 1,
+             is_active = CASE WHEN error_count + 1 >= 10 THEN 0 ELSE 1 END
+         WHERE id = ? AND user_id = ?`
+      ).bind(error.message, feed.id, feed.user_id).run()
     } catch {
       // Ignore errors during error tracking update
     }

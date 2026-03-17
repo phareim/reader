@@ -1,6 +1,7 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { verifyPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
+import { toPublicUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -24,5 +25,5 @@ export default defineEventHandler(async (event) => {
 
   await createSession(event, user.id)
 
-  return { user: { id: user.id, email: user.email, name: user.name } }
+  return { user: toPublicUser(user) }
 })

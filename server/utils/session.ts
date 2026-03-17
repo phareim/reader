@@ -5,13 +5,14 @@
 
 import { H3Event, getCookie, setCookie, deleteCookie } from 'h3'
 import { getD1 } from '~/server/utils/cloudflare'
+import { toHex } from '~/server/utils/password'
 
 const SESSION_COOKIE = 'session_token'
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
 
 function generateToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  return toHex(bytes.buffer as ArrayBuffer)
 }
 
 export async function createSession(event: H3Event, userId: string): Promise<string> {
@@ -40,20 +41,16 @@ export async function getSessionUser(event: H3Event): Promise<any | null> {
   if (!token) return null
 
   const db = getD1(event)
-  const session = await db.prepare(
-    'SELECT user_id, expires_at FROM "session" WHERE token = ?'
-  ).bind(token).first()
+  const user = await db.prepare(
+    'SELECT u.* FROM "session" s JOIN "User" u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?'
+  ).bind(token, new Date().toISOString()).first()
 
-  if (!session) return null
-  if (new Date(session.expires_at as string) < new Date()) {
-    // Expired — clean up
-    await db.prepare('DELETE FROM "session" WHERE token = ?').bind(token).run()
+  if (!user) {
+    // Clean up if session exists but expired
+    await db.prepare('DELETE FROM "session" WHERE token = ? AND expires_at <= ?')
+      .bind(token, new Date().toISOString()).run()
     return null
   }
-
-  const user = await db.prepare(
-    'SELECT * FROM "User" WHERE id = ?'
-  ).bind(session.user_id).first()
 
   return user
 }

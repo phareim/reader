@@ -1,6 +1,7 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { hashPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
+import { toPublicUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -31,15 +32,16 @@ export default defineEventHandler(async (event) => {
     ).bind(passwordHash, existing.id).run()
 
     await createSession(event, existing.id)
-    return { user: { id: existing.id, email: existing.email, name: existing.name } }
+    return { user: toPublicUser(existing) }
   }
 
   // New user
   const id = crypto.randomUUID()
+  const displayName = name || email.split('@')[0]
   await db.prepare(
     'INSERT INTO "User" (id, name, email, password_hash) VALUES (?, ?, ?, ?)'
-  ).bind(id, name || email.split('@')[0], email, passwordHash).run()
+  ).bind(id, displayName, email, passwordHash).run()
 
   await createSession(event, id)
-  return { user: { id, email, name: name || email.split('@')[0] } }
+  return { user: toPublicUser({ id, email, name: displayName }) }
 })

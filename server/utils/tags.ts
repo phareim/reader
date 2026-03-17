@@ -1,7 +1,7 @@
 /**
  * Get or create a tag by name for a user, returning the tag ID.
  */
-export const getOrCreateTag = async (db: any, userId: number, tagName: string): Promise<number> => {
+export const getOrCreateTag = async (db: any, userId: string, tagName: string): Promise<number> => {
   await db.prepare(
     'INSERT OR IGNORE INTO "Tag" (user_id, name) VALUES (?, ?)'
   ).bind(userId, tagName).run()
