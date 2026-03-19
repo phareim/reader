@@ -173,7 +173,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
           guid: await generateGuid(item),
           title: item.title || 'Untitled',
           url: item.link || '',
-          author: (item as any).author,
+          author: typeof (item as any).author === 'object' ? ((item as any).author?.name || JSON.stringify((item as any).author)) : (item as any).author,
           content: rawContent, // Sanitization now done client-side
           summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
           imageUrl: await extractImageUrl(item, rawContent),
