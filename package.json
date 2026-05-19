@@ -39,7 +39,7 @@
     "dotenv": "^17.2.3",
     "isomorphic-dompurify": "^2.35.0",
     "marked": "^17.0.1",
-    "nuxt": "^3.17.7",
+    "nuxt": "^3.21.6",
     "openai": "^6.15.0",
     "zod": "^4.1.12"
   },
