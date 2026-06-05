@@ -1,11 +1,11 @@
 <template>
-  <div class="sticky top-0 z-20 bg-white h-16 dark:bg-zinc-900 border-b dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-1 flex-1 min-w-0">
+  <div class="sticky top-0 z-20 bg-paper border-b border-rule px-almanac-gutter h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3 flex-1 min-w-0">
       <!-- Hamburger Button -->
       <button
         v-if="!menuIsOpen"
         @click="$emit('toggle-menu')"
-        class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-900 dark:text-gray-100 flex-shrink-0"
+        class="p-2 -ml-2 text-ink/70 hover:text-ink transition-colors flex-shrink-0"
         aria-label="Toggle menu"
       >
         <svg class="w-6 h-6" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -13,81 +13,36 @@
         </svg>
       </button>
 
-      <!-- Dynamic Title -->
-      <h1 class="text-xl font-bold flex items-center gap-3 text-gray-900 dark:text-gray-100 min-w-0 flex-1 mr-3">
+      <!-- Dynamic Context -->
+      <div class="flex items-center gap-3 min-w-0 flex-1 mr-3">
         <Transition name="fade-title" mode="out-in">
           <!-- Show current article title when scrolled -->
-          <div v-if="currentArticle" class="flex items-center gap-1 min-w-0 flex-1" :key="'article-' + currentArticle.id">
-            <span class="truncate">
-              <img
-                v-if="selectedFeed && selectedFeed.faviconUrl"
-                :src="selectedFeed.faviconUrl"
-                :alt="selectedFeed.title"
-                class="w-8 h-8 inline-block"
-              />
-              <span v-else-if="selectedFeedId === -1">
-                <svg class="w-7 h-7 text-yellow-500 dark:text-yellow-400 flex-shrink-0 inline-block" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-                </svg>
-              </span>
-              <span v-else-if="selectedTag" class="pl-2 text-gray-500 dark:text-gray-400">#{{ selectedTag }}</span>
-              <span class="truncate pl-2">{{ currentArticle.title }}</span>
-              <span class="truncate pl-2 text-gray-500 dark:text-gray-400 text-sm" v-if="selectedFeed">• {{ selectedFeed.title }}</span>
+          <div v-if="currentArticle" class="flex items-baseline gap-2 min-w-0 flex-1" :key="'article-' + currentArticle.id">
+            <MonoLabel class="flex-shrink-0">{{ contextLabel }}</MonoLabel>
+            <SerifHeadline level="h3" class="truncate min-w-0">{{ currentArticle.title }}</SerifHeadline>
+          </div>
+          <!-- Show default context -->
+          <div v-else class="flex items-baseline gap-2 min-w-0 flex-1" key="default">
+            <MonoLabel class="flex-shrink-0">{{ contextLabel }}</MonoLabel>
+            <span v-if="contextSubtitle" class="font-serif text-[13px] text-mute truncate min-w-0">
+              {{ contextSubtitle }}
+            </span>
+            <span v-if="unreadCount > 0 || totalCount > 0" class="flex-shrink-0 font-mono text-[11px] text-mute tabular-nums">
+              {{ countLabel }}
             </span>
           </div>
-          <!-- Show default context title -->
-          <div v-else class="flex items-center gap-3 min-w-0 flex-1" key="default">
-            <template v-if="selectedFeedId === -1">
-              <svg class="w-7 h-7 text-yellow-500 dark:text-yellow-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-              </svg>
-              <span class="truncate">Saved Articles</span>
-              <span v-if="totalCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                ({{ totalCount }})
-              </span>
-            </template>
-            <template v-else-if="selectedFeed">
-              <div class="flex items-center gap-3 min-w-0 flex-1">
-                <img
-                  v-if="selectedFeed.faviconUrl"
-                  :src="selectedFeed.faviconUrl"
-                  :alt="selectedFeed.title"
-                  class="w-8 h-8 flex-shrink-0"
-                />
-                <div class="flex flex-col min-w-0 flex-1">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="truncate">{{ selectedFeed.title }}</span>
-                    <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                      ({{ unreadCount }} unread)
-                    </span>
-                  </div>
-                  <p v-if="selectedFeed.description" class="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    {{ selectedFeed.description }}
-                  </p>
-                </div>
-              </div>
-            </template>
-            <template v-else-if="selectedTag">
-              <span v-if="selectedTag === '__inbox__'" class="truncate">📥 Inbox</span>
-              <span v-else class="truncate">#{{ selectedTag }}</span>
-              <span v-if="unreadCount > 0" class="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                ({{ unreadCount }} unread)
-              </span>
-            </template>
-            <span v-else class="truncate">The Librarian</span>
+        </Transition>
+
+        <!-- Loading Indicator -->
+        <Transition name="fade">
+          <div v-if="isLoading" class="flex-shrink-0" title="Loading...">
+            <svg class="animate-spin h-4 w-4 text-mute" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
           </div>
         </Transition>
-      </h1>
-
-      <!-- Loading Indicator -->
-      <Transition name="fade">
-        <div v-if="isLoading" class="flex-shrink-0 ml-2" title="Loading...">
-          <svg class="animate-spin h-4 w-4 text-blue-500 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-      </Transition>
+      </div>
     </div>
 
     <!-- Search Input -->
@@ -98,20 +53,20 @@
             ref="searchInputRef"
             v-model="searchQuery"
             type="text"
-            placeholder="Search articles..."
-            class="w-64 px-3 py-1.5 pl-9 text-sm border border-gray-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Search articles…"
+            class="w-64 pl-8 pr-7 py-1.5 font-serif text-[14px] bg-transparent text-ink placeholder-mute border-0 border-b border-rule focus:outline-none focus:border-ink transition-colors"
             @keydown.esc="showSearchInput = false; searchQuery = ''"
           />
-          <svg class="w-4 h-4 absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg class="w-4 h-4 absolute left-0 top-2.5 text-mute" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <button
             v-if="searchQuery"
             @click="searchQuery = ''"
-            class="absolute right-2 top-2 p-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
+            class="absolute right-0 top-2 p-0.5 text-mute hover:text-ink transition-colors"
           >
-            <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -122,11 +77,11 @@
     <button
       v-if="showSearch && !showSearchInput"
       @click="toggleSearch"
-      class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0 text-gray-400 dark:text-gray-500"
+      class="p-2 text-mute hover:text-ink transition-colors flex-shrink-0"
       title="Search articles"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
     </button>
 
@@ -135,8 +90,8 @@
       <button
         ref="menuButtonRef"
         @click.stop="toggleMenu"
-        class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex-shrink-0"
-        :class="showMenu ? 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'"
+        class="p-2 transition-colors flex-shrink-0"
+        :class="showMenu ? 'text-ink' : 'text-mute hover:text-ink'"
         :title="'Actions'"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,6 +165,31 @@ defineEmits<{
   'success': [message: string]
   'error': [message: string]
 }>()
+
+// The MonoLabel context line — the single accent moment in the header.
+const contextLabel = computed(() => {
+  if (props.selectedFeedId === -1) return 'SAVED'
+  if (props.selectedFeed) return props.selectedFeed.title.toUpperCase()
+  if (props.selectedTag === '__inbox__') return 'INBOX'
+  if (props.selectedTag) return `#${props.selectedTag}`.toUpperCase()
+  return 'ALL UNREAD'
+})
+
+// Optional serif subtitle (feed description) shown only in the default state.
+const contextSubtitle = computed(() => {
+  if (!props.currentArticle && props.selectedFeed?.description) {
+    return props.selectedFeed.description
+  }
+  return ''
+})
+
+// Count rendered in mute.
+const countLabel = computed(() => {
+  if (props.selectedFeedId === -1) {
+    return props.totalCount > 0 ? `${props.totalCount}` : ''
+  }
+  return props.unreadCount > 0 ? `${props.unreadCount} unread` : ''
+})
 
 const showMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)

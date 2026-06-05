@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
+  <div class="min-h-screen bg-paper text-ink font-serif">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -30,123 +30,83 @@
         @error="handleHeaderError"
       />
 
-      <!-- Articles List -->
-      <div class="py-0">
+      <!-- Reading Column -->
+      <div class="mx-auto max-w-2xl px-almanac-gutter py-almanac-gutter">
         <!-- Success/Error Messages -->
-        <div v-if="headerSuccess || headerError" class="px-6 py-4">
-          <p v-if="headerSuccess" class="text-base text-green-500 dark:text-green-400">{{ headerSuccess }}</p>
-          <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
+        <div v-if="headerSuccess || headerError" class="mb-4">
+          <p v-if="headerSuccess" class="mono-label text-rust">{{ headerSuccess }}</p>
+          <p v-if="headerError" class="mono-label text-mute">{{ headerError }}</p>
         </div>
 
         <!-- Loading Skeletons -->
-        <div v-if="articlesLoading" class="p-4 space-y-8">
-          <div v-for="n in 2" :key="n" class="space-y-3">
-            <!-- Fake feed header -->
-            <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800 animate-pulse">
-              <div class="w-5 h-5 bg-gray-200 dark:bg-zinc-700 rounded"></div>
-              <div class="h-5 bg-gray-200 dark:bg-zinc-700 rounded w-32"></div>
-            </div>
-            <!-- Skeleton cards grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              <ArticleCardSkeleton v-for="i in 5" :key="i" />
-            </div>
-          </div>
+        <div v-if="articlesLoading" class="divide-y divide-rule">
+          <ArticleCardSkeleton v-for="i in 8" :key="i" />
         </div>
 
-        <!-- AI Summary Section (standalone, not part of v-if/else chain) -->
-        <div v-if="!articlesLoading && unreadArticles.length > 0" class="px-4 pt-4">
-          <!-- Generate Button -->
-          <button
+        <!-- AI Summary Section -->
+        <div v-if="!articlesLoading && unreadArticles.length > 0" class="mb-8">
+          <!-- Generate Action -->
+          <ActionLabel
             v-if="!summaryLoading && !summaryText"
+            label="GENERATE AI SUMMARY"
             @click="generateSummary"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-            Generate AI Summary
-          </button>
+          />
 
           <!-- Loading State -->
-          <div v-if="summaryLoading" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-3 animate-pulse">
-            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
-            <div class="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
-            <p class="text-sm text-gray-500 dark:text-gray-400 pt-2">Generating summary...</p>
+          <div v-if="summaryLoading" class="space-y-2 animate-pulse">
+            <div class="h-3 bg-rule w-3/4"></div>
+            <div class="h-3 bg-rule w-full"></div>
+            <div class="h-3 bg-rule w-5/6"></div>
+            <div class="h-3 bg-rule w-2/3"></div>
+            <p class="mono-label text-mute pt-2">GENERATING SUMMARY</p>
           </div>
 
           <!-- Summary Display -->
-          <div v-if="summaryText && !summaryLoading" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-4">
+          <PaperPanel v-if="summaryText && !summaryLoading">
+            <MonoLabel class="block mb-3 text-rust">AI SUMMARY</MonoLabel>
             <div
-              class="prose prose-sm dark:prose-invert max-w-none summary-content"
+              class="font-serif text-[14px] leading-[1.55] text-ink max-w-almanac-measure summary-content"
               v-html="renderedSummary"
             />
-            <div class="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-zinc-800">
-              <button
+            <SectionDivider />
+            <div class="flex flex-wrap items-center gap-3">
+              <ActionLabel
+                :label="`READ ALL ${summaryArticleIds.length}`"
+                accent
                 @click="markSummarizedAsRead"
-                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Mark all {{ summaryArticleIds.length }} articles as read
-              </button>
-              <button
-                @click="dismissSummary"
-                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-              >
-                Dismiss
-              </button>
+              />
+              <ActionLabel label="DISMISS" @click="dismissSummary" />
             </div>
-          </div>
+          </PaperPanel>
 
           <!-- Error State -->
-          <div v-if="summaryError && !summaryLoading" class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 flex items-center gap-3">
-            <p class="text-sm text-red-600 dark:text-red-400 flex-1">{{ summaryError }}</p>
-            <button
-              @click="generateSummary"
-              class="px-3 py-1 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
-            >
-              Retry
-            </button>
+          <div v-if="summaryError && !summaryLoading" class="flex items-center gap-3">
+            <p class="font-serif text-[14px] text-mute flex-1">{{ summaryError }}</p>
+            <ActionLabel label="RETRY" @click="generateSummary" />
           </div>
         </div>
 
-        <!-- Article Grid Grouped by Feed -->
-        <div v-if="!articlesLoading && searchedArticles.length > 0" class="p-4 space-y-8">
-          <div v-for="group in articlesByFeed" :key="group.feed.id" class="space-y-3">
+        <!-- Article Reading Column Grouped by Feed -->
+        <div v-if="!articlesLoading && searchedArticles.length > 0" class="space-y-10">
+          <section v-for="group in articlesByFeed" :key="group.feed.id">
             <!-- Feed Header -->
-            <div class="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-zinc-800">
-              <img
-                v-if="group.feed.faviconUrl"
-                :src="group.feed.faviconUrl"
-                :alt="group.feed.title"
-                class="w-5 h-5 flex-shrink-0"
-              />
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {{ group.feed.title }}
-              </h2>
-              <span class="text-sm text-gray-500 dark:text-gray-400">
-                ({{ group.articles.length }} article{{ group.articles.length !== 1 ? 's' : '' }})
+            <div class="flex items-baseline gap-2 mb-1">
+              <MonoLabel>{{ group.feed.title }}</MonoLabel>
+              <span class="font-serif text-[12px] text-mute">
+                {{ group.articles.length }} article{{ group.articles.length !== 1 ? 's' : '' }}
               </span>
               <button
                 @click="handleMarkFeedAsRead(group.feed.id, group.articles)"
-                class="ml-auto px-3 py-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors flex items-center gap-1"
+                class="ml-auto mono-label text-mute hover:text-rust transition-colors"
                 title="Mark all articles in this feed as read"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Mark as read
-              </button>
+              >MARK READ</button>
             </div>
+            <HeaderDivider />
 
             <!-- Articles for this feed -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <template v-for="(article, index) in group.articles" :key="article.id">
+              <SectionDivider v-if="index > 0" />
               <LazyArticleCard
-                v-for="article in group.articles"
-                :key="article.id"
                 :article="article"
                 :is-selected="selectedArticleId === article.id"
                 :is-saved="isSaved(article.id)"
@@ -160,73 +120,58 @@
                 @update-tags="handleUpdateTags"
                 @toggle-selection="handleToggleSelection(article.id, $event)"
               />
-            </div>
-          </div>
+            </template>
+          </section>
         </div>
 
         <!-- Empty State -->
-        <div v-if="!articlesLoading && searchedArticles.length === 0" class="flex flex-col items-center justify-center py-20 px-4">
-          <div class="max-w-md text-center space-y-6">
-            <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">No articles in #{{ tagName }}</h2>
-            <p class="text-gray-600 dark:text-gray-400">
-              There are no unread articles tagged with "{{ tagName }}".
-            </p>
+        <div v-if="!articlesLoading && searchedArticles.length === 0" class="flex flex-col items-center justify-center py-24 text-center">
+          <OrbitalGlyph :size="56" class="mb-6" />
+          <SerifHeadline level="h2" class="mb-2">Nothing in #{{ tagName }}</SerifHeadline>
+          <p class="font-serif text-[14px] text-mute mb-8 max-w-almanac-measure">
+            There are no unread articles tagged with "{{ tagName }}".
+          </p>
 
-            <!-- Tag Statistics -->
-            <div class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-3">
-              <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Tag Statistics</h3>
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Feeds in Tag</div>
-                  <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ selectedTagFeedIds.length }}</div>
-                </div>
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Total Articles</div>
-                  <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ articles.length }}</div>
-                </div>
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Unread</div>
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ unreadArticles.length }}</div>
-                </div>
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Read</div>
-                  <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ articles.length - unreadArticles.length }}</div>
-                </div>
-              </div>
+          <!-- Tag Statistics -->
+          <div class="w-full max-w-sm text-left">
+            <MonoLabel class="block mb-3">TAG STATISTICS</MonoLabel>
+            <SectionDivider />
+            <div class="flex items-baseline justify-between py-2">
+              <span class="font-serif text-[14px] text-mute">Feeds in tag</span>
+              <span class="font-serif text-[18px] text-ink">{{ selectedTagFeedIds.length }}</span>
             </div>
+            <SectionDivider />
+            <div class="flex items-baseline justify-between py-2">
+              <span class="font-serif text-[14px] text-mute">Total articles</span>
+              <span class="font-serif text-[18px] text-ink">{{ articles.length }}</span>
+            </div>
+            <SectionDivider />
+            <div class="flex items-baseline justify-between py-2">
+              <span class="font-serif text-[14px] text-mute">Unread</span>
+              <span class="font-serif text-[18px] text-ink">{{ unreadArticles.length }}</span>
+            </div>
+            <SectionDivider />
+            <div class="flex items-baseline justify-between py-2">
+              <span class="font-serif text-[14px] text-mute">Read</span>
+              <span class="font-serif text-[18px] text-ink">{{ articles.length - unreadArticles.length }}</span>
+            </div>
+          </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                @click="handleRefreshTag"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Tag
-              </button>
-              <NuxtLink
-                to="/"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                View all articles
-              </NuxtLink>
-            </div>
+          <div class="flex flex-wrap gap-3 justify-center mt-8">
+            <ActionLabel label="REFRESH TAG" @click="handleRefreshTag" />
+            <NuxtLink to="/">
+              <ActionLabel label="ALL ARTICLES" />
+            </NuxtLink>
           </div>
         </div>
 
-        <!-- Bulk Selection Floating Button -->
-        <button v-if="searchedArticles.length > 0 && !selectionMode"
-          @click="toggleSelectionMode"
-          class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
-          title="Select multiple articles">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        </button>
+        <!-- Bulk Selection Trigger -->
+        <div
+          v-if="searchedArticles.length > 0 && !selectionMode"
+          class="fixed bottom-6 right-6 z-20"
+        >
+          <ActionLabel label="SELECT" @click="toggleSelectionMode" />
+        </div>
 
         <!-- Bulk Action Bar -->
         <BulkActionBar
@@ -356,7 +301,7 @@ const renderedSummary = computed(() => {
     const html = marked.parse(summaryText.value, { breaks: true, gfm: true })
     return DOMPurify.sanitize(html as string, { ADD_ATTR: ['target', 'rel'] })
   } catch {
-    return '<p class="text-red-600">Error rendering summary</p>'
+    return '<p class="text-rust">Error rendering summary</p>'
   }
 })
 
@@ -491,12 +436,12 @@ const handleMarkFeedAsRead = async (feedId: number, articles: typeof searchedArt
 // Load feeds and articles on mount
 onMounted(async () => {
   const init = await initializeArticlePage()
-  
+
   if (init.success && init.feedsReady) {
     // Wait for feeds to be ready, then fetch articles immediately
     // (don't wait for tags, saved articles, etc.)
     await init.feedsReady
-    
+
     // Set the selected tag to match the route
     selectedTag.value = tagName.value
 
@@ -511,7 +456,7 @@ watch(tagName, async (newTagName) => {
     // IMMEDIATELY clear old articles for instant visual feedback
     clearArticles()
     dismissSummary()
-    
+
     // Update the selected tag
     selectedTag.value = newTagName
 
@@ -542,16 +487,18 @@ useKeyboardShortcuts({
 
 <style scoped>
 .summary-content :deep(a) {
-  color: #3b82f6;
+  color: var(--almanac-accent);
   text-decoration: underline;
 }
 .summary-content :deep(a):hover {
-  color: #2563eb;
+  opacity: 0.8;
 }
-.dark .summary-content :deep(a) {
-  color: #60a5fa;
+.summary-content :deep(p) {
+  margin-bottom: 0.75em;
 }
-.dark .summary-content :deep(a):hover {
-  color: #93c5fd;
+.summary-content :deep(ul),
+.summary-content :deep(ol) {
+  margin: 0.5em 0 0.75em 1.25em;
+  list-style: disc;
 }
 </style>

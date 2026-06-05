@@ -1,0 +1,217 @@
+/*
+  almanac.css — the Almanac component layer.
+  Depends on tokens/tokens.css for variables and font-faces.
+  Drop both into a page like:
+    <link rel="stylesheet" href="/almanac-design/tokens/tokens.css">
+    <link rel="stylesheet" href="/almanac-design/components/web/almanac.css">
+
+  All components are class-based (no element resets beyond <body>).
+  The :root.dark / [data-theme="dark"] toggle controls the palette.
+*/
+
+/* ---------- Page ----------------------------------------------------- */
+
+.almanac-page {
+  background: var(--almanac-bg);
+  color: var(--almanac-fg);
+  font-family: var(--almanac-serif);
+  font-size: var(--almanac-size-body);
+  line-height: var(--almanac-line-body);
+  min-height: 100vh;
+  padding: var(--almanac-gutter);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Night sky gradient — only in dark mode. The body uses this as background. */
+:root.dark .almanac-page,
+:root[data-theme="dark"] .almanac-page {
+  background:
+    linear-gradient(to bottom,
+      var(--almanac-night-top) 0%,
+      var(--almanac-night-bottom) 100%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) .almanac-page {
+    background:
+      linear-gradient(to bottom,
+        var(--almanac-night-top) 0%,
+        var(--almanac-night-bottom) 100%);
+  }
+}
+
+/* ---------- Starfield ------------------------------------------------ */
+
+.almanac-starfield {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  display: none;  /* hidden by default; shown only in dark mode */
+}
+:root.dark .almanac-starfield,
+:root[data-theme="dark"] .almanac-starfield {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) .almanac-starfield {
+    display: block;
+  }
+}
+
+/* All page content sits above the starfield */
+.almanac-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Type primitives ----------------------------------------- */
+
+.almanac-headline {
+  font-family: var(--almanac-serif);
+  font-size: var(--almanac-size-headline);
+  line-height: var(--almanac-line-headline);
+  letter-spacing: var(--almanac-track-headline);
+  font-weight: 500;
+  color: var(--almanac-fg);
+  margin: 0;
+}
+
+.almanac-body {
+  font-family: var(--almanac-serif);
+  font-size: var(--almanac-size-body);
+  line-height: var(--almanac-line-body);
+  color: var(--almanac-fg);
+  max-width: var(--almanac-measure);
+  margin: 0;
+}
+
+.almanac-italic {
+  font-style: italic;
+  font-size: var(--almanac-size-italic);
+  color: var(--almanac-fg-mute);
+}
+
+.almanac-mute {
+  color: var(--almanac-fg-mute);
+}
+
+/* The MonoLabel — uppercase tracked tiny mono, accent color, dark-mode glow. */
+.almanac-monolabel {
+  font-family: var(--almanac-mono);
+  font-size: var(--almanac-size-monolabel);
+  letter-spacing: var(--almanac-track-monolabel);
+  text-transform: uppercase;
+  color: var(--almanac-accent);
+  text-shadow: 0 0 4px var(--almanac-glow);
+  font-weight: 500;
+}
+
+/* ---------- Rules / Dividers ---------------------------------------- */
+
+.almanac-divider {
+  height: var(--almanac-hairline);
+  background: var(--almanac-rule-line);
+  border: 0;
+  margin: var(--almanac-section-gap) 0;
+}
+
+.almanac-header-divider {
+  height: var(--almanac-hairline);
+  background: var(--almanac-header-rule);
+  border: 0;
+  margin: var(--almanac-section-gap) 0;
+}
+
+/* ---------- Glyph --------------------------------------------------- */
+
+.almanac-glyph {
+  display: inline-block;
+  width: 56px;
+  height: 40px;
+  color: var(--almanac-fg);
+}
+.almanac-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- Chat column (the YOU / AGENT pattern) -------------------- */
+
+.almanac-chat {
+  max-width: var(--almanac-measure);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--almanac-section-gap) * 1.5);
+}
+
+.almanac-chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.almanac-chat-turn .speaker { display: block; }
+
+/* You: italic body */
+.almanac-chat-turn--you .body {
+  font-family: var(--almanac-serif);
+  font-style: italic;
+  font-size: var(--almanac-size-italic);
+  line-height: var(--almanac-line-body);
+  color: var(--almanac-fg-mute);
+}
+
+/* Agent: roman body */
+.almanac-chat-turn--agent .body {
+  font-family: var(--almanac-serif);
+  font-size: var(--almanac-size-body);
+  line-height: var(--almanac-line-body);
+  color: var(--almanac-fg);
+}
+
+/* Streaming cursor — 2px accent rectangle, blinks at cursorBlinkHz. */
+.almanac-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: -0.15em;
+  background: var(--almanac-accent);
+  margin-left: 2px;
+  animation: almanac-blink var(--almanac-cursor-blink, 1s) steps(1, end) infinite;
+}
+@keyframes almanac-blink {
+  0%, 50%   { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .almanac-cursor { animation: none; opacity: 1; }
+}
+
+/* ---------- Layout helpers ------------------------------------------ */
+
+.almanac-prose {
+  max-width: var(--almanac-measure);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.almanac-prose > * + * {
+  margin-top: 1em;
+}
+
+.almanac-section + .almanac-section {
+  margin-top: calc(var(--almanac-section-gap) * 2);
+}
+
+/* Links — inherited from text, accent-underlined on hover only. */
+.almanac-page a {
+  color: inherit;
+  text-decoration-color: var(--almanac-rule-line);
+  text-underline-offset: 0.2em;
+}
+.almanac-page a:hover {
+  text-decoration-color: var(--almanac-accent);
+}

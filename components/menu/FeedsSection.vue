@@ -1,44 +1,38 @@
 <template>
   <div class="space-y-3">
-    <h3 class="font-semibold text-base text-gray-900 dark:text-gray-100 flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 flex-shrink-0 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7m-6 0a1 1 0 11-2 0 1 1 0 012 0z" />
-        </svg>
-        <NuxtLink to="/"
-          class="hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-          :class="$route.path === '/' ? 'text-blue-600 dark:text-blue-300' : ''">
-          Feeds
-        </NuxtLink>
-      </div>
-      <label class="flex items-center gap-2 text-base font-normal text-gray-700 dark:text-gray-300">
-        <input v-model="showUnreadOnly" type="checkbox" />
+    <div class="flex items-center justify-between gap-2">
+      <NuxtLink to="/"
+        class="font-serif transition-colors"
+        :class="$route.path === '/' ? 'text-rust' : 'text-ink hover:text-rust'">
+        <MonoLabel>FEEDS</MonoLabel>
+      </NuxtLink>
+      <label class="flex items-center gap-2 font-serif text-[13px] text-mute cursor-pointer">
+        <input v-model="showUnreadOnly" type="checkbox" class="accent-current" />
         <span class="truncate">Unread only</span>
       </label>
-    </h3>
+    </div>
 
-    <div v-if="feeds.length === 0" class="text-base text-gray-500 dark:text-gray-400">No feeds yet</div>
+    <p v-if="feeds.length === 0" class="font-serif text-[14px] italic text-mute">No feeds yet</p>
 
-    <div v-else class="space-y-1">
+    <div v-else class="space-y-2">
       <!-- Tag Folders -->
-      <div v-for="tag in allTags" :key="tag" v-show="!showUnreadOnly || getTagUnreadCount(tag) > 0"
-        class="space-y-0">
+      <div v-for="tag in allTags" :key="tag" v-show="!showUnreadOnly || getTagUnreadCount(tag) > 0">
         <!-- Tag Header (Collapsible) -->
         <div class="flex items-center gap-1 relative">
           <div
-            class="flex-1 min-w-0 flex items-center py-1.5 text-base font-medium rounded transition-colors group"
-            :class="selectedTag === tag && selectedFeedId === null ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+            class="flex-1 min-w-0 flex items-center py-1.5 font-serif text-[15px] transition-colors group"
+            :class="selectedTag === tag && selectedFeedId === null ? 'text-rust' : 'text-ink'">
             <button @click.stop="toggleTagFolderOnly(tag)"
-              class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
+              class="pr-1.5 py-0.5 text-mute hover:text-ink transition-colors">
               <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has(tag) }" fill="none"
                 stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" />
               </svg>
             </button>
-            <NuxtLink :to="`/tag/${tag}`" class="flex-1 text-left pl-1 pr-2">
+            <NuxtLink :to="`/tag/${tag}`" class="flex-1 text-left truncate hover:text-rust transition-colors">
               #{{ tag }}
             </NuxtLink>
-            <span class="flex-shrink-0 text-sm bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
+            <span class="flex-shrink-0 ml-2 mr-2 font-mono text-[11px] text-mute tabular-nums">
               {{ getTagUnreadCount(tag) }}
             </span>
           </div>
@@ -46,8 +40,8 @@
           <!-- Tag Dropdown Button -->
           <div class="relative">
             <button @click.stop="toggleTagMenu(tag)"
-              class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
-              :class="{ 'bg-gray-100 dark:bg-zinc-800': openTagMenuId === tag }">
+              class="flex-shrink-0 p-1.5 transition-colors"
+              :class="openTagMenuId === tag ? 'text-ink' : 'text-mute hover:text-ink'">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
               </svg>
@@ -56,11 +50,11 @@
             <!-- Tag Dropdown Menu -->
             <Transition name="dropdown">
               <div v-if="openTagMenuId === tag"
-                class="dropdown-menu-container absolute right-0 mt-1 w-48 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
+                class="dropdown-menu-container absolute right-0 mt-1 w-48 bg-paper border border-rule z-50">
                 <button @click="handleMarkTagAsRead(tag)"
-                  class="w-full text-left px-4 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  class="w-full text-left px-almanac-gutter py-2.5 font-serif text-[14px] text-ink hover:text-rust transition-colors flex items-center gap-2">
+                  <svg class="w-4 h-4 text-mute" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>Mark all as read</span>
@@ -72,17 +66,17 @@
 
         <!-- Feeds under this tag -->
         <Transition name="expand">
-          <div v-if="openTags.has(tag)" class="ml-4 space-y-0">
+          <div v-if="openTags.has(tag)" class="ml-5 space-y-0">
             <div v-for="feed in feedsByTag[tag]" :key="feed.id" class="flex items-center gap-1 relative">
               <NuxtLink :to="`/feed/${feed.id}`"
-                class="flex-1 min-w-0 text-left py-1.5 text-base rounded transition-colors flex items-center"
-                :class="$route.path === `/feed/${feed.id}` ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
-                <span v-else class="w-4 ml-3 mr-2"></span>
+                class="flex-1 min-w-0 text-left py-1.5 font-serif text-[14px] transition-colors flex items-center"
+                :class="$route.path === `/feed/${feed.id}` ? 'text-rust' : 'text-ink hover:text-rust'">
+                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 mr-2" />
+                <span v-else class="w-4 mr-2"></span>
                 <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
                 <span
-                  class="flex-shrink-0 text-sm text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center"
-                  :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
+                  class="flex-shrink-0 ml-2 mr-2 font-mono text-[11px] tabular-nums"
+                  :class="feed.unreadCount > 0 ? 'text-mute' : 'opacity-0'">
                   {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                 </span>
               </NuxtLink>
@@ -90,8 +84,8 @@
               <!-- Dropdown Button -->
               <div class="relative">
                 <button @click.stop="toggleFeedMenu(feed.id)"
-                  class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
-                  :class="{ 'bg-gray-100 dark:bg-zinc-800': openFeedMenuId === feed.id }">
+                  class="flex-shrink-0 p-1.5 transition-colors"
+                  :class="openFeedMenuId === feed.id ? 'text-ink' : 'text-mute hover:text-ink'">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                   </svg>
@@ -119,38 +113,38 @@
       <!-- Inbox Section (Untagged Feeds) -->
       <div v-if="feedsByTag['__inbox__'] && feedsByTag['__inbox__'].length > 0"
         v-show="!showUnreadOnly || getInboxUnreadCount() > 0"
-        class="space-y-0 border-t border-gray-200 dark:border-zinc-800 pt-2 mt-2">
+        class="border-t border-rule pt-3 mt-3">
         <div
-          class="w-full flex items-center py-1.5 text-base font-medium rounded transition-colors group"
-          :class="selectedTag === '__inbox__' && selectedFeedId === null ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
+          class="w-full flex items-center py-1.5 font-serif text-[15px] transition-colors group"
+          :class="selectedTag === '__inbox__' && selectedFeedId === null ? 'text-rust' : 'text-ink'">
           <button @click.stop="toggleTagFolderOnly('__inbox__')"
-            class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
+            class="pr-1.5 py-0.5 text-mute hover:text-ink transition-colors">
             <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': openTags.has('__inbox__') }"
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <NuxtLink to="/tag/__inbox__" class="flex-1 text-left pl-1 pr-2">
-            📥 Inbox
+          <NuxtLink to="/tag/__inbox__" class="flex-1 text-left hover:text-rust transition-colors">
+            <MonoLabel>INBOX</MonoLabel>
           </NuxtLink>
-          <span class="flex-shrink-0 text-sm bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
+          <span class="flex-shrink-0 ml-2 mr-2 font-mono text-[11px] text-mute tabular-nums">
             {{ getInboxUnreadCount() }}
           </span>
         </div>
 
         <!-- Untagged Feeds -->
         <Transition name="expand">
-          <div v-if="openTags.has('__inbox__')" class="ml-4 space-y-0">
+          <div v-if="openTags.has('__inbox__')" class="ml-5 space-y-0">
             <div v-for="feed in feedsByTag['__inbox__']" :key="feed.id" class="flex items-center gap-1 relative">
               <NuxtLink :to="`/feed/${feed.id}`"
-                class="flex-1 min-w-0 text-left py-1.5 text-base rounded transition-colors flex items-center"
-                :class="$route.path === `/feed/${feed.id}` ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 ml-3 mr-2" />
-                <span v-else class="w-4 ml-3 mr-2"></span>
+                class="flex-1 min-w-0 text-left py-1.5 font-serif text-[14px] transition-colors flex items-center"
+                :class="$route.path === `/feed/${feed.id}` ? 'text-rust' : 'text-ink hover:text-rust'">
+                <img v-if="feed.faviconUrl" :src="feed.faviconUrl" alt="" class="w-4 h-4 flex-shrink-0 mr-2" />
+                <span v-else class="w-4 mr-2"></span>
                 <span class="flex-1 min-w-0 truncate">{{ feed.title }}</span>
                 <span
-                  class="flex-shrink-0 text-sm text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center"
-                  :class="feed.unreadCount > 0 ? 'bg-blue-500 dark:bg-blue-600' : 'opacity-0'">
+                  class="flex-shrink-0 ml-2 mr-2 font-mono text-[11px] tabular-nums"
+                  :class="feed.unreadCount > 0 ? 'text-mute' : 'opacity-0'">
                   {{ feed.unreadCount > 0 ? feed.unreadCount : '0' }}
                 </span>
               </NuxtLink>
@@ -158,8 +152,8 @@
               <!-- Dropdown Button -->
               <div class="relative">
                 <button @click.stop="toggleFeedMenu(feed.id)"
-                  class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
-                  :class="{ 'bg-gray-100 dark:bg-zinc-800': openFeedMenuId === feed.id }">
+                  class="flex-shrink-0 p-1.5 transition-colors"
+                  :class="openFeedMenuId === feed.id ? 'text-ink' : 'text-mute hover:text-ink'">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                   </svg>
@@ -365,13 +359,13 @@ onMounted(() => {
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-8px) scale(0.95);
+  transform: translateY(-8px);
 }
 
 .dropdown-enter-to,
 .dropdown-leave-from {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
 /* Expand transition for tag folders */

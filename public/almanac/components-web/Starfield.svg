@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Starfield — six hand-placed dots, dark mode only.
+  Mirrors AlmanacStarfield.swift exactly.
+
+  viewBox is 100×100 (percent-like) — the SVG should be sized to the parent
+  container (e.g. width="100%" height="100%") and positioned absolutely
+  behind the page content. Place inside a wrapper that's only visible in
+  dark mode (e.g. a div hidden in light, shown in dark).
+
+  Each star is 1.4u wide. Opacities mirror the SwiftUI source.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+  <circle cx="12" cy="22" r="0.7" fill="#ffffff" opacity="0.55"/>
+  <circle cx="88" cy="14" r="0.7" fill="#ffffff" opacity="0.35"/>
+  <circle cx="30" cy="88" r="0.7" fill="#ffffff" opacity="0.45"/>
+  <circle cx="70" cy="60" r="0.7" fill="#ffffff" opacity="0.25"/>
+  <circle cx="45" cy="42" r="0.7" fill="#ffffff" opacity="0.40"/>
+  <circle cx="62" cy="78" r="0.7" fill="#ffffff" opacity="0.30"/>
+</svg>

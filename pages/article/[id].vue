@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
+  <div class="min-h-screen bg-paper text-ink font-serif">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -29,173 +29,113 @@
       />
 
       <!-- Loading State -->
-      <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="text-gray-500 dark:text-gray-400">Loading article...</div>
+      <div v-if="loading" class="flex items-center justify-center py-24">
+        <MonoLabel class="text-mute">LOADING</MonoLabel>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="flex flex-col items-center justify-center py-20 px-4">
-        <div class="max-w-md text-center space-y-4">
-          <svg class="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">Article Not Found</h2>
-          <p class="text-gray-600 dark:text-gray-400">{{ error }}</p>
-          <NuxtLink
-            :to="backUrl"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Articles
-          </NuxtLink>
+      <div v-else-if="error" class="flex flex-col items-center justify-center py-24 px-6">
+        <div class="max-w-[65ch] w-full text-center space-y-6">
+          <MonoLabel class="text-rust">NOT FOUND</MonoLabel>
+          <SerifHeadline level="h2">Article not found</SerifHeadline>
+          <p class="text-mute font-serif text-[14px] leading-[1.55]">{{ error }}</p>
+          <div class="flex justify-center pt-2">
+            <ActionLabel label="BACK" accent @click="router.push(backUrl)" />
+          </div>
         </div>
       </div>
 
       <!-- Article Content -->
-      <article v-else-if="article" class="max-w-xl mx-auto px-6 py-8">
-        <!-- Article Header -->
-        <header class="mb-8 pb-6 border-b border-gray-200 dark:border-zinc-800">
-          <h1 class="text-4xl font-bold font-spectral text-gray-900 dark:text-gray-100 mb-4">
+      <article
+        v-else-if="article"
+        ref="cardRef"
+        class="max-w-[65ch] mx-auto px-6 py-10 select-text"
+        :style="cardStyle"
+        v-on="handlers"
+      >
+        <!-- Header -->
+        <header class="mb-1">
+          <MonoLabel class="text-mute">
+            <template v-if="article.feedTitle">{{ article.feedTitle }} · </template>{{ formatDate(article.publishedAt) }}
+          </MonoLabel>
+
+          <SerifHeadline level="h1" class="mt-4 mb-2">
             {{ article.title }}
-          </h1>
+          </SerifHeadline>
 
-          <div class="flex items-center justify-between flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-            <div class="flex items-center gap-4">
-              <span v-if="article.feedTitle">{{ article.feedTitle }}</span>
-              <span>{{ formatDate(article.publishedAt) }}</span>
-              <span v-if="article.author">{{ article.author }}</span>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <!-- Read status -->
-              <span v-if="!article.isRead" class="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                Unread
-              </span>
-
-              <!-- Saved status -->
-              <span v-if="isSaved" class="px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded flex items-center gap-1">
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-                </svg>
-                Saved
-              </span>
-            </div>
-          </div>
+          <p v-if="article.author" class="mt-2 text-mute font-serif italic text-[13px] leading-[1.5]">
+            {{ article.author }}
+          </p>
         </header>
 
-        <!-- Article Actions Bar -->
-        <div class="mb-6 flex items-center justify-between flex-wrap gap-4 p-4 bg-white dark:bg-zinc-900 rounded-lg border border-gray-200 dark:border-zinc-800">
-          <div class="flex items-center gap-2">
-            <!-- Only show action buttons if user is logged in -->
-            <template v-if="loggedIn">
-              <button
-                @click="toggleSave"
-                class="px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2"
-                :class="isSaved
-                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700'"
-              >
-                <svg class="w-4 h-4" :fill="isSaved ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
-                  <path v-if="!isSaved" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                  <path v-else d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-                </svg>
-                {{ isSaved ? 'Unsave' : 'Save' }}
-              </button>
+        <HeaderDivider />
 
-              <button
-                @click="toggleRead"
-                class="px-3 py-1.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {{ article.isRead ? 'Mark unread' : 'Mark read' }}
-              </button>
-            </template>
+        <!-- Hero image -->
+        <figure v-if="article.imageUrl" class="my-6">
+          <img
+            :src="article.imageUrl"
+            :alt="article.title"
+            class="w-full border border-rule"
+            loading="lazy"
+          />
+        </figure>
 
-            <!-- Show sign-in prompt for non-authenticated users -->
-            <NuxtLink
-              v-else
-              to="/login"
-              class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              Sign in to save
-            </NuxtLink>
-          </div>
-
-          <a
-            :href="article.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            <span>Open original</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-            </svg>
-          </a>
+        <!-- Body -->
+        <div class="almanac-prose font-serif text-ink">
+          <div v-if="processedContent" v-html="processedContent"></div>
+          <p v-else-if="article.summary" class="text-ink">{{ article.summary }}</p>
+          <p v-else class="text-mute italic">No content available for this article.</p>
         </div>
 
-        <!-- Article Body -->
-        <div class="prose prose-lg dark:prose-invert max-w-none font-spectral">
-          <div
-            v-if="processedContent"
-            v-html="processedContent"
-          ></div>
-          <div v-else-if="article.summary" class="text-gray-700 dark:text-gray-300">
-            {{ article.summary }}
-          </div>
-          <div v-else class="text-gray-500 dark:text-gray-400 italic">
-            No content available for this article.
-          </div>
-        </div>
+        <SectionDivider class="!my-10" />
 
-        <!-- Navigation Footer -->
-        <footer class="mt-12 pt-6 border-t border-gray-200 dark:border-zinc-800">
-          <div class="flex items-center justify-between gap-2 sm:gap-4">
-            <!-- Previous Button (Left) -->
-            <NuxtLink
-              v-if="prevArticleId"
-              :to="{ path: `/article/${prevArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
-              class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
-            >
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span class="hidden sm:inline">Previous</span>
-            </NuxtLink>
-            <div v-else class="w-[44px] sm:w-[76px]"></div>
+        <!-- Action footer (hairline) -->
+        <footer class="flex flex-wrap items-center gap-3">
+          <template v-if="loggedIn">
+            <ActionLabel
+              :label="isSaved ? 'STORED' : 'STORE'"
+              :accent="isSaved"
+              @click="commit('left')"
+            />
+            <ActionLabel
+              :label="article.isRead ? 'MARK UNREAD' : 'MARK READ'"
+              @click="toggleRead"
+            />
+          </template>
+          <NuxtLink v-else to="/login" class="inline-flex">
+            <ActionLabel label="SIGN IN TO SAVE" accent @click="() => {}" />
+          </NuxtLink>
 
-            <!-- Back to Articles (Center) -->
-            <NuxtLink
-              :to="backUrl"
-              class="px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 flex-shrink-0"
-            >
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              <span class="hidden xs:inline sm:inline">All Articles</span>
-            </NuxtLink>
+          <ActionLabel label="OPEN ORIGINAL" @click="openOriginal" />
 
-            <!-- Next Button (Right) -->
-            <NuxtLink
-              v-if="nextArticleId"
-              :to="{ path: `/article/${nextArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
-              class="px-3 py-2 sm:px-4 sm:py-2.5 text-sm bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 min-w-0 flex-shrink"
-            >
-              <span class="hidden sm:inline">Next</span>
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </NuxtLink>
-            <div v-else class="w-[44px] sm:w-[76px]"></div>
-          </div>
+          <span class="flex-1"></span>
+
+          <ActionLabel label="BACK" @click="router.push(backUrl)" />
         </footer>
+
+        <!-- Prev / Next navigation (hairline) -->
+        <nav
+          v-if="prevArticleId || nextArticleId"
+          class="mt-8 pt-6 flex items-center justify-between gap-3 border-t border-rule"
+        >
+          <NuxtLink
+            v-if="prevArticleId"
+            :to="{ path: `/article/${prevArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
+            class="inline-flex"
+          >
+            <ActionLabel label="PREV" @click="() => {}" />
+          </NuxtLink>
+          <span v-else></span>
+
+          <NuxtLink
+            v-if="nextArticleId"
+            :to="{ path: `/article/${nextArticleId}`, query: route.query.from ? { from: route.query.from } : {} }"
+            class="inline-flex"
+          >
+            <ActionLabel label="NEXT" @click="() => {}" />
+          </NuxtLink>
+          <span v-else></span>
+        </nav>
       </article>
     </div>
 
@@ -244,12 +184,13 @@
 
 <script setup lang="ts">
 import { formatRelativeDate } from '~/utils/formatDate'
-import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
 import { useSwipeGesture } from '~/composables/useSwipeGesture'
+import { useDeckGesture } from '~/composables/useDeckGesture'
 import { useArticleNavigation } from '~/composables/useArticleNavigation'
 import { useToast } from '~/composables/useToast'
 import { getSwipeCurve, getSwipeFillPath, getCurveParams } from '~/utils/swipeCurve'
 import { processArticleContent } from '~/utils/processArticleContent'
+import type { DeckDirection } from '~/utils/deck'
 
 const route = useRoute()
 const router = useRouter()
@@ -257,29 +198,23 @@ const articleId = computed(() => parseInt(route.params.id as string))
 
 // Track where the user came from for better back navigation
 const backUrl = computed(() => {
-  // Check if we have a 'from' query parameter (e.g., ?from=tag/technology or ?from=feed/123)
   const fromParam = route.query.from as string
   if (fromParam) {
     return `/${fromParam}`
   }
-
-  // Default: go back to the article's feed if available, otherwise home
   return article.value?.feedId ? `/feed/${article.value.feedId}` : '/'
 })
 
-const { loggedIn, user, signOut } = useAuth()
+const { loggedIn, signOut } = useAuth()
 
 const {
   feeds,
   fetchFeeds,
-  syncAll,
-  refreshFeed
+  syncAll
 } = useFeeds()
 
 const {
-  selectedArticleId,
   markAsRead,
-  fetchArticles
 } = useArticles()
 
 const {
@@ -292,6 +227,7 @@ const {
 const article = ref<any>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+const cardRef = ref<HTMLElement | null>(null)
 
 // Article navigation composable
 const {
@@ -324,10 +260,10 @@ const selectedFeed = computed(() => {
   return feeds.value.find(f => f.id === article.value.feedId) || null
 })
 
-// Process article content to make all links open in new tabs
+// Process article content (sanitize + open links in new tabs)
 const processedContent = computed(() => processArticleContent(article.value?.content))
 
-// Set up SEO meta tags for better sharing
+// SEO meta tags
 watch(article, (newArticle) => {
   if (newArticle) {
     useSeoMeta({
@@ -355,13 +291,11 @@ const fetchArticle = async () => {
     const response = await $fetch(`/api/articles/${articleId.value}`)
     article.value = response
 
-    // Mark as read on open
     if (!article.value.isRead) {
       await markAsRead(articleId.value, true)
       article.value.isRead = true
     }
 
-    // Fetch feed articles to determine prev/next
     await fetchAdjacentArticles()
   } catch (e: any) {
     console.error('Failed to fetch article:', e)
@@ -371,21 +305,40 @@ const fetchArticle = async () => {
   }
 }
 
+// Toast notifications
+const { showSuccess, showError } = useToast()
+
 // Actions
+const openOriginal = () => {
+  if (article.value?.url) {
+    window.open(article.value.url, '_blank', 'noopener,noreferrer')
+  }
+}
+
 const toggleSave = async () => {
+  if (!loggedIn.value) {
+    navigateTo('/login')
+    return
+  }
   try {
+    const wasSaved = isSaved.value
     await toggleSaveAction(articleId.value)
+    showSuccess(wasSaved ? 'Removed from saved' : 'Saved for later')
   } catch (e) {
     console.error('Failed to toggle save:', e)
+    showError('Could not update saved state')
   }
 }
 
 const toggleRead = async () => {
   try {
-    await markAsRead(articleId.value, !article.value.isRead)
-    article.value.isRead = !article.value.isRead
+    const next = !article.value.isRead
+    await markAsRead(articleId.value, next)
+    article.value.isRead = next
+    showSuccess(next ? 'Marked read' : 'Marked unread')
   } catch (e) {
     console.error('Failed to toggle read:', e)
+    showError('Could not update read state')
   }
 }
 
@@ -406,15 +359,39 @@ const handleSignOut = async () => {
   navigateTo('/login')
 }
 
-// Toast notifications
-const { success: headerSuccess, error: headerError, showSuccess, showError } = useToast()
-
 const handleHeaderSuccess = (message: string) => showSuccess(message)
 const handleHeaderError = (message: string) => showError(message)
 
 const formatDate = formatRelativeDate
 
-// Setup swipe gesture handling
+// ---- Deck gesture (single-card reader) --------------------------------
+// Maps the four Almanac deck directions onto the reader's actions:
+//   left  → store  (save/unsave)
+//   right → read   (mark read/unread)
+//   up    → open   (original URL)
+//   down  → skip   (back to the list)
+const onDeckCommit = (dir: DeckDirection) => {
+  switch (dir) {
+    case 'left':
+      toggleSave()
+      break
+    case 'right':
+      toggleRead()
+      break
+    case 'up':
+      openOriginal()
+      break
+    case 'down':
+      router.push(backUrl.value)
+      break
+  }
+}
+
+const { cardStyle, handlers, commit } = useDeckGesture({
+  onCommit: onDeckCommit,
+})
+
+// ---- Prev/next swipe navigation (window-level, restyled) ----------------
 const {
   isSwipeGesture,
   swipeProgress,
@@ -425,14 +402,12 @@ const {
 } = useSwipeGesture({
   onSwipeLeft: () => {
     if (nextArticleId.value) {
-      // Preserve the 'from' query parameter when swiping
       const query = route.query.from ? { from: route.query.from } : {}
       router.push({ path: `/article/${nextArticleId.value}`, query })
     }
   },
   onSwipeRight: () => {
     if (prevArticleId.value) {
-      // Preserve the 'from' query parameter when swiping
       const query = route.query.from ? { from: route.query.from } : {}
       router.push({ path: `/article/${prevArticleId.value}`, query })
     }
@@ -453,12 +428,8 @@ const rightFillPath = computed(() => getSwipeFillPath('right', curveParams.value
 
 // Lifecycle
 onMounted(async () => {
-  // Set up keyboard event listener
   window.addEventListener('keydown', handleArticleKeydown)
 
-  // Fetch initial data
-  // Always fetch article (now publicly accessible)
-  // Only fetch feeds and saved IDs if logged in
   if (loggedIn.value) {
     await Promise.all([
       fetchFeeds(),
@@ -480,36 +451,29 @@ watch(() => route.params.id, async () => {
 // Keyboard shortcut handlers for article view
 const articleKeyboardHandlers: Record<string, (e: KeyboardEvent) => void> = {
   'Escape': () => router.push(backUrl.value),
-  'o': () => {
-    if (article.value?.url) {
-      window.open(article.value.url, '_blank', 'noopener,noreferrer')
-    }
-  },
+  'o': () => openOriginal(),
+  's': () => toggleSave(),
+  'm': () => toggleRead(),
   'j': () => {
     if (nextArticleId.value) {
-      // Preserve the 'from' query parameter when navigating
       const query = route.query.from ? { from: route.query.from } : {}
       router.push({ path: `/article/${nextArticleId.value}`, query })
     }
   },
   'k': () => {
     if (prevArticleId.value) {
-      // Preserve the 'from' query parameter when navigating
       const query = route.query.from ? { from: route.query.from } : {}
       router.push({ path: `/article/${prevArticleId.value}`, query })
     }
   }
 }
 
-// Custom keyboard handler for article view
 const handleArticleKeydown = (e: KeyboardEvent) => {
-  // Ignore if typing in an input field
   const target = e.target as HTMLElement
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
     return
   }
 
-  // Check if we have a handler for this key
   const handler = articleKeyboardHandlers[e.key]
   if (handler) {
     e.preventDefault()
@@ -520,8 +484,134 @@ const handleArticleKeydown = (e: KeyboardEvent) => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleArticleKeydown)
 })
-
-// Note: We don't use useKeyboardShortcuts here because it's designed for article list views
-// (feed/tag/home) where you select articles in a grid. On the article detail page, we need
-// different behavior (j/k navigate between articles, o opens original URL, Escape goes back)
 </script>
+
+<style scoped>
+/* Almanac prose — serif, hairline rules, rust links, hairline blockquote rule.
+   Scoped + :deep() because article body is injected via v-html. */
+.almanac-prose {
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 65ch;
+}
+
+.almanac-prose :deep(p) {
+  margin: 0 0 1.1em;
+}
+
+.almanac-prose :deep(h1),
+.almanac-prose :deep(h2),
+.almanac-prose :deep(h3),
+.almanac-prose :deep(h4),
+.almanac-prose :deep(h5),
+.almanac-prose :deep(h6) {
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  margin: 1.6em 0 0.5em;
+  line-height: 1.25;
+}
+
+.almanac-prose :deep(h1) { font-size: 24px; }
+.almanac-prose :deep(h2) { font-size: 20px; }
+.almanac-prose :deep(h3) { font-size: 17px; }
+
+.almanac-prose :deep(a) {
+  color: var(--almanac-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.almanac-prose :deep(a:hover) {
+  text-decoration-thickness: 2px;
+}
+
+.almanac-prose :deep(strong) {
+  font-weight: 600;
+  color: var(--almanac-fg);
+}
+
+.almanac-prose :deep(em) {
+  font-style: italic;
+}
+
+.almanac-prose :deep(ul),
+.almanac-prose :deep(ol) {
+  margin: 0 0 1.1em;
+  padding-left: 1.4em;
+}
+
+.almanac-prose :deep(li) {
+  margin: 0.3em 0;
+}
+
+.almanac-prose :deep(blockquote) {
+  margin: 1.4em 0;
+  padding-left: 1.1em;
+  border-left: 1px solid var(--almanac-rule);
+  color: var(--almanac-fg-mute);
+  font-style: italic;
+}
+
+.almanac-prose :deep(hr) {
+  border: 0;
+  height: 1px;
+  background: var(--almanac-rule);
+  margin: 2em 0;
+}
+
+.almanac-prose :deep(img),
+.almanac-prose :deep(figure) {
+  max-width: 100%;
+  height: auto;
+  margin: 1.4em 0;
+}
+
+.almanac-prose :deep(img) {
+  border: 1px solid var(--almanac-rule);
+}
+
+.almanac-prose :deep(figcaption) {
+  font-size: 12px;
+  color: var(--almanac-fg-mute);
+  margin-top: 0.4em;
+  font-style: italic;
+}
+
+.almanac-prose :deep(code) {
+  font-family: var(--almanac-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.88em;
+  background: transparent;
+  border: 1px solid var(--almanac-rule);
+  padding: 0.05em 0.35em;
+}
+
+.almanac-prose :deep(pre) {
+  font-family: var(--almanac-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--almanac-rule);
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1.4em 0;
+}
+
+.almanac-prose :deep(pre code) {
+  border: 0;
+  padding: 0;
+}
+
+.almanac-prose :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.4em 0;
+  font-size: 13px;
+}
+
+.almanac-prose :deep(th),
+.almanac-prose :deep(td) {
+  border: 1px solid var(--almanac-rule);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+</style>

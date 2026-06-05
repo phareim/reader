@@ -2,23 +2,27 @@
   <div>
     <!-- Slide-in Menu -->
     <div
-      class="fixed top-0 left-0 h-full w-full md:w-80 bg-white dark:bg-zinc-900 shadow-2xl z-30 flex flex-col transition-transform duration-300 ease-in-out"
+      class="fixed top-0 left-0 h-full w-full md:w-80 bg-paper border-r border-rule z-30 flex flex-col transition-transform duration-300 ease-in-out"
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'">
 
       <!-- Menu Header -->
       <MenuHeader @close="isOpen = false" @select-all-feeds="selectAllFeeds" />
 
       <!-- Scrollable Menu Content -->
-      <div class="flex-1 overflow-y-auto p-2 space-y-3">
+      <div class="flex-1 overflow-y-auto px-almanac-gutter py-4 font-serif">
         <!-- Add Feed Section -->
         <AddFeedSection @success="handleSuccess" @error="handleError" />
 
         <!-- Success/Error Messages -->
-        <p v-if="error" class="text-base text-red-500 dark:text-red-400">{{ error }}</p>
-        <p v-if="success" class="text-base text-green-500 dark:text-green-400">{{ success }}</p>
+        <p v-if="error" class="mt-3 font-serif text-[14px] text-rust">{{ error }}</p>
+        <p v-if="success" class="mt-3 font-serif text-[14px] text-mute italic">{{ success }}</p>
+
+        <SectionDivider />
 
         <!-- Saved Articles -->
         <SavedArticlesSection @select-saved-tag="selectSavedTag" />
+
+        <SectionDivider />
 
         <!-- Feeds List -->
         <FeedsSection @success="handleSuccess" @error="handleError" />

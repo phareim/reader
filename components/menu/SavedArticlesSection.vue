@@ -1,47 +1,47 @@
 <template>
-  <div class="space-y-1">
-    <div class="flex items-center gap-1">
-      <h3 class="flex-1 font-semibold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-        </svg>
-        <NuxtLink to="/saved"
-          class="flex-1 text-left hover:text-yellow-600 dark:hover:text-yellow-300 transition-colors"
-          :class="$route.path === '/saved' ? 'text-yellow-600 dark:text-yellow-300' : ''">
-          Saved Articles
-        </NuxtLink>
-        <button @click.stop="toggleSavedArticlesFolder"
-        class="pl-2 pr-1 py-0.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors">
+  <div class="space-y-2">
+    <div class="flex items-center justify-between gap-2">
+      <NuxtLink
+        to="/saved"
+        class="font-serif text-[15px] transition-colors"
+        :class="$route.path === '/saved' ? 'text-rust' : 'text-ink hover:text-rust'"
+      >
+        <MonoLabel>SAVED</MonoLabel>
+      </NuxtLink>
+      <button
+        @click.stop="toggleSavedArticlesFolder"
+        class="p-1 text-mute hover:text-ink transition-colors"
+        aria-label="Toggle saved articles"
+      >
         <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': isSavedArticlesExpanded }" fill="none"
           stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5l7 7-7 7" />
         </svg>
       </button>
-      </h3>
     </div>
 
     <!-- Saved Articles Tags -->
     <Transition name="expand">
-      <div v-if="isSavedArticlesExpanded && savedArticleTags.length > 0" class="ml-6 space-y-0">
-        <div v-for="tag in savedArticleTags" :key="'saved-' + tag" class="space-y-0">
+      <div v-if="isSavedArticlesExpanded && savedArticleTags.length > 0" class="ml-3 space-y-1">
+        <div v-for="tag in savedArticleTags" :key="'saved-' + tag">
           <!-- Tag Header -->
           <div class="flex items-center gap-1 relative">
-            <div class="flex-1 min-w-0 flex items-center py-1.5 text-base font-medium rounded transition-colors group"
-              :class="selectedTag === tag && selectedFeedId === -1 ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-              <button @click="$emit('select-saved-tag', tag)" class="flex-1 text-left truncate pl-2 pr-2">
-                #{{ tag }}
-              </button>
-              <span
-                class="flex-shrink-0 text-sm bg-purple-500 dark:bg-purple-600 text-white px-2 py-0.5 rounded-full mr-2 min-w-[2rem] text-center">
+            <button
+              @click="$emit('select-saved-tag', tag)"
+              class="flex-1 min-w-0 flex items-center justify-between py-1.5 font-serif text-[15px] transition-colors group"
+              :class="selectedTag === tag && selectedFeedId === -1 ? 'text-rust' : 'text-ink hover:text-rust'"
+            >
+              <span class="truncate text-left">#{{ tag }}</span>
+              <span class="flex-shrink-0 ml-2 font-mono text-[11px] text-mute tabular-nums">
                 {{ getSavedTagCount(tag) }}
               </span>
-            </div>
+            </button>
 
             <!-- Dropdown Button -->
             <div class="relative">
               <button @click.stop="toggleSavedTagMenu(tag)"
-                class="flex-shrink-0 p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors"
-                :class="{ 'bg-gray-100 dark:bg-zinc-800': openSavedTagMenuId === tag }">
+                class="flex-shrink-0 p-1.5 transition-colors"
+                :class="openSavedTagMenuId === tag ? 'text-ink' : 'text-mute hover:text-ink'">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -50,10 +50,10 @@
               <!-- Dropdown Menu (placeholder for future actions) -->
               <Transition name="dropdown">
                 <div v-if="openSavedTagMenuId === tag"
-                  class="dropdown-menu-container absolute right-0 mt-1 w-64 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 z-50">
-                  <div class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                  class="dropdown-menu-container absolute right-0 mt-1 w-56 bg-paper border border-rule z-50 px-almanac-gutter py-3">
+                  <p class="font-serif text-[13px] italic text-mute">
                     No actions available yet
-                  </div>
+                  </p>
                 </div>
               </Transition>
             </div>
@@ -63,16 +63,16 @@
         <!-- Untagged Saved Articles -->
         <div v-if="getSavedTagCount('__inbox__') > 0">
           <button @click="$emit('select-saved-tag', '__saved_untagged__')"
-            class="w-full flex items-center gap-2 px-2 py-1.5 text-base font-medium rounded transition-colors"
-            :class="selectedTag === '__saved_untagged__' && selectedFeedId === -1 ? 'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'">
-            <span class="flex-1 text-left">📥 Untagged</span>
-            <span class="text-sm bg-gray-500 dark:bg-zinc-700 text-white px-2 py-0.5 rounded-full">
+            class="w-full flex items-center justify-between py-1.5 font-serif text-[15px] transition-colors"
+            :class="selectedTag === '__saved_untagged__' && selectedFeedId === -1 ? 'text-rust' : 'text-ink hover:text-rust'">
+            <span class="flex-1 text-left truncate">Untagged</span>
+            <span class="flex-shrink-0 ml-2 font-mono text-[11px] text-mute tabular-nums">
               {{ getSavedTagCount('__inbox__') }}
             </span>
           </button>
         </div>
       </div>
-  </Transition>
+    </Transition>
   </div>
 </template>
 
@@ -127,13 +127,13 @@ onMounted(() => {
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-8px) scale(0.95);
+  transform: translateY(-8px);
 }
 
 .dropdown-enter-to,
 .dropdown-leave-from {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 /* Expand transition for collapsible sections */
 .expand-enter-active,

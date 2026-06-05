@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
-    <!-- Hamburger Menu -->
+  <div class="min-h-screen bg-paper text-ink font-serif">
+    <!-- Hamburger Menu (reskinned by the shell agent) -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
-    <!-- Keyboard Shortcuts Help Dialog -->
+    <!-- Keyboard Shortcuts Help Dialog (reskinned by the common agent) -->
     <KeyboardShortcutsHelp ref="helpDialogRef" />
 
     <!-- Newsletter Summary Modal -->
@@ -12,166 +12,113 @@
     </ClientOnly>
 
     <!-- Main Content Area -->
-    <div class="min-h-screen transition-all duration-300 ease-in-out"
-      :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }">
+    <div
+      class="min-h-screen transition-all duration-300 ease-in-out"
+      :style="{ marginLeft: menuIsOpen ? '20rem' : '0' }"
+    >
       <!-- Sticky Header -->
-      <PageHeader :menu-is-open="menuIsOpen" :current-article="null" :selected-feed="selectedFeed"
-        :selected-feed-id="selectedFeedId" :selected-tag="selectedTag"
-        :unread-count="articleCounts.unreadCount" :total-count="articleCounts.totalCount"
+      <PageHeader
+        :menu-is-open="menuIsOpen"
+        :current-article="null"
+        :selected-feed="selectedFeed"
+        :selected-feed-id="selectedFeedId"
+        :selected-tag="selectedTag"
+        :unread-count="articleCounts.unreadCount"
+        :total-count="articleCounts.totalCount"
         :is-loading="feedsLoading || articlesLoading"
         @toggle-menu="toggleMenu"
-        @mark-all-read="handleMarkAllRead" @refresh-feed="handleRefreshFeed" @sync-all="handleSyncAll"
-        @view-saved="handleViewSaved" @sign-out="handleSignOut" @success="handleHeaderSuccess"
-        @error="handleHeaderError" />
+        @mark-all-read="handleMarkAllRead"
+        @refresh-feed="handleRefreshFeed"
+        @sync-all="handleSyncAll"
+        @view-saved="handleViewSaved"
+        @sign-out="handleSignOut"
+        @success="handleHeaderSuccess"
+        @error="handleHeaderError"
+      />
 
-      <!-- Articles List (Full Width) -->
-      <div class="py-0">
-        <!-- Success/Error Messages -->
-        <div v-if="headerSuccess || headerError" class="px-6 py-4">
-          <p v-if="headerSuccess" class="text-base text-green-500 dark:text-green-400">{{ headerSuccess }}</p>
-          <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
-        </div>
-
-        <!-- Not Logged In State -->
-        <div v-if="!loggedIn" class="flex flex-col items-center justify-center py-20 px-4">
-          <div class="max-w-md text-center space-y-6">
-            <svg class="w-20 h-20 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              <img :src="booksStackIcon" alt="Stack of books"
-                class="w-10 h-10 mx-auto text-gray-400 dark:text-zinc-600" />
-              Hello!
-            </h2>
-            <p class="text-gray-600 dark:text-gray-400">
-              Your friendly librarian for organizing and curating the web's knowledge.
-            </p>
-            <NuxtLink to="/login"
-              class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Sign In to Get Started
-            </NuxtLink>
-          </div>
-        </div>
-
-        <!-- Logged In Content -->
-        <template v-else>
-          <!-- Loading Skeletons -->
-          <div v-if="articlesLoading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-            <ArticleCardSkeleton v-for="i in 10" :key="i" />
-          </div>
-
-          <!-- Empty State Component (shown when no articles OR in overview mode) -->
-          <EmptyState v-else-if="selectedFeedId === -2 || displayedArticles.length === 0"
-            :type="feeds.length === 0 ? 'no-feeds' : 'all-caught-up'" :tags-with-unread="tagsWithUnreadCounts"
-            :inbox-unread-count="getInboxUnreadCount()" :total-unread-count="totalUnreadCount"
-            :has-unread-in-other-views="hasUnreadInOtherViews"
-            @sync-all="handleSyncAll" />
-
-          <!-- Article Grid -->
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-            <TransitionGroup name="card-list" tag="div" class="contents">
-              <LazyArticleCard v-for="article in displayedArticles" :key="article.id" :article="article"
-                :is-selected="selectedArticleId === article.id" :is-saved="isSaved(article.id)"
-                :show-feed-title="!selectedFeed" :all-tags-with-counts="allTagsWithCounts"
-                :selection-mode="selectionMode" :is-selected-for-bulk="isSelected(article.id)"
-                @toggle-save="toggleSaveArticle(article.id)" @toggle-read="handleToggleRead(article.id)"
-                @update-tags="handleUpdateTags" @swipe-dismiss="handleSwipeDismiss(article.id)"
-                @toggle-selection="handleToggleSelection(article.id, $event)" />
-            </TransitionGroup>
-          </div>
-
-          <!-- Bulk Selection Floating Button -->
-          <button v-if="displayedArticles.length > 0 && !selectionMode"
-            @click="toggleSelectionMode"
-            class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
-            title="Select multiple articles">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          </button>
-
-          <!-- Bulk Action Bar -->
-          <BulkActionBar
-            :selected-count="selectedCount"
-            @mark-read="handleBulkMarkRead"
-            @save="handleBulkSave"
-            @clear="handleBulkClear"
-            @exit="handleBulkExit"
-          />
-        </template>
+      <!-- Success/Error Messages -->
+      <div v-if="headerSuccess || headerError" class="px-6 py-4">
+        <p v-if="headerSuccess" class="font-serif text-[14px] text-rust">{{ headerSuccess }}</p>
+        <p v-if="headerError" class="font-serif text-[14px] italic text-mute">{{ headerError }}</p>
       </div>
+
+      <!-- Not Logged In Entrance -->
+      <div v-if="!loggedIn" class="flex flex-col items-center justify-center px-6 py-24 text-center">
+        <OrbitalGlyph :size="72" />
+        <SerifHeadline level="h1" class="mt-8">Hello.</SerifHeadline>
+        <p class="mt-3 max-w-md font-serif text-[14px] leading-[1.55] text-mute">
+          Your friendly librarian for organizing and curating the web's knowledge.
+        </p>
+        <div class="mt-8">
+          <ActionLabel label="SIGN IN" accent @click="goToLogin" />
+        </div>
+      </div>
+
+      <!-- Logged In: the reading deck -->
+      <template v-else>
+        <div v-if="articlesLoading" class="px-6 py-24 text-center">
+          <span class="font-serif text-[14px] italic text-mute">Loading…</span>
+        </div>
+
+        <div v-else class="py-10">
+          <CardStack
+            ref="cardStackRef"
+            :articles="deckArticles"
+            :syncing="syncing"
+            @sync-all="handleSyncAll"
+            @open="openArticle"
+            @success="handleHeaderSuccess"
+            @error="handleHeaderError"
+          />
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '~/composables/useKeyboardShortcuts'
-import booksStackIcon from '~/assets/svg/books-stack-of-three-svgrepo-com.svg'
 import NewsletterModal from '~/components/common/NewsletterModal.vue'
+import type { Article } from '~/types'
 
-const { loggedIn, user } = useAuth()
+const { loggedIn } = useAuth()
 
 const {
-  feeds,
   selectedFeedId,
   selectedTag,
   selectedFeed,
   selectedTagFeedIds,
-  allTags,
-  feedsByTag,
-  totalUnreadCount,
   loading: feedsLoading,
   fetchFeeds,
   refreshFeed,
-  syncAll
+  syncAll,
 } = useFeeds()
 
 const {
   articles,
   selectedArticleId,
-  selectedArticle,
   showUnreadOnly,
-  displayedArticles: _displayedArticles,
+  displayedArticles,
   unreadArticles,
   loading: articlesLoading,
   fetchArticles,
   markAsRead,
-  markAllAsRead
 } = useArticles()
 
+// Common page functionality (menu, auth, etc.)
 const {
-  isSaved,
-  fetchSavedArticleIds
-} = useSavedArticles()
-
-const {
-  allTagsWithCounts,
-  fetchTags
-} = useTags()
-
-const {
-  fetchSavedArticlesByTag
-} = useSavedArticlesByTag()
-
-// Search functionality
-const { searchQuery, filterArticles } = useArticleSearch()
+  hamburgerMenuRef,
+  helpDialogRef,
+  menuIsOpen,
+  toggleMenu,
+  handleSyncAll: _handleSyncAll,
+  handleSignOut,
+  initializeArticlePage,
+} = useArticlePageCommon()
 
 // Shared article handlers
-const {
-  toggleSaveArticle,
-  handleToggleRead,
-  handleUpdateTags,
-  handleMarkAsRead,
-  handleMarkAllRead: _handleMarkAllRead
-} = useArticleViewHandlers()
+const { handleMarkAllRead: _handleMarkAllRead } = useArticleViewHandlers()
 
-// Wrapper for handleMarkAllRead that passes feedId when needed
 const handleMarkAllRead = async () => {
   if (selectedFeedId.value !== null && selectedFeedId.value > 0) {
     await _handleMarkAllRead(selectedFeedId.value)
@@ -180,173 +127,108 @@ const handleMarkAllRead = async () => {
   }
 }
 
-// Common page functionality (menu, auth, etc.)
-const {
-  hamburgerMenuRef,
-  helpDialogRef,
-  menuIsOpen,
-  toggleMenu,
-  handleSyncAll,
-  handleSignOut,
-  initializeArticlePage
-} = useArticlePageCommon()
-
 // Header messages
 const {
   success: headerSuccess,
   error: headerError,
   showSuccess: handleHeaderSuccess,
-  showError: handleHeaderError
+  showError: handleHeaderError,
 } = useToast()
 
-// Track dismissed articles for smooth removal animation
-const dismissedArticleIds = ref<Set<number>>(new Set())
+// ---- Deck source: unread, newest first -------------------------------------
 
-// Compute article counts for header
+const syncing = ref(false)
+
+const deckArticles = computed<Article[]>(() => {
+  // The reading deck is always the unread set for the active view, newest first.
+  const pool = selectedFeedId.value === -1 ? articles.value : unreadArticles.value
+  return [...pool].sort((a, b) => {
+    const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0
+    const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0
+    return tb - ta
+  }) as Article[]
+})
+
+// Counts for the header
 const articleCounts = computed(() => {
   if (selectedFeedId.value === -1) {
-    // Saved articles - show total count
     return { unreadCount: 0, totalCount: articles.value.length }
-  } else {
-    // Other views - show unread count
-    return { unreadCount: unreadArticles.value.length, totalCount: 0 }
   }
+  return { unreadCount: unreadArticles.value.length, totalCount: 0 }
 })
 
-// Override displayedArticles to ignore unread filter when viewing saved articles + apply search
-const displayedArticles = computed(() => {
-  let articlesToDisplay
-  // When viewing saved articles (feedId === -1), show all saved articles
-  if (selectedFeedId.value === -1) {
-    articlesToDisplay = articles.value
-  } else {
-    // Otherwise use the default filtering from useArticles
-    articlesToDisplay = _displayedArticles.value
-  }
+// ---- Navigation -------------------------------------------------------------
 
-  // Apply search filter
-  articlesToDisplay = filterArticles(articlesToDisplay, searchQuery.value)
+const goToLogin = () => navigateTo('/login')
 
-  // Filter out dismissed articles
-  return articlesToDisplay.filter(a => !dismissedArticleIds.value.has(a.id))
-})
-
-// Bulk action handlers
-const {
-  selectionMode,
-  selectedArticleIds,
-  selectedCount,
-  toggleSelectionMode,
-  handleToggleSelection,
-  handleBulkMarkRead,
-  handleBulkSave,
-  handleBulkClear,
-  handleBulkExit
-} = useBulkActionHandlers({
-  searchedArticles: displayedArticles,
-  showSuccess: handleHeaderSuccess,
-  showError: handleHeaderError
-})
-
-const { isSelected, toggleSelection } = useBulkSelection()
-
-// Handle swipe dismiss - remove article from local display immediately
-const handleSwipeDismiss = (articleId: number) => {
-  // The toggle-save or toggle-read events have already been emitted
-  // Just need to mark as dismissed for smooth animation
-  dismissedArticleIds.value.add(articleId)
+const openArticle = (id: number) => {
+  navigateTo(`/article/${id}`)
 }
 
-// Load feeds and saved articles on mount (only if logged in)
+const handleSyncAll = async () => {
+  syncing.value = true
+  try {
+    await _handleSyncAll()
+    // Refill the deck after a sync.
+    await refillDeck()
+  } finally {
+    syncing.value = false
+  }
+}
+
+// ---- Deck refill (mirrors the previous index.vue fetch logic) --------------
+
+const refillDeck = async () => {
+  const feedId = selectedFeedId.value
+  const tag = selectedTag.value
+
+  if (feedId === -2) {
+    // Overview mode — treat as "all unread" for the deck entrance.
+    await fetchArticles()
+    return
+  }
+
+  if (feedId === -1) {
+    if (tag && tag !== '__saved_untagged__') {
+      await fetchArticles(-1, undefined, tag)
+    } else if (tag === '__saved_untagged__') {
+      await fetchArticles(-1, undefined, '__inbox__')
+    } else {
+      await fetchArticles(-1)
+    }
+  } else if (feedId !== null) {
+    await fetchArticles(feedId)
+  } else if (tag !== null) {
+    await fetchArticles(undefined, selectedTagFeedIds.value)
+  } else {
+    await fetchArticles()
+  }
+}
+
+// ---- Lifecycle + watches ----------------------------------------------------
+
 onMounted(async () => {
   const init = await initializeArticlePage()
-  
-  // The watch on [selectedFeedId, selectedTag, showUnreadOnly] will handle
-  // fetching articles once the relevant data is available
   if (init.allReady) {
     await init.allReady
   }
 })
 
-// Watch for session changes to fetch data when user logs in
 watch(loggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
     await initializeArticlePage()
   }
 })
 
-// Watch for feed, tag, or unread filter changes
-watch([selectedFeedId, selectedTag, showUnreadOnly], async ([feedId, tag]) => {
-  // Clear dismissed articles when changing views
-  dismissedArticleIds.value.clear()
-
-  if (feedId === -2) {
-    // Overview mode - don't fetch articles, just show the EmptyState
-    return
-  } else if (feedId === -1) {
-    // Saved articles selected
-    if (tag && tag !== '__saved_untagged__') {
-      // Filter saved articles by tag
-      await fetchArticles(-1, undefined, tag)
-    } else if (tag === '__saved_untagged__') {
-      // Show untagged saved articles (we'll need to handle this in the API)
-      await fetchArticles(-1, undefined, '__inbox__')
-    } else {
-      // Show all saved articles
-      await fetchArticles(-1)
-    }
-  } else if (feedId !== null) {
-    // Specific feed selected - fetch articles from that feed
-    await fetchArticles(feedId)
-  } else if (tag !== null) {
-    // Tag selected but no specific feed - fetch articles from all feeds with this tag
-    await fetchArticles(undefined, selectedTagFeedIds.value)
-  } else {
-    // No feed or tag selected - fetch all articles
-    await fetchArticles()
-  }
+// Refill the deck whenever the menu changes the selection.
+watch([selectedFeedId, selectedTag, showUnreadOnly], async () => {
+  await refillDeck()
 })
 
-// Clear selected article if it's no longer in the displayed list
-watch(displayedArticles, () => {
-  if (selectedArticleId.value !== null) {
-    const stillExists = displayedArticles.value.some(a => a.id === selectedArticleId.value)
-    if (!stillExists) {
-      selectedArticleId.value = null
-    }
-  }
-})
-
-// handleMarkAsRead and handleMarkAllRead are now provided by useArticleViewHandlers
-
-const getTagUnreadCount = (tag: string) => {
-  const tagFeeds = feedsByTag.value[tag] || []
-  return tagFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
-}
-
-const getInboxUnreadCount = () => {
-  const inboxFeeds = feedsByTag.value['__inbox__'] || []
-  return inboxFeeds.reduce((sum, feed) => sum + feed.unreadCount, 0)
-}
-
-// Computed properties for EmptyState component
-const tagsWithUnreadCounts = computed(() => {
-  return allTags.value
-    .map(tag => ({
-      name: tag,
-      unreadCount: getTagUnreadCount(tag)
-    }))
-    .filter(tag => tag.unreadCount > 0)
-})
-
-const hasUnreadInOtherViews = computed(() => {
-  return tagsWithUnreadCounts.value.length > 0 || getInboxUnreadCount() > 0
-})
-
-// Header menu handlers
 const handleRefreshFeed = async () => {
   if (selectedFeedId.value && selectedFeedId.value > 0) {
     await refreshFeed(selectedFeedId.value)
+    await refillDeck()
   }
 }
 
@@ -355,7 +237,20 @@ const handleViewSaved = () => {
   selectedTag.value = null
 }
 
-// Register global keyboard shortcuts
+// ---- Deck handlers exposed to keyboard shortcuts ---------------------------
+
+const cardStackRef = ref<{ commit: (d: string) => void; undo: () => void } | null>(null)
+
+const deckCommit = (direction: 'left' | 'right' | 'up' | 'down') => {
+  cardStackRef.value?.commit(direction)
+}
+const deckUndo = () => {
+  cardStackRef.value?.undo()
+}
+
+// Register global keyboard shortcuts. The deck handlers are passed through;
+// the keyboard agent (Agent E) consumes `deckCommit`/`deckUndo` to bind
+// ←→↑↓ + u. Existing j/k/o/m/s/r shortcuts keep working for list pages.
 useKeyboardShortcuts({
   helpDialogRef,
   toggleMenu,
@@ -366,30 +261,15 @@ useKeyboardShortcuts({
   markAsRead,
   refreshFeed,
   syncAll,
-  toggleSaveArticle,
-  handleMarkAsRead,
+  toggleSaveArticle: async () => {},
+  handleMarkAsRead: async () => {},
   handleMarkAllRead,
-  selectionMode,
-  selectedArticleIds,
-  toggleSelection
-})
+  // Deck shortcuts (consumed by the extended useKeyboardShortcuts).
+  // The composable binds ←→↑↓ + u to these four discrete handlers.
+  deckStore: () => deckCommit('left'),
+  deckRead: () => deckCommit('right'),
+  deckOpen: () => deckCommit('up'),
+  deckSkip: () => deckCommit('down'),
+  deckUndo,
+} as any)
 </script>
-
-<style scoped>
-Article {
-  transition: transform 0.3s ease;
-}
-
-/* Card list transitions for smooth removal */
-.card-list-move {
-  transition: all 0.5s ease;
-}
-
-.card-list-leave-active {
-  position: absolute;
-}
-
-.card-list-leave-to {
-  opacity: 0;
-}
-</style>

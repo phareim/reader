@@ -1,0 +1,81 @@
+/* GENERATED FROM tokens/tokens.json — DO NOT HAND-EDIT.
+   Run `node scripts/generate.mjs` to refresh. (CSS custom properties) */
+
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('../assets/fonts/source-serif-4-variable.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('../assets/fonts/source-serif-4-italic-variable.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* light palette */
+  --almanac-paper:        #f4f0e8;
+  --almanac-ink:          #1a1a1a;
+  --almanac-mute:         #6a6a6a;
+  --almanac-rust:         #c14a2a;
+  --almanac-rule:         #d8d2c4;
+
+  --almanac-bg:           var(--almanac-paper);
+  --almanac-fg:           var(--almanac-ink);
+  --almanac-fg-mute:      var(--almanac-mute);
+  --almanac-accent:       var(--almanac-rust);
+  --almanac-rule-line:    var(--almanac-rule);
+  --almanac-header-rule:  var(--almanac-ink);
+  --almanac-glow:         transparent;
+  --almanac-night-top:    #161b24;
+  --almanac-night-bottom: #0e1219;
+
+  /* type */
+  --almanac-serif:        "Source Serif 4", Georgia, "Iowan Old Style", Charter, serif;
+  --almanac-mono:         "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --almanac-size-headline: 26px;
+  --almanac-size-body:     14px;
+  --almanac-size-italic:   13px;
+  --almanac-size-monolabel: 9px;
+  --almanac-line-headline: 1.2;
+  --almanac-line-body:     1.55;
+  --almanac-track-monolabel: 0.16em;
+  --almanac-track-headline:  -0.012em;
+  --almanac-measure:        65ch;
+
+  /* space */
+  --almanac-gutter:      22px;
+  --almanac-section-gap: 14px;
+  --almanac-hairline:    1px;
+
+  /* motion */
+  --almanac-cursor-blink: 1s;
+}
+
+/* Explicit dark via class or [data-theme="dark"] (preferred for SSR / manual toggles). */
+:root.dark, :root[data-theme="dark"] {
+  --almanac-bg:           var(--almanac-night-bottom);
+  --almanac-fg:           #ebe4d4;
+  --almanac-fg-mute:      #7a8a9a;
+  --almanac-accent:       #d4a574;
+  --almanac-rule-line:    rgba(255, 255, 255, 0.10);
+  --almanac-header-rule:  rgba(235, 228, 212, 0.18);
+  --almanac-glow:         rgba(212, 165, 116, 0.25);
+}
+
+/* OS-level preference, when no explicit toggle is set. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --almanac-bg:           var(--almanac-night-bottom);
+    --almanac-fg:           #ebe4d4;
+    --almanac-fg-mute:      #7a8a9a;
+    --almanac-accent:       #d4a574;
+    --almanac-rule-line:    rgba(255, 255, 255, 0.10);
+    --almanac-header-rule:  rgba(235, 228, 212, 0.18);
+    --almanac-glow:         rgba(212, 165, 116, 0.25);
+  }
+}

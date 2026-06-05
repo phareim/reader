@@ -8,49 +8,25 @@
     @pointerup="handlePointerUp"
     @pointercancel="handlePointerCancel"
   >
-    <!-- Swipe Overlays -->
+    <!-- Swipe action hint (accent edge label) -->
     <div
       v-if="allowSwipe && swipeDirection !== 'none'"
-      class="swipe-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10 rounded-lg"
-      :class="{
-        'swipe-overlay-left': swipeDirection === 'left',
-        'swipe-overlay-right': swipeDirection === 'right'
-      }"
+      class="swipe-hint absolute inset-y-0 flex items-center pointer-events-none z-10"
+      :class="swipeDirection === 'left' ? 'right-0 pr-4 justify-end' : 'left-0 pl-4 justify-start'"
       :style="{ opacity: swipeProgress }"
     >
-      <!-- Left swipe (Mark as Read) -->
-      <div v-if="swipeDirection === 'left'" class="flex flex-col items-center gap-2 text-white">
-        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span class="text-sm font-semibold">Mark as Read</span>
-      </div>
-
-      <!-- Right swipe (Save) -->
-      <div v-if="swipeDirection === 'right'" class="flex flex-col items-center gap-2 text-white">
-        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-        </svg>
-        <span class="text-sm font-semibold">Save Article</span>
-      </div>
+      <span class="mono-label text-rust">{{ swipeDirection === 'left' ? 'READ' : 'STORE' }}</span>
     </div>
 
-    <div
+    <article
       :id="`article-card-${article.id}`"
       :data-article-id="article.id"
-      class="article-card block bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg transition-all group relative cursor-pointer"
+      class="article-card block relative cursor-pointer py-almanac-section-gap group transition-colors"
       :class="{
-        'ring-2 ring-blue-500 shadow-lg translate-y-[-4px] dark:bg-zinc-800': isSelected || (selectionMode && isSelectedForBulk),
-        'hover:translate-y-[-2px]': !isSelected && !isDragging && !selectionMode,
-        'overflow-visible': showActionsMenu,
-        'overflow-hidden': !showActionsMenu,
-        'dynamic-height': dynamicHeight,
         'cursor-grab': allowSwipe && !isDragging && !selectionMode,
         'cursor-grabbing': isDragging,
         'cursor-pointer': selectionMode,
-        'hover:shadow-md dark:hover:bg-zinc-800': !isDragging && !selectionMode,
         'swipe-transition': !isDragging && !isRemoving,
-        'duration-200': !isDragging && !isRemoving
       }"
       :style="{
         transform: `translateX(${swipeOffset}px)`,
@@ -58,97 +34,65 @@
       }"
       @click="handleCardClick"
     >
-    <!-- Selection Checkbox Overlay -->
-    <div
-      v-if="selectionMode"
-      class="absolute top-2 left-2 z-20"
-      @click.stop="(e) => emit('toggle-selection', e.shiftKey)"
-    >
-      <div class="w-6 h-6 rounded border-2 flex items-center justify-center transition-all"
-        :class="isSelectedForBulk
-          ? 'bg-blue-600 border-blue-600'
-          : 'bg-white dark:bg-zinc-800 border-gray-300 dark:border-zinc-600 hover:border-blue-500 dark:hover:border-blue-500'"
-      >
-        <svg v-if="isSelectedForBulk" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-    </div>
-    <!-- Flexible height container -->
-    <div
-      class="card-container relative w-full"
-      :class="dynamicHeight ? 'min-h-0' : 'fixed-aspect'"
-    >
-      <!-- Image or Gradient Section -->
-      <div
-        v-if="displayImageUrl || showGradient"
-        :class="dynamicHeight ? 'relative' : 'absolute inset-x-0 top-0'"
-        class="h-40 overflow-hidden rounded-t-lg"
-      >
-        <!-- Actual image -->
-        <img
-          v-if="displayImageUrl && !imageError"
-          :src="displayImageUrl"
-          :alt="article.title"
-          class="w-full h-full object-cover transition-transform duration-300 ease-out"
-          :class="{
-            'scale-110': isSelected,
-            'group-hover:scale-150': !isSelected
-          }"
-          @error="handleImageError"
-        />
-        <!-- Gradient placeholder -->
-        <div
-          v-else-if="showGradient"
-          class="w-full h-full transition-all duration-300 ease-out gradient-placeholder"
-          :style="{
-            background: placeholderGradient,
-            '--hover-gradient': placeholderGradientHover
-          }"
-        />
-      </div>
+      <div class="flex items-start gap-3">
+        <!-- Selection Checkbox (hairline square) -->
+        <button
+          v-if="selectionMode"
+          type="button"
+          class="mt-1 w-5 h-5 border border-rule flex items-center justify-center flex-shrink-0 transition-colors"
+          :class="isSelectedForBulk ? 'border-rust text-rust' : 'text-transparent hover:border-ink/40'"
+          @click.stop="(e) => emit('toggle-selection', (e as MouseEvent).shiftKey)"
+          :aria-pressed="isSelectedForBulk"
+        >
+          <span v-if="isSelectedForBulk" class="mono-label text-rust" style="--tw-content:'';">&#10003;</span>
+        </button>
 
-      <div
-        :class="[
-          dynamicHeight ? 'relative' : 'absolute inset-0',
-          (displayImageUrl || showGradient) ? (dynamicHeight ? '' : 'pt-44') : ''
-        ]"
-        class="p-3 flex flex-col"
-      >
-        <!-- Header Section -->
-        <div class="flex items-start justify-between gap-2 mb-2">
-          <div class="flex-1 min-w-0">
-            <h3
-              class="font-spectral line-clamp-4 mb-1 view-transition-name:article-title"
-              :class="article.isRead
-                ? 'text-sm font-normal text-gray-700 dark:text-gray-300'
-                : 'text-base font-bold text-gray-900 dark:text-gray-100'"
-            >
-              {{ article.title }}
-            </h3>
-            <div class="text-xs text-gray-500 dark:text-gray-400 truncate">
-              <span v-if="showFeedTitle && article.feedTitle">{{ article.feedTitle }} • </span>
-              {{ formatDate(article.publishedAt) }}
-            </div>
+        <div class="flex-1 min-w-0">
+          <!-- Source / meta line -->
+          <div class="flex items-baseline gap-2 mb-1.5">
+            <MonoLabel v-if="showFeedTitle && article.feedTitle">{{ article.feedTitle }}</MonoLabel>
+            <span class="text-[12px] text-mute font-serif">{{ formatDate(article.publishedAt) }}</span>
+            <span
+              v-if="!article.isRead"
+              class="ml-auto mono-label text-rust"
+              aria-label="Unread"
+            >NEW</span>
           </div>
 
-          <!-- Unread indicator and actions -->
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <span v-if="!article.isRead" class="text-blue-500 dark:text-blue-400 text-lg leading-none">•</span>
+          <!-- Title -->
+          <SerifHeadline
+            level="h3"
+            class="mb-1.5 transition-colors"
+            :class="[
+              article.isRead ? 'text-mute' : 'text-ink',
+              'group-hover:text-rust',
+              (isSelected || (selectionMode && isSelectedForBulk)) ? 'text-rust' : ''
+            ]"
+          >
+            {{ article.title }}
+          </SerifHeadline>
+
+          <!-- Excerpt -->
+          <p
+            v-if="article.summary"
+            class="font-serif text-[14px] leading-[1.55] text-mute clamp-2 max-w-almanac-measure"
+          >
+            {{ truncateSummary(article.summary, 220) }}
+          </p>
+
+          <!-- Saved indicator + actions row -->
+          <div class="flex items-center gap-3 mt-2">
+            <span v-if="isSaved" class="mono-label text-rust">STORED</span>
 
             <!-- Actions Menu -->
-            <div class="relative z-50" @click.stop.prevent>
+            <div class="relative ml-auto z-40" @click.stop.prevent>
               <button
                 ref="menuButtonRef"
                 @click.stop.prevent="toggleActionsMenu"
-                class="p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded transition-colors opacity-0 group-hover:opacity-100"
-                :class="showActionsMenu ? 'opacity-100 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'"
-                :title="'Article actions'"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-                </svg>
-              </button>
+                class="mono-label text-mute hover:text-rust transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                :class="showActionsMenu ? 'opacity-100 text-rust' : ''"
+                title="Article actions"
+              >MORE</button>
 
               <!-- Actions Dropdown -->
               <Transition name="dropdown">
@@ -172,35 +116,8 @@
             </div>
           </div>
         </div>
-
-        <!-- Summary/Preview Section -->
-        <div class="flex-1 overflow-hidden">
-          <p
-            v-if="article.summary"
-            class="text-xs text-gray-600 dark:text-gray-400 line-clamp-6"
-          >
-            {{ truncateSummary(article.summary, 120) }}
-          </p>
-          <p
-            v-else
-            class="text-xs text-gray-500 dark:text-gray-500 italic"
-          >
-            No summary
-          </p>
-        </div>
-
-        <!-- Footer with saved indicator -->
-        <div v-if="isSaved" class="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-800">
-          <div class="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <span class="text-xs">Saved</span>
-          </div>
-        </div>
       </div>
-    </div>
-  </div>
+    </article>
   </div>
 </template>
 
@@ -255,9 +172,6 @@ const emit = defineEmits<{
 const showActionsMenu = ref(false)
 const actionsMenuRef = ref<HTMLElement | null>(null)
 const menuButtonRef = ref<HTMLElement | null>(null)
-const imageError = ref(false)
-const runtimeImageUrl = ref<string | null>(null)
-const useGradient = ref(false)
 
 // Swipe state
 const cardRef = ref<HTMLElement | null>(null)
@@ -269,73 +183,6 @@ const swipeOffset = ref(0)
 const isRemoving = ref(false)
 const hasMoved = ref(false)
 const willTriggerSwipe = ref(false)
-
-const handleImageError = () => {
-  imageError.value = true
-  useGradient.value = true
-}
-
-// Generate a deterministic gradient based on article ID
-const generateGradient = (id: number, hover = false): string => {
-  // Use article ID as seed for consistent colors
-  let hue1 = (id * 137.508) % 360 // Golden angle for good distribution
-  let hue2 = (hue1 + 60 + (id % 120)) % 360 // Related hue
-  if(hover) {
-    [hue1,hue2] = [hue2,hue1]
-  }
-  const saturation = 60 + (id % 20)
-  const lightness = 55 + (id % 15)
-
-  const hoverSaturation =  saturation
-  const hoverLightness =  lightness
-  const hoverLightness2 = lightness
-
-  return `linear-gradient(135deg,
-    hsl(${hue1}, ${hoverSaturation}%, ${hoverLightness}%),
-    hsl(${hue2}, ${hoverSaturation}%, ${hoverLightness2}%))`
-}
-
-const placeholderGradient = computed(() => generateGradient(props.article.id, false))
-const placeholderGradientHover = computed(() => generateGradient(props.article.id, true))
-
-// Display logic: article image > unsplash image > gradient
-const displayImageUrl = computed(() => {
-  if (props.article.imageUrl) {
-    return props.article.imageUrl
-  }
-  if (runtimeImageUrl.value && !imageError.value) {
-    return runtimeImageUrl.value
-  }
-  return null
-})
-
-const showGradient = computed(() => {
-  return !props.article.imageUrl && !displayImageUrl.value
-})
-
-// Randomly fetch Unsplash image (1 in 10-20 articles)
-onMounted(async () => {
-  if (!props.article.imageUrl) {
-    const randomChance = Math.random()
-    const shouldTryUnsplash = randomChance < 0.05 // ~1 in 20 articles
-
-    if (shouldTryUnsplash) {
-      try {
-        const response = await $fetch<{ imageUrl: string | null }>('/api/unsplash/random')
-        if (response.imageUrl) {
-          runtimeImageUrl.value = response.imageUrl
-        } else {
-          useGradient.value = true
-        }
-      } catch (error) {
-        // Silently fall back to gradient
-        useGradient.value = true
-      }
-    } else {
-      useGradient.value = true
-    }
-  }
-})
 
 // Close dropdown when clicking outside
 onMounted(() => {
@@ -390,7 +237,7 @@ const handlePointerDown = (e: PointerEvent | TouchEvent) => {
 
   // Don't interfere with menu button clicks
   const target = e.target as HTMLElement
-  if (target.closest('button')) return
+  if (target.closest('button') || target.closest('a')) return
 
   // Prevent default to avoid text selection on desktop
   if ('pointerType' in e && e.pointerType === 'mouse') {
@@ -522,7 +369,6 @@ const handleCardClick = (e: MouseEvent) => {
 <style scoped>
 /* Swipe container */
 .swipe-wrapper {
-  transition: all 0.3s ease;
   user-select: none;
   -webkit-user-select: none;
   touch-action: pan-y;
@@ -530,20 +376,10 @@ const handleCardClick = (e: MouseEvent) => {
 
 .swipe-wrapper.is-removing {
   opacity: 0;
-  transform: scale(0.95);
 }
 
-/* Swipe overlays */
-.swipe-overlay {
+.swipe-hint {
   transition: opacity 0.2s ease;
-}
-
-.swipe-overlay-left {
-  background: linear-gradient(to right, rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0.8));
-}
-
-.swipe-overlay-right {
-  background: linear-gradient(to left, rgba(234, 179, 8, 0.9), rgba(234, 179, 8, 0.8));
 }
 
 /* Smooth transition for snap back */
@@ -557,52 +393,12 @@ const handleCardClick = (e: MouseEvent) => {
   -webkit-user-select: none;
 }
 
-/* Gradient hover effect */
-.gradient-placeholder {
-  transition: background 0.3s ease;
-}
-
-.group:hover .gradient-placeholder {
-  background: var(--hover-gradient) !important;
-}
-
-/* Line clamp utilities */
-.line-clamp-4 {
+/* Two-line clamp for excerpt */
+.clamp-2 {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.line-clamp-6 {
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Fixed aspect ratio for multi-column layouts */
-.card-container.fixed-aspect {
-  aspect-ratio: 3/4;
-}
-
-/* Automatic dynamic height in single-column layouts (mobile) */
-@media (max-width: 639px) {
-  /* Override the fixed aspect ratio on mobile */
-  .card-container.fixed-aspect {
-    aspect-ratio: auto;
-  }
-
-  /* Make the image and content flow naturally on mobile */
-  .card-container.fixed-aspect > div {
-    position: relative !important;
-    inset: auto !important;
-  }
-
-  /* Remove top padding since content flows naturally */
-  .card-container.fixed-aspect > div.pt-44 {
-    padding-top: 0.75rem !important;
-  }
 }
 
 /* Dropdown transition */

@@ -1,24 +1,21 @@
 <template>
-  <div class="flex items-center justify-between px-6 py-4 h-16 border-b border-gray-200 dark:border-zinc-800 flex-shrink-0">
+  <div class="flex items-center justify-between px-almanac-gutter py-4 h-16 border-b border-rule flex-shrink-0">
     <button
       @click="$emit('close')"
-      class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
+      class="p-2 -ml-2 text-ink/70 hover:text-ink transition-colors"
       aria-label="Close menu"
     >
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <NuxtLink
-      to="/"
-      class="text-2xl font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-    >
-      The Librarian
+    <NuxtLink to="/" class="group">
+      <SerifHeadline level="h3">The Librarian</SerifHeadline>
     </NuxtLink>
     <img v-if="user?.image" :src="user.image" :alt="user.name"
-      class="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-zinc-700" />
+      class="w-8 h-8 border border-rule" />
     <div v-else
-      class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 dark:from-blue-600 dark:to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+      class="w-8 h-8 border border-rule flex items-center justify-center text-ink font-serif text-sm">
       {{ user?.name?.charAt(0) || '?' }}
     </div>
   </div>

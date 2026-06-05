@@ -1,0 +1,130 @@
+/* ---------------------------------------------------------------------------
+   almanac.css — Reader-local Almanac base layer.
+
+   - @font-face for Source Serif 4 (regular + italic) pointing at the vendored
+     fonts in public/almanac/fonts/ (font-display: swap).
+   - Establishes the serif + mono font stacks and the base CSS custom
+     properties (mirrors public/almanac/tokens/tokens.css so the app is
+     self-sufficient even before the vendored stylesheet links resolve).
+   - Maps the dark palette under @media (prefers-color-scheme: dark) so the
+     theme flips automatically with the OS preference (no manual toggle).
+   ------------------------------------------------------------------------- */
+
+/* ---------- Fonts ---------------------------------------------------- */
+
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('/almanac/fonts/source-serif-4-variable.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('/almanac/fonts/source-serif-4-italic-variable.woff2') format('woff2-variations');
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---------- Base tokens (light) ------------------------------------- */
+
+:root {
+  --almanac-paper:        #f4f0e8;
+  --almanac-ink:          #1a1a1a;
+  --almanac-mute:         #6a6a6a;
+  --almanac-rust:         #c14a2a;
+  --almanac-rule:         #d8d2c4;
+
+  --almanac-bg:           var(--almanac-paper);
+  --almanac-fg:           var(--almanac-ink);
+  --almanac-fg-mute:      var(--almanac-mute);
+  --almanac-accent:       var(--almanac-rust);
+  --almanac-rule-line:    var(--almanac-rule);
+  --almanac-header-rule:  var(--almanac-ink);
+  --almanac-glow:         transparent;
+  --almanac-night-top:    #161b24;
+  --almanac-night-bottom: #0e1219;
+
+  /* type */
+  --almanac-serif:        "Source Serif 4", Georgia, "Iowan Old Style", Charter, serif;
+  --almanac-mono:         "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  --almanac-size-headline: 26px;
+  --almanac-size-body:     14px;
+  --almanac-size-italic:   13px;
+  --almanac-size-monolabel: 9px;
+  --almanac-line-headline: 1.2;
+  --almanac-line-body:     1.55;
+  --almanac-track-monolabel: 0.16em;
+  --almanac-track-headline:  -0.012em;
+  --almanac-measure:        65ch;
+
+  /* space */
+  --almanac-gutter:      22px;
+  --almanac-section-gap: 14px;
+  --almanac-hairline:    1px;
+
+  /* motion */
+  --almanac-cursor-blink: 1s;
+}
+
+/* ---------- Dark palette -------------------------------------------- */
+
+/* Explicit dark via [data-theme="dark"] (set on <html> in app.vue). */
+:root.dark,
+:root[data-theme="dark"] {
+  --almanac-bg:           var(--almanac-night-bottom);
+  --almanac-fg:           #ebe4d4;
+  --almanac-fg-mute:      #7a8a9a;
+  --almanac-accent:       #d4a574;
+  --almanac-rule-line:    rgba(255, 255, 255, 0.10);
+  --almanac-header-rule:  rgba(235, 228, 212, 0.18);
+  --almanac-glow:         rgba(212, 165, 116, 0.25);
+}
+
+/* OS preference — the canonical path for this app (no manual toggle).
+   Fires unless an explicit light override is set on <html>. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --almanac-bg:           var(--almanac-night-bottom);
+    --almanac-fg:           #ebe4d4;
+    --almanac-fg-mute:      #7a8a9a;
+    --almanac-accent:       #d4a574;
+    --almanac-rule-line:    rgba(255, 255, 255, 0.10);
+    --almanac-header-rule:  rgba(235, 228, 212, 0.18);
+    --almanac-glow:         rgba(212, 165, 116, 0.25);
+  }
+}
+
+/* ---------- Global base --------------------------------------------- */
+
+html {
+  font-family: var(--almanac-serif);
+}
+
+body {
+  background: var(--almanac-bg);
+  color: var(--almanac-fg);
+  font-family: var(--almanac-serif);
+  font-size: var(--almanac-size-body);
+  line-height: var(--almanac-line-body);
+}
+
+/* Night-sky gradient on the page background — dark only. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) body {
+    background:
+      linear-gradient(to bottom,
+        var(--almanac-night-top) 0%,
+        var(--almanac-night-bottom) 100%);
+    background-attachment: fixed;
+  }
+}
+:root.dark body,
+:root[data-theme="dark"] body {
+  background:
+    linear-gradient(to bottom,
+      var(--almanac-night-top) 0%,
+      var(--almanac-night-bottom) 100%);
+  background-attachment: fixed;
+}

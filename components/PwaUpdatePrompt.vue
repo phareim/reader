@@ -19,46 +19,32 @@ const update = async () => {
   <Transition name="slide-up">
     <div
       v-if="needRefresh"
-      class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 bg-gray-800 dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-700 p-4"
+      class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 font-serif text-ink"
     >
-      <div class="flex items-start gap-3">
-        <div class="flex-shrink-0">
-          <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+      <PaperPanel>
+        <div class="flex items-start justify-between gap-almanac-section-gap">
+          <div class="flex-1 min-w-0">
+            <MonoLabel as="span">Update</MonoLabel>
+            <p class="text-[14px] text-ink leading-[1.55] mt-1">
+              A new version of The Librarian is available.
+            </p>
+          </div>
+          <button
+            type="button"
+            @click="close"
+            class="flex-shrink-0 text-mute hover:text-rust transition-colors"
+            aria-label="Close"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-white">
-            New version available
-          </p>
-          <p class="text-sm text-gray-400 mt-1">
-            A new version of The Librarian is available. Reload to update.
-          </p>
+        <div class="mt-almanac-section-gap flex items-center gap-almanac-section-gap">
+          <ActionLabel label="RELOAD" accent @click="update" />
+          <ActionLabel label="LATER" @click="close" />
         </div>
-        <button
-          @click="close"
-          class="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
-          aria-label="Close"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      <div class="mt-4 flex gap-2">
-        <button
-          @click="update"
-          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
-        >
-          Reload
-        </button>
-        <button
-          @click="close"
-          class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
-        >
-          Later
-        </button>
-      </div>
+      </PaperPanel>
     </div>
   </Transition>
 </template>

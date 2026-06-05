@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+const plugin = require('tailwindcss/plugin')
+
 module.exports = {
-  darkMode: 'media', // Honors system preference
+  darkMode: 'media', // Honors system preference (prefers-color-scheme)
+  presets: [
+    require('./config/almanac.preset.cjs'),
+  ],
   content: [
     "./components/**/*.{js,vue,ts}",
     "./layouts/**/*.vue",
@@ -10,25 +15,19 @@ module.exports = {
   ],
   theme: {
     extend: {
-      colors: {
-        gray: {
-          850: '#1a1d23',
-        },
-        'dark-bg': '#131316',
-      },
-      fontFamily: {
-        'sans': ['Spectral', 'serif'],
-        'spectral': ['Spectral', 'serif'],
-      },
-      typography: (theme) => ({
+      typography: () => ({
         DEFAULT: {
           css: {
-            fontFamily: 'Spectral, serif',
-            h1: { fontFamily: 'Spectral, serif' },
-            h2: { fontFamily: 'Spectral, serif' },
-            h3: { fontFamily: 'Spectral, serif' },
-            h4: { fontFamily: 'Spectral, serif' },
-            'blockquote p': { fontFamily: 'Spectral, serif' },
+            fontFamily: 'var(--almanac-serif)',
+            color: 'var(--almanac-fg)',
+            maxWidth: 'var(--almanac-measure)',
+            h1: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
+            h2: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
+            h3: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
+            h4: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
+            a: { color: 'var(--almanac-accent)' },
+            'blockquote p': { fontFamily: 'var(--almanac-serif)' },
+            hr: { borderColor: 'var(--almanac-rule-line)' },
           },
         },
       }),
@@ -36,5 +35,20 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/typography'),
+    // The Almanac MonoLabel utility — 9px tracked uppercase mono, accent
+    // color, dark-mode glow. The Almanac substitute for chrome.
+    plugin(function ({ addComponents }) {
+      addComponents({
+        '.mono-label': {
+          fontFamily: 'var(--almanac-mono)',
+          fontSize: 'var(--almanac-size-monolabel)',
+          letterSpacing: 'var(--almanac-track-monolabel)',
+          textTransform: 'uppercase',
+          color: 'var(--almanac-accent)',
+          textShadow: '0 0 4px var(--almanac-glow)',
+          fontWeight: '500',
+        },
+      })
+    }),
   ],
 }

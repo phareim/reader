@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  almanac.html — minimal showcase of every component primitive.
+  Open directly in a browser. Toggle :root[data-theme="dark"] in devtools to
+  preview the dark palette, or change the <html> attribute in markup.
+-->
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Almanac · Components</title>
+  <link rel="stylesheet" href="../../tokens/tokens.css">
+  <link rel="stylesheet" href="./almanac.css">
+</head>
+<body class="almanac-page">
+
+  <!-- starfield: only visible in dark mode -->
+  <div class="almanac-starfield" aria-hidden="true">
+    <object type="image/svg+xml" data="./Starfield.svg" style="width:100%;height:100%;display:block;"></object>
+  </div>
+
+  <header class="almanac-prose">
+    <span class="almanac-monolabel">Almanac · Components</span>
+    <h1 class="almanac-headline" style="margin-top: 8px;">The lay of the page</h1>
+    <hr class="almanac-header-divider">
+  </header>
+
+  <main class="almanac-prose">
+
+    <section class="almanac-section">
+      <span class="almanac-monolabel">— GLYPH</span>
+      <div style="display: flex; align-items: center; gap: 24px; margin-top: 12px;">
+        <span class="almanac-glyph">
+          <object type="image/svg+xml" data="./OrbitalGlyph.svg"></object>
+        </span>
+        <p class="almanac-body">
+          The orbital glyph: a circle, an off-axis ellipse, one accent dot.
+          Reserve 38 units of layout if you want the iOS-faithful bleed.
+        </p>
+      </div>
+    </section>
+
+    <hr class="almanac-divider">
+
+    <section class="almanac-section">
+      <span class="almanac-monolabel">— TYPE</span>
+      <h2 class="almanac-headline" style="margin-top: 8px;">Serif headline at 26 px</h2>
+      <p class="almanac-body" style="margin-top: 8px;">
+        Body sets in Source Serif 4 at fourteen pixels with a generous
+        line-height of one-and-a-half. Measure caps at sixty-five characters
+        so the eye does not lose its place at the end of a line. Italic and
+        roman alternate for emphasis without changing weight.
+      </p>
+      <p class="almanac-italic" style="margin-top: 8px;">
+        — and italic at thirteen pixels for asides.
+      </p>
+    </section>
+
+    <hr class="almanac-divider">
+
+    <section class="almanac-section">
+      <span class="almanac-monolabel">— CHAT</span>
+      <div class="almanac-chat" style="margin-top: 12px;">
+        <div class="almanac-chat-turn almanac-chat-turn--you">
+          <span class="speaker almanac-monolabel">— YOU</span>
+          <p class="body">What are we hoping for from the morning?</p>
+        </div>
+        <div class="almanac-chat-turn almanac-chat-turn--agent">
+          <span class="speaker almanac-monolabel">— AGENT</span>
+          <p class="body">
+            A small, deliberate set of moves before the room fills with other
+            people&rsquo;s urgencies. One thing finished, one thing started,
+            one thing left for tomorrow.<span class="almanac-cursor"></span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="almanac-divider">
+
+    <section class="almanac-section">
+      <span class="almanac-monolabel">— DIVIDERS</span>
+      <p class="almanac-body" style="margin-top: 8px;">
+        A hairline rule between sections. The header rule is heavier (full
+        ink, light mode) than the section rule (paper-on-rule).
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="almanac-prose" style="margin-top: 32px;">
+    <hr class="almanac-divider">
+    <p class="almanac-italic">— end of almanac</p>
+  </footer>
+
+  <!-- A tiny dark-mode toggle for demo purposes only — not part of the design system. -->
+  <button id="theme-toggle"
+    style="position: fixed; bottom: 12px; right: 12px; font-family: var(--almanac-mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--almanac-accent); background: transparent; border: 1px solid var(--almanac-rule-line); padding: 6px 10px; cursor: pointer;">
+    Toggle dark
+  </button>
+  <script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const r = document.documentElement;
+      r.setAttribute("data-theme", r.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  </script>
+</body>
+</html>

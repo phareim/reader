@@ -2,164 +2,128 @@
   <Transition name="fade">
     <div
       v-if="isOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-50 flex items-center justify-center p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center p-almanac-gutter font-serif text-ink"
+      style="background: var(--almanac-scrim, rgba(26,26,26,0.28));"
       @click.self="close"
     >
-      <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <PaperPanel flush class="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
         <!-- Header -->
-        <div class="sticky top-0 bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h2>
+        <div class="sticky top-0 z-10 bg-paper px-almanac-gutter pt-almanac-gutter pb-almanac-section-gap flex items-center justify-between">
+          <div>
+            <MonoLabel as="span">Reference</MonoLabel>
+            <SerifHeadline level="h2" class="mt-1">Keyboard Shortcuts</SerifHeadline>
+          </div>
           <button
+            type="button"
             @click="close"
-            class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            class="text-mute hover:text-rust transition-colors"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
+        <div class="px-almanac-gutter"><SectionDivider /></div>
 
         <!-- Content -->
-        <div class="p-6 space-y-6">
+        <div class="px-almanac-gutter pb-almanac-gutter space-y-almanac-gutter">
+          <!-- The Deck -->
+          <section>
+            <MonoLabel as="h3">The Deck</MonoLabel>
+            <dl class="mt-2">
+              <div v-for="row in deckRows" :key="row.label" class="flex items-center justify-between py-2 border-b border-rule">
+                <dt class="text-[14px] text-ink leading-[1.55]">{{ row.label }}</dt>
+                <dd class="flex items-center gap-2"><kbd v-for="k in row.keys" :key="k" class="kbd">{{ k }}</kbd></dd>
+              </div>
+            </dl>
+          </section>
+
           <!-- Navigation -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Navigation</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Next article (auto-open)</span>
-                <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">j</kbd>
-                  <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↓</kbd>
-                </div>
+          <section>
+            <MonoLabel as="h3">Navigation</MonoLabel>
+            <dl class="mt-2">
+              <div v-for="row in navRows" :key="row.label" class="flex items-center justify-between py-2 border-b border-rule">
+                <dt class="text-[14px] text-ink leading-[1.55]">{{ row.label }}</dt>
+                <dd class="flex items-center gap-2">
+                  <template v-for="(k, i) in row.keys" :key="i">
+                    <span v-if="k === 'or' || k === 'then' || k === '+'" class="text-[13px] text-mute italic">{{ k }}</span>
+                    <kbd v-else class="kbd">{{ k }}</kbd>
+                  </template>
+                </dd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Previous article (auto-open)</span>
-                <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">k</kbd>
-                  <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">↑</kbd>
-                </div>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Go to all feeds</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
-                <span class="text-gray-400 dark:text-gray-500 mx-2">then</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">i</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Go to all articles</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">g</kbd>
-                <span class="text-gray-400 dark:text-gray-500 mx-2">then</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
-              </div>
-            </div>
-          </div>
+            </dl>
+          </section>
 
-          <!-- Touch Gestures -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Touch Gestures</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Previous article (in article view)</span>
-                <span class="text-sm text-gray-600 dark:text-gray-400 italic">Swipe right →</span>
+          <!-- Article actions -->
+          <section>
+            <MonoLabel as="h3">Article Actions</MonoLabel>
+            <dl class="mt-2">
+              <div v-for="row in actionRows" :key="row.label" class="flex items-center justify-between py-2 border-b border-rule">
+                <dt class="text-[14px] text-ink leading-[1.55]">{{ row.label }}</dt>
+                <dd class="flex items-center gap-2">
+                  <template v-for="(k, i) in row.keys" :key="i">
+                    <span v-if="k === 'or' || k === '+'" class="text-[13px] text-mute italic">{{ k }}</span>
+                    <kbd v-else class="kbd">{{ k }}</kbd>
+                  </template>
+                </dd>
               </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Next article (in article view)</span>
-                <span class="text-sm text-gray-600 dark:text-gray-400 italic">← Swipe left</span>
-              </div>
-            </div>
-          </div>
+            </dl>
+          </section>
 
-          <!-- Menu & Navigation -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Menu</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Toggle menu</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">m</kbd>
+          <!-- Touch gestures -->
+          <section>
+            <MonoLabel as="h3">Touch Gestures</MonoLabel>
+            <dl class="mt-2">
+              <div v-for="row in gestureRows" :key="row.label" class="flex items-center justify-between py-2 border-b border-rule">
+                <dt class="text-[14px] text-ink leading-[1.55]">{{ row.label }}</dt>
+                <dd class="text-[13px] text-mute italic">{{ row.gesture }}</dd>
               </div>
-            </div>
-          </div>
+            </dl>
+          </section>
 
-          <!-- Article Actions -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Article Actions</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Toggle open/close article</span>
-                <div class="flex gap-2">
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">o</kbd>
-                  <span class="text-gray-400 dark:text-gray-500">or</span>
-                  <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Enter</kbd>
-                </div>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Close expanded article</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Esc</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Mark as read (current or all selected)</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">e</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Toggle selection / Mark as read</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">x</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Mark selected as unread</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
-                <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">u</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">View original (open in new tab)</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">v</kbd>
-              </div>
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Save/unsave selected article</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">s</kbd>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bulk Actions -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Bulk Actions</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Mark all visible as read</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Shift</kbd>
-                <span class="text-gray-400 dark:text-gray-500 mx-2">+</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">a</kbd>
-              </div>
-            </div>
-          </div>
-
-          <!-- Help -->
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Help</h3>
-            <div class="space-y-2">
-              <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-zinc-800">
-                <span class="text-gray-700 dark:text-gray-300">Show this help dialog</span>
-                <kbd class="px-3 py-1 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">?</kbd>
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer Note -->
-          <div class="pt-4 text-sm text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-zinc-800">
-            Press <kbd class="px-2 py-0.5 bg-gray-100 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded text-xs font-mono text-gray-900 dark:text-gray-100">Esc</kbd> or click outside to close
-          </div>
+          <p class="pt-2 text-[13px] text-mute italic text-center">
+            Press <kbd class="kbd">Esc</kbd> or click outside to close.
+          </p>
         </div>
-      </div>
+      </PaperPanel>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
 const isOpen = ref(false)
+
+const deckRows = [
+  { label: 'Store article (save for later)', keys: ['←'] },
+  { label: 'Read article (mark as read)', keys: ['→'] },
+  { label: 'Open article in reader', keys: ['↑'] },
+  { label: 'Skip (send to back of deck)', keys: ['↓'] },
+  { label: 'Undo last store / read', keys: ['u'] },
+]
+
+const navRows = [
+  { label: 'Next article', keys: ['j', 'or', '↓'] },
+  { label: 'Previous article', keys: ['k', 'or', '↑'] },
+  { label: 'Go to overview (home)', keys: ['g', 'then', 'h'] },
+  { label: 'Toggle menu', keys: ['m'] },
+]
+
+const actionRows = [
+  { label: 'Open / close article', keys: ['o', 'or', 'Enter'] },
+  { label: 'Mark as read', keys: ['e'] },
+  { label: 'Mark all visible as read', keys: ['Shift', '+', 'a'] },
+  { label: 'Save / unsave article', keys: ['s'] },
+  { label: 'View original (new tab)', keys: ['v'] },
+  { label: 'Show this help', keys: ['?'] },
+]
+
+const gestureRows = [
+  { label: 'Store article', gesture: 'Swipe left ←' },
+  { label: 'Read article', gesture: 'Swipe right →' },
+  { label: 'Open in reader', gesture: 'Swipe up ↑' },
+  { label: 'Skip', gesture: 'Swipe down ↓' },
+]
 
 const open = () => {
   isOpen.value = true
@@ -201,7 +165,18 @@ defineExpose({
   opacity: 0;
 }
 
-kbd {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+/* Hairline-framed key cap — no rounded box, no shadow. */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  padding: 2px 6px;
+  border: 1px solid var(--almanac-rule-line);
+  font-family: var(--almanac-mono, "SF Mono", ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--almanac-fg);
+  background: transparent;
 }
 </style>

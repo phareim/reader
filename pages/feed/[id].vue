@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
+  <div class="min-h-screen bg-paper text-ink font-serif">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -31,105 +31,94 @@
         @error="handleHeaderError"
       />
 
-      <!-- Articles List -->
-      <div class="py-0">
+      <!-- Reading Column -->
+      <div class="mx-auto max-w-2xl px-almanac-gutter py-almanac-gutter">
         <!-- Success/Error Messages -->
-        <div v-if="headerSuccess || headerError" class="px-6 py-4">
-          <p v-if="headerSuccess" class="text-base text-green-500 dark:text-green-400">{{ headerSuccess }}</p>
-          <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
+        <div v-if="headerSuccess || headerError" class="mb-4">
+          <p v-if="headerSuccess" class="mono-label text-rust">{{ headerSuccess }}</p>
+          <p v-if="headerError" class="mono-label text-mute">{{ headerError }}</p>
         </div>
 
         <!-- Loading Skeletons -->
-        <div v-if="articlesLoading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-          <ArticleCardSkeleton v-for="i in 10" :key="i" />
+        <div v-if="articlesLoading" class="divide-y divide-rule">
+          <ArticleCardSkeleton v-for="i in 8" :key="i" />
         </div>
 
-        <!-- Article Grid -->
-        <div v-else-if="searchedArticles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-          <LazyArticleCard
-            v-for="article in searchedArticles"
-            :key="article.id"
-            :article="article"
-            :is-selected="selectedArticleId === article.id"
-            :is-saved="isSaved(article.id)"
-            :show-feed-title="false"
-            :all-tags-with-counts="allTagsWithCounts"
-            :selection-mode="selectionMode"
-            :is-selected-for-bulk="isSelected(article.id)"
-            :source-context="`feed/${feedId}`"
-            @toggle-save="toggleSaveArticle(article.id)"
-            @toggle-read="handleToggleRead(article.id)"
-            @update-tags="handleUpdateTags"
-            @toggle-selection="handleToggleSelection(article.id, $event)"
-          />
-        </div>
+        <!-- Article Reading Column -->
+        <template v-else-if="searchedArticles.length > 0">
+          <template v-for="(article, index) in searchedArticles" :key="article.id">
+            <SectionDivider v-if="index > 0" />
+            <LazyArticleCard
+              :article="article"
+              :is-selected="selectedArticleId === article.id"
+              :is-saved="isSaved(article.id)"
+              :show-feed-title="false"
+              :all-tags-with-counts="allTagsWithCounts"
+              :selection-mode="selectionMode"
+              :is-selected-for-bulk="isSelected(article.id)"
+              :source-context="`feed/${feedId}`"
+              @toggle-save="toggleSaveArticle(article.id)"
+              @toggle-read="handleToggleRead(article.id)"
+              @update-tags="handleUpdateTags"
+              @toggle-selection="handleToggleSelection(article.id, $event)"
+            />
+          </template>
+        </template>
 
         <!-- Empty State -->
-        <div v-else class="flex flex-col items-center justify-center py-20 px-4">
-          <div class="max-w-md text-center space-y-6">
-            <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">All caught up!</h2>
-            <p class="text-gray-600 dark:text-gray-400">
-              No unread articles in this feed.
-            </p>
+        <div v-else class="flex flex-col items-center justify-center py-24 text-center">
+          <OrbitalGlyph :size="56" class="mb-6" />
+          <SerifHeadline level="h2" class="mb-2">All caught up</SerifHeadline>
+          <p class="font-serif text-[14px] text-mute mb-8 max-w-almanac-measure">
+            No unread articles in this feed.
+          </p>
 
-            <!-- Feed Statistics -->
-            <div v-if="selectedFeed" class="bg-gray-50 dark:bg-zinc-900 rounded-lg p-6 space-y-3">
-              <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Feed Statistics</h3>
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Total Articles</div>
-                  <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ articles.length }}</div>
-                </div>
-                <div class="text-left">
-                  <div class="text-gray-500 dark:text-gray-400">Unread</div>
-                  <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ selectedFeed.unreadCount || 0 }}</div>
-                </div>
-                <div class="text-left" v-if="selectedFeed.lastFetchedAt">
-                  <div class="text-gray-500 dark:text-gray-400">Last Updated</div>
-                  <div class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatDate(selectedFeed.lastFetchedAt) }}</div>
-                </div>
-                <div class="text-left" v-if="selectedFeed.isActive !== undefined">
-                  <div class="text-gray-500 dark:text-gray-400">Status</div>
-                  <div class="text-sm font-medium" :class="selectedFeed.isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
-                    {{ selectedFeed.isActive ? 'Active' : 'Inactive' }}
-                  </div>
-                </div>
+          <!-- Feed Statistics -->
+          <div v-if="selectedFeed" class="w-full max-w-sm text-left">
+            <MonoLabel class="block mb-3">FEED STATISTICS</MonoLabel>
+            <div class="space-y-0">
+              <SectionDivider />
+              <div class="flex items-baseline justify-between py-2">
+                <span class="font-serif text-[14px] text-mute">Total articles</span>
+                <span class="font-serif text-[18px] text-ink">{{ articles.length }}</span>
               </div>
+              <SectionDivider />
+              <div class="flex items-baseline justify-between py-2">
+                <span class="font-serif text-[14px] text-mute">Unread</span>
+                <span class="font-serif text-[18px] text-ink">{{ selectedFeed.unreadCount || 0 }}</span>
+              </div>
+              <template v-if="selectedFeed.lastFetchedAt">
+                <SectionDivider />
+                <div class="flex items-baseline justify-between py-2">
+                  <span class="font-serif text-[14px] text-mute">Last updated</span>
+                  <span class="font-serif text-[14px] text-ink">{{ formatDate(selectedFeed.lastFetchedAt) }}</span>
+                </div>
+              </template>
+              <template v-if="selectedFeed.isActive !== undefined">
+                <SectionDivider />
+                <div class="flex items-baseline justify-between py-2">
+                  <span class="font-serif text-[14px] text-mute">Status</span>
+                  <span class="font-serif text-[14px] text-ink">{{ selectedFeed.isActive ? 'Active' : 'Inactive' }}</span>
+                </div>
+              </template>
             </div>
+          </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                @click="showUnreadOnly = false"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Show all articles
-              </button>
-              <NuxtLink
-                to="/"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                View other feeds
-              </NuxtLink>
-            </div>
+          <div class="flex flex-wrap gap-3 justify-center mt-8">
+            <ActionLabel label="SHOW ALL" @click="showUnreadOnly = false" />
+            <NuxtLink to="/">
+              <ActionLabel label="OTHER FEEDS" />
+            </NuxtLink>
           </div>
         </div>
 
-        <!-- Bulk Selection Floating Button (only for authenticated users) -->
-        <button v-if="loggedIn && searchedArticles.length > 0 && !selectionMode"
-          @click="toggleSelectionMode"
-          class="fixed bottom-6 right-6 z-20 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors"
-          title="Select multiple articles">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        </button>
+        <!-- Bulk Selection Trigger -->
+        <div
+          v-if="loggedIn && searchedArticles.length > 0 && !selectionMode"
+          class="fixed bottom-6 right-6 z-20"
+        >
+          <ActionLabel label="SELECT" @click="toggleSelectionMode" />
+        </div>
 
         <!-- Bulk Action Bar (only for authenticated users) -->
         <BulkActionBar

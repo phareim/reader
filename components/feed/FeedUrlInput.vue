@@ -1,109 +1,72 @@
 <template>
-  <div class="space-y-2">
+  <div class="space-y-almanac-section-gap font-serif text-ink">
     <input v-model="newFeedUrl" type="url" :placeholder="placeholder"
-      :class="[
-        'w-full px-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-        size === 'large' ? 'py-3 text-lg' : 'py-2 text-base'
-      ]"
+      :class="['feed-url-input', size === 'large' ? 'is-large' : '']"
       @keyup.enter="handleSmartAdd" />
     <Transition name="fade-scale">
-      <div v-if="newFeedUrl.trim() !== ''" class="flex gap-2 items-center justify-between w-full overflow-hidden">
-        <button @click="handleSmartAdd" :disabled="!newFeedUrl.trim() || loading"
-          :class="[
-            'flex-1 px-3 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-            size === 'large' ? 'py-3 text-lg' : 'py-2 text-base'
-          ]">
-          {{ loading ? 'Processing...' : 'Add' }}
-        </button>
+      <div v-if="newFeedUrl.trim() !== ''" class="overflow-hidden">
+        <ActionLabel
+          :label="loading ? 'PROCESSING' : 'ADD'"
+          accent
+          :disabled="!newFeedUrl.trim() || loading"
+          @click="handleSmartAdd"
+        />
       </div>
     </Transition>
 
     <!-- Discovered Feeds List -->
-    <div v-if="discoveredFeeds.length > 0"
-      class="mt-3 space-y-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-      <h4 :class="['font-semibold text-purple-900 dark:text-purple-300', size === 'large' ? 'text-lg' : 'text-base']">
-        Found {{ discoveredFeeds.length }} feed{{ discoveredFeeds.length > 1 ? 's' : '' }}:
-      </h4>
-      <div class="space-y-1">
-        <button v-for="(feed, index) in discoveredFeeds" :key="index" @click="addDiscoveredFeed(feed.url)"
+    <div v-if="discoveredFeeds.length > 0" class="mt-almanac-section-gap">
+      <MonoLabel as="h4">
+        Found {{ discoveredFeeds.length }} feed{{ discoveredFeeds.length > 1 ? 's' : '' }}
+      </MonoLabel>
+      <div class="mt-2">
+        <button v-for="(feed, index) in discoveredFeeds" :key="index" type="button"
+          @click="addDiscoveredFeed(feed.url)"
           :disabled="addingFeed === feed.url"
-          :class="[
-            'w-full text-left px-3 py-2 bg-white dark:bg-zinc-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded border border-purple-200 dark:border-purple-700 transition-colors disabled:opacity-50',
-            size === 'large' ? 'text-lg' : 'text-base'
-          ]">
-          <div class="font-medium text-purple-900 dark:text-purple-300">
-            {{ addingFeed === feed.url ? 'Adding...' : feed.title }}
+          class="w-full text-left py-2 border-b border-rule transition-colors hover:text-rust disabled:opacity-50">
+          <div class="font-medium text-ink">
+            {{ addingFeed === feed.url ? 'Adding…' : feed.title }}
           </div>
-          <div class="text-sm text-purple-600 dark:text-purple-400 truncate">{{ feed.url }}</div>
+          <div class="text-[13px] text-mute truncate">{{ feed.url }}</div>
         </button>
       </div>
     </div>
 
     <!-- Article Preview -->
-    <div v-if="detectedArticle"
-      class="mt-3 space-y-3 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+    <PaperPanel v-if="detectedArticle" class="mt-almanac-section-gap space-y-almanac-section-gap">
       <div>
-        <h4 :class="['font-semibold text-amber-900 dark:text-amber-300 mb-2', size === 'large' ? 'text-lg' : 'text-base']">
-          Article Detected
-        </h4>
-        <div class="space-y-2">
-          <div class="font-medium text-gray-900 dark:text-gray-100">
+        <MonoLabel as="h4">Article Detected</MonoLabel>
+        <div class="mt-2 space-y-1">
+          <div class="font-medium text-ink">
             {{ detectedArticle.title || 'Untitled' }}
           </div>
-          <div v-if="detectedArticle.description" class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+          <div v-if="detectedArticle.description" class="text-[13px] text-mute line-clamp-2">
             {{ detectedArticle.description }}
           </div>
-          <div v-if="detectedArticle.author" class="text-sm text-gray-500 dark:text-gray-500">
+          <div v-if="detectedArticle.author" class="text-[13px] text-mute italic">
             By {{ detectedArticle.author }}
           </div>
         </div>
       </div>
-      <div class="flex gap-2">
-        <button @click="saveArticle" :disabled="savingArticle"
-          :class="[
-            'flex-1 px-3 py-2 bg-amber-600 dark:bg-amber-700 text-white rounded-lg hover:bg-amber-700 dark:hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-            size === 'large' ? 'text-lg' : 'text-base'
-          ]">
-          {{ savingArticle ? 'Saving...' : 'Save Article' }}
-        </button>
-        <button @click="detectedArticle = null"
-          :class="[
-            'px-3 py-2 bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-zinc-600 transition-colors',
-            size === 'large' ? 'text-lg' : 'text-base'
-          ]">
-          Cancel
-        </button>
+      <div class="flex items-center gap-almanac-section-gap">
+        <ActionLabel :label="savingArticle ? 'SAVING' : 'SAVE ARTICLE'" accent :disabled="savingArticle" @click="saveArticle" />
+        <ActionLabel label="CANCEL" @click="detectedArticle = null" />
       </div>
-    </div>
+    </PaperPanel>
 
     <!-- Unknown / Manual Article Option -->
-    <div v-if="unknownUrl"
-      class="mt-3 space-y-3 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-700">
+    <PaperPanel v-if="unknownUrl" class="mt-almanac-section-gap space-y-almanac-section-gap">
       <div>
-        <h4 :class="['font-semibold text-gray-900 dark:text-gray-300 mb-2', size === 'large' ? 'text-lg' : 'text-base']">
-          No feed found
-        </h4>
-        <p class="text-sm text-gray-600 dark:text-gray-400">
+        <MonoLabel as="h4">No feed found</MonoLabel>
+        <p class="mt-2 text-[13px] text-mute">
           Would you like to save this as a manual article?
         </p>
       </div>
-      <div class="flex gap-2">
-        <button @click="saveManualArticle" :disabled="savingArticle"
-          :class="[
-            'flex-1 px-3 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
-            size === 'large' ? 'text-lg' : 'text-base'
-          ]">
-          {{ savingArticle ? 'Saving...' : 'Save as Article' }}
-        </button>
-        <button @click="unknownUrl = null"
-          :class="[
-            'px-3 py-2 bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-zinc-600 transition-colors',
-            size === 'large' ? 'text-lg' : 'text-base'
-          ]">
-          Cancel
-        </button>
+      <div class="flex items-center gap-almanac-section-gap">
+        <ActionLabel :label="savingArticle ? 'SAVING' : 'SAVE AS ARTICLE'" accent :disabled="savingArticle" @click="saveManualArticle" />
+        <ActionLabel label="CANCEL" @click="unknownUrl = null" />
       </div>
-    </div>
+    </PaperPanel>
   </div>
 </template>
 
@@ -314,6 +277,32 @@ const saveManualArticle = async () => {
 </script>
 
 <style scoped>
+/* Hairline-underlined input — no box, no radius, no shadow. */
+.feed-url-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--almanac-rule-line);
+  color: var(--almanac-fg);
+  font-family: var(--almanac-serif, "Source Serif 4", Georgia, serif);
+  font-size: 16px;
+  line-height: 1.55;
+  padding: 6px 0;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.feed-url-input.is-large {
+  font-size: 18px;
+  padding: 10px 0;
+}
+.feed-url-input::placeholder {
+  color: var(--almanac-fg-mute);
+  opacity: 0.7;
+}
+.feed-url-input:focus {
+  border-bottom-color: var(--almanac-accent);
+}
+
 /* Smooth show/hide for the discover/add buttons */
 .fade-scale-enter-active,
 .fade-scale-leave-active {

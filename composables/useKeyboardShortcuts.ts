@@ -33,6 +33,15 @@ interface UseKeyboardShortcutsOptions {
   selectionMode?: Ref<boolean>
   selectedArticleIds?: Ref<Set<number>>
   toggleSelection?: (id: number, articles: Array<{ id: number }>, shiftKey: boolean) => void
+
+  // Card-deck handlers (optional) — wired by the card-stack page.
+  // When ANY of these is provided, the arrow keys drive the deck
+  // (store/read/open/skip) instead of list navigation, and `u` undoes.
+  deckStore?: () => void   // ← left
+  deckRead?: () => void    // → right
+  deckOpen?: () => void    // ↑ up
+  deckSkip?: () => void    // ↓ down
+  deckUndo?: () => void    // u
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -51,8 +60,16 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     handleMarkAllRead,
     selectionMode,
     selectedArticleIds,
-    toggleSelection
+    toggleSelection,
+    deckStore,
+    deckRead,
+    deckOpen,
+    deckSkip,
+    deckUndo
   } = options
+
+  // The deck owns the arrow keys + `u` when its handlers are present.
+  const deckActive = Boolean(deckStore || deckRead || deckOpen || deckSkip || deckUndo)
 
   const navigateArticles = async (direction: Direction) => {
     const currentIndex = displayedArticles.value.findIndex(a => a.id === selectedArticleId.value)
@@ -93,6 +110,42 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
     const key = e.key
     const shiftKey = e.shiftKey
+
+    // ── Card deck (when handlers are wired) ──────────────────────────
+    // Arrow keys map to store / read / open / skip; `u` undoes the last
+    // commit. These take precedence over list navigation.
+    if (deckActive) {
+      if (key === 'ArrowLeft') {
+        e.preventDefault()
+        deckStore?.()
+        return
+      }
+      if (key === 'ArrowRight') {
+        e.preventDefault()
+        deckRead?.()
+        return
+      }
+      if (key === 'ArrowUp') {
+        e.preventDefault()
+        deckOpen?.()
+        return
+      }
+      if (key === 'ArrowDown') {
+        e.preventDefault()
+        deckSkip?.()
+        return
+      }
+      if (key === 'Enter' || key === 'o') {
+        e.preventDefault()
+        deckOpen?.()
+        return
+      }
+      if (key === 'u' && !shiftKey) {
+        e.preventDefault()
+        deckUndo?.()
+        return
+      }
+    }
 
     // Navigation: j/k or arrow keys
     if (key === 'j' || key === 'ArrowDown') {

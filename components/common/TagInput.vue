@@ -1,11 +1,11 @@
 <template>
-  <div ref="containerRef" class="relative">
+  <div ref="containerRef" class="relative font-serif">
     <input
       ref="inputRef"
       v-model="inputValue"
       type="text"
       :placeholder="placeholder"
-      class="w-full px-2 py-1 text-xs border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded focus:ring-1 focus:ring-purple-500 focus:border-transparent"
+      class="tag-input"
       @input="handleInput"
       @keydown="handleKeydown"
       @focus="handleFocus"
@@ -15,19 +15,18 @@
     <Transition name="dropdown">
       <div
         v-if="showSuggestions && filteredSuggestions.length > 0"
-        class="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-gray-200 dark:border-zinc-700 max-h-48 overflow-y-auto"
+        class="absolute z-50 w-full mt-1 bg-paper border border-rule max-h-48 overflow-y-auto"
       >
         <button
           v-for="(suggestion, index) in filteredSuggestions"
           :key="suggestion"
+          type="button"
           @mousedown.prevent="selectSuggestion(suggestion)"
-          class="w-full text-left px-3 py-2 text-xs hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors flex items-center justify-between"
-          :class="{
-            'bg-purple-50 dark:bg-purple-900/20': index === selectedIndex
-          }"
+          class="w-full text-left px-3 py-2 text-[13px] transition-colors flex items-center justify-between hover:text-rust"
+          :class="index === selectedIndex ? 'text-rust' : 'text-ink'"
         >
-          <span class="text-gray-900 dark:text-gray-100">#{{ suggestion }}</span>
-          <span class="text-xs text-gray-500 dark:text-gray-400">
+          <span>#{{ suggestion }}</span>
+          <span class="text-[11px] text-mute italic">
             {{ getTagUsageCount(suggestion) }}
           </span>
         </button>
@@ -163,6 +162,27 @@ defineExpose({
 </script>
 
 <style scoped>
+/* Hairline-underlined input — no box, no radius, no shadow. */
+.tag-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--almanac-rule-line);
+  color: var(--almanac-fg);
+  font-family: var(--almanac-serif, "Source Serif 4", Georgia, serif);
+  font-size: 13px;
+  padding: 4px 0;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.tag-input::placeholder {
+  color: var(--almanac-fg-mute);
+  opacity: 0.7;
+}
+.tag-input:focus {
+  border-bottom-color: var(--almanac-accent);
+}
+
 /* Dropdown transition */
 .dropdown-enter-active,
 .dropdown-leave-active {

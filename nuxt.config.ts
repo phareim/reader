@@ -3,7 +3,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
 
-  css: ['~/assets/css/main.css'],
+  // Almanac base layer first (fonts + tokens + dark palette), then the app's
+  // own main.css can override on top.
+  css: ['~/assets/css/almanac.css', '~/assets/css/main.css'],
 
   app: {
     head: {
@@ -14,9 +16,11 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.svg' },
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap' }
+        // Vendored Almanac design-system stylesheets (CSS-var palette +
+        // component layer). The repo-local assets/css/almanac.css mirrors the
+        // tokens so the app works even if these are cached/late.
+        { rel: 'stylesheet', href: '/almanac/tokens/tokens.css' },
+        { rel: 'stylesheet', href: '/almanac/components-web/almanac.css' }
       ]
     }
   },
@@ -145,6 +149,12 @@ export default defineNuxtConfig({
 
   components: {
     dirs: [
+      // Almanac shared primitives auto-imported WITHOUT a path prefix so they
+      // are <MonoLabel>, <PaperPanel>, etc. (NOT <AlmanacMonoLabel>).
+      {
+        path: '~/components/almanac',
+        pathPrefix: false
+      },
       {
         path: '~/components',
         pathPrefix: false

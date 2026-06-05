@@ -1,0 +1,40 @@
+/* GENERATED FROM tokens/tokens.json — DO NOT HAND-EDIT.
+   Run `node scripts/generate.mjs` to refresh. (SCSS variables) */
+
+// Light palette
+$almanac-paper:  #f4f0e8;
+$almanac-ink:    #1a1a1a;
+$almanac-mute:   #6a6a6a;
+$almanac-rust:   #c14a2a;
+$almanac-rule:   #d8d2c4;
+
+// Dark palette
+$almanac-night-top:    #161b24;
+$almanac-night-bottom: #0e1219;
+$almanac-night-ink:    #ebe4d4;
+$almanac-night-mute:   #7a8a9a;
+$almanac-amber:        #d4a574;
+$almanac-night-rule:   rgba(255, 255, 255, 0.10);
+$almanac-night-header-rule: rgba(235, 228, 212, 0.18);
+
+// Type
+$almanac-serif: "Source Serif 4", Georgia, "Iowan Old Style", Charter, serif;
+$almanac-mono:  "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+$almanac-size-headline: 26px;
+$almanac-size-body:     14px;
+$almanac-size-italic:   13px;
+$almanac-size-monolabel: 9px;
+$almanac-line-headline: 1.2;
+$almanac-line-body:     1.55;
+$almanac-track-monolabel: 0.16em;
+$almanac-track-headline:  -0.012em;
+$almanac-measure-ch:      65;
+
+// Space
+$almanac-gutter:      22px;
+$almanac-section-gap: 14px;
+$almanac-hairline:    1px;
+
+// Glow (dark mode amber)
+$almanac-glow-color:  rgba(212, 165, 116, 0.25);
+$almanac-glow-radius: 4px;

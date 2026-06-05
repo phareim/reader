@@ -33,7 +33,7 @@
         v-if="progress >= threshold"
         :d="fillPath"
         fill="currentColor"
-        class="text-blue-500 dark:text-blue-400"
+        class="text-rust"
         :opacity="0.08 + (progress - threshold) * 0.07"
       />
 
@@ -81,11 +81,11 @@
     >
       <div
         v-if="progress >= threshold"
-        class="absolute flex items-center justify-center rounded-full bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm"
+        class="absolute flex items-center justify-center text-rust"
         :style="iconStyle"
       >
         <svg
-          class="w-10 h-10 text-blue-500 dark:text-blue-400"
+          class="w-10 h-10 text-rust"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -145,9 +145,12 @@ const iconStyle = computed(() => ({
 }))
 
 /**
- * Calculate gradient color with opacity based on progress
+ * Calculate gradient color with opacity based on progress.
+ * Uses the Almanac accent (rust in light, amber in dark) via color-mix so the
+ * glow follows the theme rather than a hard-coded blue.
  */
 function getGradientColor(base: number, progressMultiplier: number): string {
-  return `rgba(59, 130, 246, ${base + props.progress * progressMultiplier})`
+  const alpha = (base + props.progress * progressMultiplier) * 100
+  return `color-mix(in srgb, var(--almanac-accent) ${alpha}%, transparent)`
 }
 </script>

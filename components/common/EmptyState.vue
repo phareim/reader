@@ -1,72 +1,70 @@
 <template>
-  <div class="px-6 py-8">
+  <div class="px-almanac-gutter py-almanac-gutter font-serif text-ink">
     <!-- No feeds at all -->
-    <div v-if="type === 'no-feeds'" class="text-center text-gray-500 dark:text-gray-400">
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">No feeds yet. Open the menu to add feeds!</h2>
-      <!-- Add Feed Section -->
-      <div class="mt-8 pt-8 space-y-8">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">Add a feed to get started</h2>
-        <FeedUrlInput size="large" @success="handleFeedSuccess" @error="handleFeedError" />
-        <p v-if="feedError" class="mt-2 text-sm text-red-500 dark:text-red-400">{{ feedError }}</p>
-        <p v-if="feedSuccess" class="mt-2 text-sm text-green-500 dark:text-green-400">{{ feedSuccess }}</p>
+    <div v-if="type === 'no-feeds'" class="max-w-almanac-measure mx-auto text-center">
+      <div class="flex flex-col items-center">
+        <OrbitalGlyph :size="56" />
+        <MonoLabel as="span" class="mt-4">Get Started</MonoLabel>
+        <SerifHeadline level="h1" class="mt-3">No feeds yet</SerifHeadline>
+        <p class="text-mute text-[14px] leading-[1.55] mt-2 italic">
+          Add your first feed to begin reading.
+        </p>
       </div>
 
+      <div class="mt-almanac-gutter text-left">
+        <FeedUrlInput size="large" @success="handleFeedSuccess" @error="handleFeedError" />
+        <p v-if="feedError" class="mt-2 text-[13px] text-rust italic">{{ feedError }}</p>
+        <p v-if="feedSuccess" class="mt-2 text-[13px] text-mute italic">{{ feedSuccess }}</p>
+      </div>
     </div>
 
     <!-- All caught up -->
-    <div v-else-if="type === 'all-caught-up'" class="max-w-2xl mx-auto">
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-12 text-center">
-        You have <span class="font-bold">{{ totalUnreadCount }} unread</span> articles
-      </h2>
+    <div v-else-if="type === 'all-caught-up'" class="max-w-almanac-measure mx-auto">
+      <div class="text-center mb-almanac-gutter">
+        <MonoLabel as="span">Overview</MonoLabel>
+        <SerifHeadline level="h1" class="mt-2">
+          {{ totalUnreadCount }} unread {{ totalUnreadCount === 1 ? 'article' : 'articles' }}
+        </SerifHeadline>
+      </div>
 
-      <div class="space-y-3" v-show="hasUnreadInOtherViews">
+      <HeaderDivider />
+
+      <div v-show="hasUnreadInOtherViews" class="mt-almanac-gutter">
         <!-- Tags with unread articles -->
-        <div v-for="tag in tagsWithUnread" :key="tag.name">
-          <NuxtLink :to="`/tag/${tag.name}`"
-            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left">
-            <div class="flex items-center gap-3">
-              <span class="text-2xl">#</span>
-              <span class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ tag.name }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 dark:text-gray-400">{{ tag.unreadCount }} unread</span>
-              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </NuxtLink>
-        </div>
+        <NuxtLink
+          v-for="tag in tagsWithUnread"
+          :key="tag.name"
+          :to="`/tag/${tag.name}`"
+          class="group flex items-center justify-between py-almanac-section-gap border-b border-rule transition-colors"
+        >
+          <div class="flex items-baseline gap-2">
+            <span class="text-mute">#</span>
+            <SerifHeadline level="h3" class="group-hover:text-rust transition-colors">{{ tag.name }}</SerifHeadline>
+          </div>
+          <span class="text-[13px] text-mute italic">{{ tag.unreadCount }} unread</span>
+        </NuxtLink>
 
         <!-- Inbox with unread articles -->
-        <div v-if="inboxUnreadCount > 0">
-          <NuxtLink to="/tag/__inbox__"
-            class="w-full flex items-center justify-between px-6 py-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800/50 rounded-lg border border-gray-200 dark:border-zinc-800 transition-colors text-left">
-            <div class="flex items-center gap-3">
-              <span class="text-2xl">📥</span>
-              <span class="text-lg font-medium text-gray-900 dark:text-gray-100">Inbox</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-500 dark:text-gray-400">{{ inboxUnreadCount }} unread</span>
-              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </NuxtLink>
-        </div>
+        <NuxtLink
+          v-if="inboxUnreadCount > 0"
+          to="/tag/__inbox__"
+          class="group flex items-center justify-between py-almanac-section-gap border-b border-rule transition-colors"
+        >
+          <div class="flex items-baseline gap-2">
+            <span class="text-mute">·</span>
+            <SerifHeadline level="h3" class="group-hover:text-rust transition-colors">Inbox</SerifHeadline>
+          </div>
+          <span class="text-[13px] text-mute italic">{{ inboxUnreadCount }} unread</span>
+        </NuxtLink>
 
         <!-- If no unread at all -->
-        <div v-if="totalUnreadCount === 0" class="text-center py-8">
-          <p class="text-gray-500 dark:text-gray-400 mb-4">
-            No unread articles anywhere!
+        <div v-if="totalUnreadCount === 0" class="text-center py-almanac-gutter">
+          <p class="text-mute text-[14px] italic mb-almanac-section-gap">
+            You're all caught up.
           </p>
-          <button @click="$emit('sync-all')"
-            class="px-6 py-3 bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>Refresh All Feeds</span>
-          </button>
+          <div class="flex justify-center">
+            <ActionLabel label="SYNC ALL" accent @click="$emit('sync-all')" />
+          </div>
         </div>
       </div>
     </div>

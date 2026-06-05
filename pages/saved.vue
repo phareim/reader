@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-bg">
+  <div class="min-h-screen bg-paper text-ink font-serif">
     <!-- Hamburger Menu -->
     <HamburgerMenu ref="hamburgerMenuRef" />
 
@@ -29,51 +29,47 @@
         @error="handleHeaderError"
       />
 
-      <!-- Articles List -->
-      <div class="py-0">
+      <!-- Reading Column -->
+      <div class="mx-auto max-w-2xl px-almanac-gutter py-almanac-gutter">
         <!-- Success/Error Messages -->
-        <div v-if="headerSuccess || headerError" class="px-6 py-4">
-          <p v-if="headerSuccess" class="text-base text-green-500 dark:text-green-400">{{ headerSuccess }}</p>
-          <p v-if="headerError" class="text-base text-red-500 dark:text-red-400">{{ headerError }}</p>
+        <div v-if="headerSuccess || headerError" class="mb-4">
+          <p v-if="headerSuccess" class="mono-label text-rust">{{ headerSuccess }}</p>
+          <p v-if="headerError" class="mono-label text-mute">{{ headerError }}</p>
         </div>
 
-        <div v-if="articlesLoading" class="text-center text-gray-500 dark:text-gray-400 py-8">Loading...</div>
-
-        <!-- Article Grid -->
-        <div v-else-if="articles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-          <LazyArticleCard
-            v-for="article in articles"
-            :key="article.id"
-            :article="article"
-            :is-selected="selectedArticleId === article.id"
-            :is-saved="true"
-            :show-feed-title="true"
-            :allow-swipe="false"
-            :all-tags-with-counts="allTagsWithCounts"
-            @toggle-save="toggleSaveArticle(article.id)"
-            @toggle-read="handleToggleRead(article.id)"
-            @update-tags="handleUpdateTags"
-            @delete-article="handleDeleteArticle(article.id)"
-          />
+        <div v-if="articlesLoading" class="divide-y divide-rule">
+          <ArticleCardSkeleton v-for="i in 6" :key="i" />
         </div>
+
+        <!-- Article Reading Column -->
+        <template v-else-if="articles.length > 0">
+          <template v-for="(article, index) in articles" :key="article.id">
+            <SectionDivider v-if="index > 0" />
+            <LazyArticleCard
+              :article="article"
+              :is-selected="selectedArticleId === article.id"
+              :is-saved="true"
+              :show-feed-title="true"
+              :allow-swipe="false"
+              :all-tags-with-counts="allTagsWithCounts"
+              @toggle-save="toggleSaveArticle(article.id)"
+              @toggle-read="handleToggleRead(article.id)"
+              @update-tags="handleUpdateTags"
+              @delete-article="handleDeleteArticle(article.id)"
+            />
+          </template>
+        </template>
 
         <!-- Empty State -->
-        <div v-else class="flex flex-col items-center justify-center py-20 px-4">
-          <div class="max-w-md text-center space-y-4">
-            <svg class="w-20 h-20 mx-auto text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-            </svg>
-            <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">No Saved Articles</h2>
-            <p class="text-gray-600 dark:text-gray-400">
-              Articles you save will appear here.
-            </p>
-            <NuxtLink
-              to="/"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-            >
-              Browse articles
-            </NuxtLink>
-          </div>
+        <div v-else class="flex flex-col items-center justify-center py-24 text-center">
+          <OrbitalGlyph :size="56" class="mb-6" />
+          <SerifHeadline level="h2" class="mb-2">Nothing stored yet</SerifHeadline>
+          <p class="font-serif text-[14px] text-mute mb-6 max-w-almanac-measure">
+            Articles you store will gather here.
+          </p>
+          <NuxtLink to="/">
+            <ActionLabel label="BROWSE" accent />
+          </NuxtLink>
         </div>
       </div>
     </div>

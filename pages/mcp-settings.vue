@@ -1,306 +1,254 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-dark-bg dark:to-zinc-900 p-4">
-    <div class="max-w-4xl mx-auto py-8">
+  <div class="min-h-screen bg-paper text-ink font-serif p-almanac-gutter">
+    <div class="max-w-4xl mx-auto py-almanac-gutter">
       <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Claude Desktop Integration</h1>
-          <NuxtLink
-            to="/"
-            class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-          >
+      <div class="mb-almanac-gutter">
+        <div class="flex items-start justify-between mb-almanac-section-gap">
+          <div>
+            <MonoLabel as="span">Integration</MonoLabel>
+            <SerifHeadline level="h1" class="mt-1">Claude Desktop</SerifHeadline>
+          </div>
+          <NuxtLink to="/" class="text-[13px] text-mute italic hover:text-rust transition-colors whitespace-nowrap">
             ← Back to Reader
           </NuxtLink>
         </div>
-        <p class="text-gray-600 dark:text-gray-400">
-          Connect The Librarian to Claude Desktop using the Model Context Protocol (MCP)
+        <p class="text-[14px] text-mute leading-[1.55]">
+          Connect The Librarian to Claude Desktop using the Model Context Protocol (MCP).
         </p>
       </div>
 
-      <!-- Main Card -->
-      <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-8 mb-6">
-        <!-- Token Status Section -->
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Token Status</h2>
+      <HeaderDivider />
 
-          <div v-if="config?.hasToken" class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg mb-4">
-            <div class="flex items-start justify-between">
-              <div>
-                <p class="text-sm font-medium text-green-800 dark:text-green-300">Token Active</p>
-                <p class="text-xs text-green-600 dark:text-green-400 mt-1">
-                  Created {{ formatDate(config.tokenCreatedAt) }}
-                </p>
-              </div>
-              <button
-                @click="revokeToken"
-                :disabled="loading"
-                class="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
-              >
-                Revoke
-              </button>
-            </div>
-          </div>
+      <!-- Token Status Section -->
+      <section class="mt-almanac-gutter">
+        <MonoLabel as="h2">Token Status</MonoLabel>
 
-          <div v-else class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg mb-4">
-            <p class="text-sm font-medium text-yellow-800 dark:text-yellow-300">No Token Generated</p>
-            <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-              Generate a token to connect Claude Desktop to your Reader account
+        <div v-if="config?.hasToken" class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap flex items-start justify-between">
+          <div>
+            <p class="text-[14px] text-ink">Token active</p>
+            <p class="text-[13px] text-mute italic mt-1">
+              Created {{ formatDate(config.tokenCreatedAt) }}
             </p>
           </div>
-
           <button
-            @click="generateToken"
+            type="button"
+            @click="revokeToken"
             :disabled="loading"
-            class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="text-[13px] text-mute italic hover:text-rust transition-colors disabled:opacity-50"
           >
-            {{ config?.hasToken ? 'Regenerate Token' : 'Generate Token' }}
+            Revoke
           </button>
         </div>
 
-        <!-- Configuration Section -->
-        <div v-if="generatedToken || config?.hasToken">
-          <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Setup Instructions</h2>
+        <div v-else class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap">
+          <p class="text-[14px] text-ink">No token generated</p>
+          <p class="text-[13px] text-mute italic mt-1">
+            Generate a token to connect Claude Desktop to your Reader account.
+          </p>
+        </div>
 
-          <!-- Success message after generation -->
-          <div v-if="generatedToken" class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg mb-6">
-            <p class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Token Generated Successfully!</p>
-            <div class="bg-white dark:bg-zinc-800 p-3 rounded font-mono text-xs break-all text-gray-900 dark:text-gray-100">
-              {{ generatedToken }}
-            </div>
-            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2">
-              This token will only be shown once. Use one of the setup methods below.
+        <div class="mt-almanac-section-gap">
+          <ActionLabel
+            :label="config?.hasToken ? 'REGENERATE TOKEN' : 'GENERATE TOKEN'"
+            accent
+            :disabled="loading"
+            @click="generateToken"
+          />
+        </div>
+      </section>
+
+      <!-- Configuration Section -->
+      <div v-if="generatedToken || config?.hasToken">
+        <SectionDivider />
+
+        <section>
+          <MonoLabel as="h2">Setup Instructions</MonoLabel>
+
+          <!-- Token reveal after generation -->
+          <div v-if="generatedToken" class="mt-almanac-section-gap">
+            <p class="text-[13px] text-mute italic mb-2">
+              This token is shown once. Use one of the setup methods below.
             </p>
+            <div class="almanac-code break-all">{{ generatedToken }}</div>
           </div>
 
           <!-- Setup Method Tabs -->
-          <div class="mb-6">
-            <div class="flex gap-2 border-b border-gray-200 dark:border-zinc-700">
-              <button
-                @click="setupMethod = 'automatic'"
-                :class="[
-                  'px-4 py-2 font-medium text-sm transition-colors',
-                  setupMethod === 'automatic'
-                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-                ]"
-              >
-                Automatic Setup
-              </button>
-              <button
-                @click="setupMethod = 'manual'"
-                :class="[
-                  'px-4 py-2 font-medium text-sm transition-colors',
-                  setupMethod === 'manual'
-                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-                ]"
-              >
-                Manual Setup
-              </button>
-            </div>
+          <div class="mt-almanac-gutter flex gap-almanac-gutter border-b border-rule">
+            <button
+              type="button"
+              @click="setupMethod = 'automatic'"
+              class="pb-2 -mb-px transition-colors"
+              :class="setupMethod === 'automatic' ? 'border-b border-ink' : ''"
+            >
+              <MonoLabel
+                as="span"
+                :style="setupMethod === 'automatic' ? undefined : { color: 'var(--almanac-fg-mute)', textShadow: 'none' }"
+              >Automatic</MonoLabel>
+            </button>
+            <button
+              type="button"
+              @click="setupMethod = 'manual'"
+              class="pb-2 -mb-px transition-colors"
+              :class="setupMethod === 'manual' ? 'border-b border-ink' : ''"
+            >
+              <MonoLabel
+                as="span"
+                :style="setupMethod === 'manual' ? undefined : { color: 'var(--almanac-fg-mute)', textShadow: 'none' }"
+              >Manual</MonoLabel>
+            </button>
           </div>
 
           <!-- Automatic Setup -->
-          <div v-if="setupMethod === 'automatic'" class="space-y-6">
-            <!-- Method 1: One-liner command -->
-            <div class="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-              <div class="flex items-start gap-3 mb-4">
-                <span class="text-2xl">⚡</span>
-                <div>
-                  <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Recommended: One-Line Setup</h3>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Run this command in your terminal to set up everything automatically:
-                  </p>
-                </div>
-              </div>
-
-              <div class="bg-gray-900 dark:bg-black p-4 rounded-lg font-mono text-sm text-green-400 overflow-x-auto relative">
-                <code>{{ oneLineCommand }}</code>
+          <div v-if="setupMethod === 'automatic'" class="mt-almanac-gutter space-y-almanac-gutter">
+            <div>
+              <SerifHeadline level="h3">One-line setup</SerifHeadline>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+                Run this command in your terminal to set up everything automatically:
+              </p>
+              <div class="relative">
+                <div class="almanac-code overflow-x-auto pr-12"><code>{{ oneLineCommand }}</code></div>
                 <button
+                  type="button"
                   @click="copyToClipboard(oneLineCommand)"
-                  class="absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
+                  class="absolute top-2 right-2 text-mute hover:text-rust transition-colors"
+                  aria-label="Copy to clipboard"
                   title="Copy to clipboard"
                 >
-                  📋
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
                 </button>
               </div>
-
-              <div class="mt-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>What this does:</strong></p>
-                <ul class="list-disc list-inside ml-2">
-                  <li>Downloads and runs the setup script</li>
-                  <li>Configures Claude Desktop automatically</li>
-                  <li>No manual file editing required</li>
-                </ul>
-              </div>
+              <p class="text-[13px] text-mute italic mt-2">
+                Downloads and runs the setup script, configures Claude Desktop automatically — no manual file editing.
+              </p>
             </div>
 
-            <!-- Method 2: Download script -->
-            <div class="p-6 bg-gray-50 dark:bg-zinc-800 rounded-lg">
-              <div class="flex items-start gap-3 mb-4">
-                <span class="text-2xl">📥</span>
-                <div>
-                  <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Download Setup Script</h3>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Download the script and run it manually:
-                  </p>
-                </div>
-              </div>
-
-              <div class="flex gap-3">
-                <a
-                  :href="`${config?.appUrl}/api/setup-mcp`"
-                  download="setup-mcp.sh"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-                >
-                  <span>⬇️</span>
-                  Download setup-mcp.sh
-                </a>
-              </div>
-
-              <div class="mt-4 bg-gray-100 dark:bg-zinc-900 p-3 rounded font-mono text-xs">
-                <div class="text-gray-600 dark:text-gray-400 mb-1"># After downloading:</div>
-                <div class="text-gray-900 dark:text-gray-100">chmod +x setup-mcp.sh</div>
-                <div class="text-gray-900 dark:text-gray-100">./setup-mcp.sh --token {{ generatedToken || 'YOUR_TOKEN' }}</div>
+            <div>
+              <SerifHeadline level="h3">Download the script</SerifHeadline>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+                Download the script and run it manually:
+              </p>
+              <a
+                :href="`${config?.appUrl}/api/setup-mcp`"
+                download="setup-mcp.sh"
+                class="inline-flex"
+              >
+                <span class="inline-flex items-baseline border border-rule px-3 py-2 hover:border-ink/40 transition-colors">
+                  <MonoLabel as="span" :style="{ color: 'var(--almanac-fg-mute)', textShadow: 'none' }">DOWNLOAD SETUP-MCP.SH</MonoLabel>
+                </span>
+              </a>
+              <div class="almanac-code mt-almanac-section-gap">
+                <div class="text-mute"># After downloading:</div>
+                <div>chmod +x setup-mcp.sh</div>
+                <div>./setup-mcp.sh --token {{ generatedToken || 'YOUR_TOKEN' }}</div>
               </div>
             </div>
           </div>
 
           <!-- Manual Setup -->
-          <div v-if="setupMethod === 'manual'" class="space-y-6">
+          <div v-if="setupMethod === 'manual'" class="mt-almanac-gutter space-y-almanac-gutter">
             <!-- System Info -->
-            <div class="p-4 bg-gray-50 dark:bg-zinc-800 rounded-lg">
-              <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Detected System Information</h3>
-              <div class="space-y-2 text-xs">
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">Repository Path:</span>
-                  <code class="text-gray-900 dark:text-gray-100 bg-gray-200 dark:bg-zinc-700 px-2 py-1 rounded">{{ config?.repoPath }}</code>
+            <div>
+              <MonoLabel as="h3">Detected System Information</MonoLabel>
+              <dl class="mt-2 space-y-2 text-[13px]">
+                <div class="flex justify-between gap-4">
+                  <dt class="text-mute italic">Repository path</dt>
+                  <dd><code class="almanac-inline">{{ config?.repoPath }}</code></dd>
                 </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-600 dark:text-gray-400">API URL:</span>
-                  <code class="text-gray-900 dark:text-gray-100 bg-gray-200 dark:bg-zinc-700 px-2 py-1 rounded">{{ config?.appUrl }}</code>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-mute italic">API URL</dt>
+                  <dd><code class="almanac-inline">{{ config?.appUrl }}</code></dd>
                 </div>
-                <div class="flex justify-between items-start">
-                  <span class="text-gray-600 dark:text-gray-400">Claude Config:</span>
-                  <code class="text-gray-900 dark:text-gray-100 bg-gray-200 dark:bg-zinc-700 px-2 py-1 rounded text-right max-w-md break-all">{{ config?.claudeConfigPath }}</code>
+                <div class="flex justify-between gap-4 items-start">
+                  <dt class="text-mute italic">Claude config</dt>
+                  <dd class="text-right max-w-md break-all"><code class="almanac-inline">{{ config?.claudeConfigPath }}</code></dd>
                 </div>
-              </div>
+              </dl>
             </div>
 
-            <!-- Step 1: Download or Copy Config -->
+            <!-- Step 1 -->
             <div>
-              <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">1. Get Configuration</h3>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <SerifHeadline level="h3">1. Get configuration</SerifHeadline>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
                 Download the pre-configured file or copy the JSON below:
               </p>
-
-              <div class="flex gap-3 mb-4">
-                <button
-                  @click="downloadConfigFile"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-                >
-                  <span>⬇️</span>
-                  Download Config File
-                </button>
-                <button
-                  @click="copyToClipboard(configJson)"
-                  class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-white font-medium rounded-lg transition-colors"
-                >
-                  <span>📋</span>
-                  Copy JSON
-                </button>
+              <div class="flex items-center gap-almanac-section-gap mb-almanac-section-gap">
+                <ActionLabel label="DOWNLOAD CONFIG" @click="downloadConfigFile" />
+                <ActionLabel label="COPY JSON" @click="copyToClipboard(configJson)" />
               </div>
-
-              <div class="bg-gray-50 dark:bg-zinc-800 p-4 rounded font-mono text-xs text-gray-900 dark:text-gray-100 overflow-x-auto max-h-96 overflow-y-auto">
-                <pre>{{ configJson }}</pre>
-              </div>
+              <div class="almanac-code overflow-x-auto max-h-96 overflow-y-auto"><pre>{{ configJson }}</pre></div>
             </div>
 
-            <!-- Step 2: Install Config -->
+            <!-- Step 2 -->
             <div>
-              <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">2. Install Configuration</h3>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <SerifHeadline level="h3">2. Install configuration</SerifHeadline>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-2">
                 Place the configuration file at:
               </p>
-              <div class="bg-gray-50 dark:bg-zinc-800 p-3 rounded font-mono text-sm text-gray-900 dark:text-gray-100 mb-3">
-                {{ config?.claudeConfigPath }}
-              </div>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                If the file already exists, merge the <code class="bg-gray-200 dark:bg-zinc-700 px-1 rounded">mcpServers</code> section with your existing configuration.
+              <div class="almanac-code">{{ config?.claudeConfigPath }}</div>
+              <p class="text-[13px] text-mute italic mt-2">
+                If the file already exists, merge the <code class="almanac-inline">mcpServers</code> section with your existing configuration.
               </p>
             </div>
 
-            <!-- Step 3: Restart -->
+            <!-- Step 3 -->
             <div>
-              <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">3. Restart Claude Desktop</h3>
-              <p class="text-sm text-gray-600 dark:text-gray-400">
+              <SerifHeadline level="h3">3. Restart Claude Desktop</SerifHeadline>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1">
                 Completely quit and restart Claude Desktop for the changes to take effect.
               </p>
             </div>
           </div>
 
+          <SectionDivider />
+
           <!-- Connection Test -->
-          <div class="mt-8 p-6 bg-gray-50 dark:bg-zinc-800 rounded-lg">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3">Test Your Connection</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              After setting up Claude Desktop, you can test the connection here:
+          <div>
+            <SerifHeadline level="h3">Test your connection</SerifHeadline>
+            <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+              After setting up Claude Desktop, test the connection here:
             </p>
-
-            <button
-              @click="testConnection"
+            <ActionLabel
+              :label="testingConnection ? 'TESTING' : 'TEST CONNECTION'"
               :disabled="testingConnection"
-              class="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {{ testingConnection ? 'Testing...' : 'Test MCP Connection' }}
-            </button>
+              @click="testConnection"
+            />
 
-            <!-- Test Result -->
-            <div v-if="connectionTestResult" class="mt-4 p-4 rounded-lg" :class="[
-              connectionTestResult.success
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-            ]">
-              <p class="text-sm font-medium" :class="[
-                connectionTestResult.success
-                  ? 'text-green-800 dark:text-green-300'
-                  : 'text-red-800 dark:text-red-300'
-              ]">
+            <div v-if="connectionTestResult" class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap">
+              <p class="text-[14px]" :class="connectionTestResult.success ? 'text-ink' : 'text-rust'">
                 {{ connectionTestResult.success ? '✓' : '✗' }} {{ connectionTestResult.message }}
               </p>
-              <p v-if="connectionTestResult.success" class="text-xs mt-1" :class="[
-                connectionTestResult.success
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              ]">
+              <p v-if="connectionTestResult.success" class="text-[13px] text-mute italic mt-1">
                 Connected as: {{ connectionTestResult.user?.email }}
               </p>
             </div>
           </div>
 
+          <SectionDivider />
+
           <!-- Available Tools -->
-          <div class="mt-6 p-4 bg-gray-50 dark:bg-zinc-800 rounded-lg">
-            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Available MCP Tools</h3>
-            <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-              <li>• <strong>list_feeds</strong> - Get all your RSS feeds</li>
-              <li>• <strong>get_recent_articles</strong> - Fetch recent articles</li>
-              <li>• <strong>get_saved_articles</strong> - View saved articles</li>
-              <li>• <strong>save_article</strong> - Save articles for later</li>
-              <li>• <strong>add_article</strong> - Manually add articles</li>
-              <li>• <strong>tag_article</strong> - Organize with tags</li>
-              <li>• And more...</li>
+          <div>
+            <MonoLabel as="h3">Available MCP Tools</MonoLabel>
+            <ul class="mt-2 text-[13px] text-mute space-y-1 leading-[1.55]">
+              <li><span class="text-ink">list_feeds</span> — get all your RSS feeds</li>
+              <li><span class="text-ink">get_recent_articles</span> — fetch recent articles</li>
+              <li><span class="text-ink">get_saved_articles</span> — view saved articles</li>
+              <li><span class="text-ink">save_article</span> — save articles for later</li>
+              <li><span class="text-ink">add_article</span> — manually add articles</li>
+              <li><span class="text-ink">tag_article</span> — organize with tags</li>
+              <li class="italic">…and more</li>
             </ul>
           </div>
-        </div>
+        </section>
       </div>
 
-      <!-- Error Message -->
-      <div v-if="error" class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+      <!-- Error / Success -->
+      <div v-if="error" class="mt-almanac-gutter border-l-2 border-rule pl-almanac-section-gap">
+        <p class="text-[13px] text-rust italic">{{ error }}</p>
       </div>
-
-      <!-- Success Message -->
-      <div v-if="successMessage" class="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-        <p class="text-sm text-green-600 dark:text-green-400">{{ successMessage }}</p>
+      <div v-if="successMessage" class="mt-almanac-gutter border-l-2 border-rule pl-almanac-section-gap">
+        <p class="text-[13px] text-mute italic">{{ successMessage }}</p>
       </div>
     </div>
   </div>
@@ -471,3 +419,27 @@ const formatDate = (date: string | undefined) => {
   })
 }
 </script>
+
+<style scoped>
+/* Hairline-framed code block — no rounded box, no shadow. */
+.almanac-code {
+  border: 1px solid var(--almanac-rule-line);
+  padding: 12px;
+  font-family: var(--almanac-mono, "SF Mono", ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--almanac-fg);
+  background: transparent;
+}
+.almanac-code pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.almanac-inline {
+  font-family: var(--almanac-mono, "SF Mono", ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--almanac-fg);
+  border-bottom: 1px solid var(--almanac-rule-line);
+  padding-bottom: 1px;
+}
+</style>
