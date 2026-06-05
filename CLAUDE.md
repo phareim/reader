@@ -37,7 +37,7 @@ Tests live in `__tests__/` mirroring the source tree (`__tests__/components`, `_
 
 ### Tech Stack
 - **Frontend**: Nuxt 3 (Vue 3) with auto-imported components and composables
-- **Styling**: Tailwind CSS with `@tailwindcss/typography` for article content
+- **Styling**: Tailwind CSS with `@tailwindcss/typography` for article content, themed by the **Almanac design system** (see "Almanac Design System & Card-Stack Reader" below)
 - **Backend**: Nitro server routes (REST-style API)
 - **Database**: Cloudflare D1 (binding `DB`)
 - **Storage**: Cloudflare R2 for article content (binding `ARTICLE_BUCKET`)
@@ -55,9 +55,12 @@ This app uses Nuxt's `useState` for global state management instead of Pinia/Vue
 - **`useSavedArticles()`**: Saved article IDs, save/unsave operations
 - **`useSavedArticlesByTag()`**: Organization of saved articles by tags
 - **`useTags()`**: Tag management and counts
-- **`useKeyboardShortcuts()`**: Global keyboard navigation (j/k, o, m, r, etc.)
+- **`useKeyboardShortcuts()`**: Global keyboard navigation (j/k, o, m, r, etc., plus the deck keys `←→↑↓`/`u` — see below)
+- **`useDeckGesture()`**: Pointer/touch drag for the card stack — the top card follows the finger (translate + slight rotate), commits an action past a threshold, springs back otherwise. Also exposes an imperative `commit(direction)` so keyboard shortcuts and on-screen `ActionLabel`s drive the same path.
 
 Each composable returns reactive state and methods. State is shared across all components that call the same composable.
+
+Pure deck logic lives in **`utils/deck.ts`** (unit-tested in `__tests__/utils/deck.test.ts`): `resolveDirection(dx, dy, threshold)`, `advance(deckIds, action)`, `undo(history)`, and `DECK_COMMIT_THRESHOLD`. `useDeckGesture` delegates direction resolution to `resolveDirection`.
 
 ### Special Feed/Tag IDs
 
@@ -84,6 +87,20 @@ Special tag values:
 
 ### Component Organization
 
+**Almanac primitives** (`components/almanac/`) — small, presentational building blocks every reskinned surface composes. Auto-imported with **no path prefix** (configured in `nuxt.config.ts`), so they are `<MonoLabel>`, `<PaperPanel>`, etc., NOT `<AlmanacMonoLabel>`:
+- `MonoLabel.vue` - 9px tracked uppercase mono label with a leading em-dash (`— SECTION`)
+- `SerifHeadline.vue` - Source Serif headline, `level` prop scales the size
+- `SectionDivider.vue` / `HeaderDivider.vue` - hairline `<hr>` rules (never boxes)
+- `PaperPanel.vue` - hairline-framed paper surface (no shadow, no radius) — the card-stack cards and modals compose this
+- `ActionLabel.vue` - **the Almanac substitute for a button**: a `MonoLabel` inside a hairline border, emits `click`; `accent` prop promotes it to the one rust/amber accent. Use this anywhere a button is needed
+- `OrbitalGlyph.vue` / `Starfield.vue` - vendored SVGs; `Starfield` renders dark-mode only
+
+**Card stack** (`components/stack/`) — the reading entrance (see architecture section below):
+- `CardStack.vue` - manages the deck, renders the top ~3 cards as offset paper sheets, wires `useDeckGesture` to the top card, performs the commit actions (save/read/open/skip), exposes `commit(direction)` + `undo()`
+- `ArticleStackCard.vue` - a single card (`PaperPanel`): source `MonoLabel`, serif headline, hero, 3-line excerpt; bound to the live drag transform with the pending-action accent
+- `DeckEmptyState.vue` - "all caught up" (`OrbitalGlyph` + serif line + `— SYNC ALL`)
+- `UndoToast.vue` - brief `— UNDO` affordance after a save/read commit
+
 **Menu Components** (`components/menu/`):
 - `MenuHeader.vue` - Header with close button and "The Librarian" title (clickable to go to overview)
 - `AddFeedSection.vue` - Wraps `FeedUrlInput` component
@@ -94,11 +111,13 @@ Special tag values:
 
 **Main Components**:
 - `HamburgerMenu.vue` - Slide-in menu, assembles menu sections
-- `Article.vue` - Single article display with expand/collapse
-- `EmptyState.vue` - Shown when no articles or in overview mode (selectedFeedId === -2)
+- `components/article/ArticleCard.vue` - Article row used on the list pages (saved/feed/tag), reskinned to the Almanac reading-column model (hairline-separated rows, not boxes)
+- `EmptyState.vue` - Shown in overview mode (`selectedFeedId === -2`); the card-stack's own exhausted state is `DeckEmptyState.vue`
 - `FeedUrlInput.vue` - Reusable feed URL input with discover/add buttons (used in menu and EmptyState)
 - `PageHeader.vue` - Sticky header showing context (feed/tag name) and current article
-- `KeyboardShortcutsHelp.vue` - Help dialog for keyboard shortcuts
+- `KeyboardShortcutsHelp.vue` - Help dialog for keyboard shortcuts (documents the deck keys)
+
+The **home page** (`pages/index.vue`) is the card stack (`CardStack`), not a list. The full-screen serif **reader** is `pages/article/[id].vue`. The list/column pages are `pages/saved.vue`, `pages/feed/[id].vue`, `pages/tag/[name].vue`.
 
 ### API Routes Structure
 
@@ -175,6 +194,15 @@ Three providers are used deliberately — match the surface to the right one:
 ### Keyboard Shortcuts
 
 Implemented in `useKeyboardShortcuts` composable:
+
+**Card stack (home)** — the deck keys drive the same `commit(direction)` path as swipe/tap. They are gated on deck handlers being passed (`deckStore`/`deckRead`/`deckOpen`/`deckSkip`/`deckUndo`), which `pages/index.vue` wires from `CardStack`:
+- `←` - Store (save) the top card
+- `→` - Mark the top card read
+- `↑` - Open the reader
+- `↓` - Skip (move card to back of deck)
+- `u` - Undo the last save/read
+
+**List pages / general**:
 - `j/k` - Navigate articles up/down
 - `o` - Open/close selected article
 - `m` - Mark selected as read
@@ -187,10 +215,31 @@ Implemented in `useKeyboardShortcuts` composable:
 
 ### Styling Notes
 
-- Dark mode supported via Tailwind's `dark:` classes
-- Article content uses `@tailwindcss/typography` prose classes
-- Text sizes increased to `text-base` (16px) throughout menu for better readability
-- Transitions use Vue's `<Transition>` component with custom CSS classes
+- **Almanac aesthetic throughout** (see the dedicated section below): warm paper / midnight paper, Source Serif 4 body, hairline 1px rules (never card shadows or rounded buttons), exactly one rust (light) / amber (dark) accent per screen.
+- Dark mode is **system-preference** (`darkMode: 'media'`); the Almanac dark palette + night-sky gradient apply under `@media (prefers-color-scheme: dark)`. There is no manual theme toggle. Prefer the token utilities (`bg-paper`, `text-ink`, `text-mute`, `text-rust`, `border-rule`, `font-serif`) over `dark:` variants and never reintroduce `blue-*`, `bg-gray-*`, rounded buttons, or shadows.
+- Article content uses `@tailwindcss/typography` prose classes, restyled to serif / 65ch / rust links / hairline rules.
+- Transitions use Vue's `<Transition>` component with custom CSS classes.
+
+### Almanac Design System & Card-Stack Reader
+
+The entire UX is a ground-up build in the **Almanac design system** (a warm-paper / midnight-paper, scholarly-serif aesthetic). Full design spec: `docs/superpowers/specs/2026-06-05-almanac-ux-rebuild-design.md`. Canonical system: `~/github/almanac-design/DESIGN.md`.
+
+**Vendoring**: the design system is copied into `public/almanac/` (it can't be reached at runtime on the deployed Worker). That gives `tokens/tokens.css`, `components-web/almanac.css`, the `OrbitalGlyph`/`Starfield` SVGs, and the Source Serif 4 woff2 fonts. Wiring:
+- `config/almanac.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) that exposes the token utilities.
+- `assets/css/almanac.css` — `@font-face` (regular + italic, `font-display: swap`) plus the dark palette under `@media (prefers-color-scheme: dark)`.
+- `app.vue` sets `bg-paper text-ink font-serif` and renders `<Starfield>` behind content in dark mode.
+
+**The card stack** is the app's entrance (`pages/index.vue` → `CardStack`). The deck is **all unread articles, newest first** (from `useArticles().fetchArticles()` with no feed); selecting a feed/tag in the menu refills the deck. The top ~3 cards render as offset hairline paper sheets (depth via translate + mute, never shadow). Interaction (one model on mobile touch + desktop keys), all routed through `CardStack.commit(direction)`:
+
+| Gesture / key | Action | Implementation |
+|---|---|---|
+| swipe ← / `←` | **Store** (save) | `useSavedArticles().save` then `advance` |
+| swipe → / `→` | **Mark read** | `useArticles().markAsRead(id, true)` then `advance` |
+| swipe ↑ / `↑` / tap | **Open reader** | navigate `/article/:id` (non-destructive, card stays) |
+| swipe ↓ / `↓` | **Skip** | `advance` moves the id to the back of the deck (no API call) |
+| `u` / `— UNDO` toast | **Undo** | reverses the last save/read API call + restores the card |
+
+The drag is handled by `useDeckGesture` (top card follows the finger); pure deck mechanics are in `utils/deck.ts` (`resolveDirection`, `advance`, `undo`). On-screen actions are `ActionLabel`s (the Almanac button substitute), with the pending action shown as the single rust/amber accent during a drag. When the deck empties, `DeckEmptyState` shows.
 
 ### Environment Variables
 
