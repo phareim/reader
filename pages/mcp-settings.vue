@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-screen bg-paper text-ink font-serif p-almanac-gutter">
-    <div class="max-w-4xl mx-auto py-almanac-gutter">
+  <div class="min-h-screen bg-paper text-ink font-serif p-6">
+    <div class="max-w-4xl mx-auto py-6">
       <!-- Header -->
-      <div class="mb-almanac-gutter">
-        <div class="flex items-start justify-between mb-almanac-section-gap">
+      <div class="mb-6">
+        <div class="flex items-start justify-between mb-4">
           <div>
-            <MonoLabel as="span">Integration</MonoLabel>
-            <SerifHeadline level="h1" class="mt-1">Claude Desktop</SerifHeadline>
+            <MonoLabel>Integration</MonoLabel>
+            <h2 class="text-3xl mt-1">Claude Desktop</h2>
           </div>
           <NuxtLink to="/" class="text-[13px] text-mute italic hover:text-rust transition-colors whitespace-nowrap">
             ← Back to Reader
@@ -17,13 +17,13 @@
         </p>
       </div>
 
-      <HeaderDivider />
+      <HairlineRule />
 
       <!-- Token Status Section -->
-      <section class="mt-almanac-gutter">
-        <MonoLabel as="h2">Token Status</MonoLabel>
+      <section class="mt-6">
+        <MonoLabel>Token Status</MonoLabel>
 
-        <div v-if="config?.hasToken" class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap flex items-start justify-between">
+        <div v-if="config?.hasToken" class="mt-4 py-4 border-l-2 border-rule pl-4 flex items-start justify-between">
           <div>
             <p class="text-[14px] text-ink">Token active</p>
             <p class="text-[13px] text-mute italic mt-1">
@@ -40,40 +40,39 @@
           </button>
         </div>
 
-        <div v-else class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap">
+        <div v-else class="mt-4 py-4 border-l-2 border-rule pl-4">
           <p class="text-[14px] text-ink">No token generated</p>
           <p class="text-[13px] text-mute italic mt-1">
             Generate a token to connect Claude Desktop to your Reader account.
           </p>
         </div>
 
-        <div class="mt-almanac-section-gap">
+        <div class="mt-4">
           <ActionLabel
-            :label="config?.hasToken ? 'REGENERATE TOKEN' : 'GENERATE TOKEN'"
             accent
             :disabled="loading"
             @click="generateToken"
-          />
+          >{{ config?.hasToken ? 'Regenerate Token' : 'Generate Token' }}</ActionLabel>
         </div>
       </section>
 
       <!-- Configuration Section -->
       <div v-if="generatedToken || config?.hasToken">
-        <SectionDivider />
+        <HairlineRule />
 
         <section>
-          <MonoLabel as="h2">Setup Instructions</MonoLabel>
+          <MonoLabel>Setup Instructions</MonoLabel>
 
           <!-- Token reveal after generation -->
-          <div v-if="generatedToken" class="mt-almanac-section-gap">
+          <div v-if="generatedToken" class="mt-4">
             <p class="text-[13px] text-mute italic mb-2">
               This token is shown once. Use one of the setup methods below.
             </p>
-            <div class="almanac-code break-all">{{ generatedToken }}</div>
+            <div class="tufte-code break-all">{{ generatedToken }}</div>
           </div>
 
           <!-- Setup Method Tabs -->
-          <div class="mt-almanac-gutter flex gap-almanac-gutter border-b border-rule">
+          <div class="mt-6 flex gap-6 border-b border-rule">
             <button
               type="button"
               @click="setupMethod = 'automatic'"
@@ -81,8 +80,7 @@
               :class="setupMethod === 'automatic' ? 'border-b border-ink' : ''"
             >
               <MonoLabel
-                as="span"
-                :style="setupMethod === 'automatic' ? undefined : { color: 'var(--almanac-fg-mute)', textShadow: 'none' }"
+                :style="setupMethod === 'automatic' ? undefined : { color: 'var(--text-muted)', textShadow: 'none' }"
               >Automatic</MonoLabel>
             </button>
             <button
@@ -92,21 +90,20 @@
               :class="setupMethod === 'manual' ? 'border-b border-ink' : ''"
             >
               <MonoLabel
-                as="span"
-                :style="setupMethod === 'manual' ? undefined : { color: 'var(--almanac-fg-mute)', textShadow: 'none' }"
+                :style="setupMethod === 'manual' ? undefined : { color: 'var(--text-muted)', textShadow: 'none' }"
               >Manual</MonoLabel>
             </button>
           </div>
 
           <!-- Automatic Setup -->
-          <div v-if="setupMethod === 'automatic'" class="mt-almanac-gutter space-y-almanac-gutter">
+          <div v-if="setupMethod === 'automatic'" class="mt-6 space-y-6">
             <div>
-              <SerifHeadline level="h3">One-line setup</SerifHeadline>
-              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+              <h2 class="text-2xl">One-line setup</h2>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Run this command in your terminal to set up everything automatically:
               </p>
               <div class="relative">
-                <div class="almanac-code overflow-x-auto pr-12"><code>{{ oneLineCommand }}</code></div>
+                <div class="tufte-code overflow-x-auto pr-12"><code>{{ oneLineCommand }}</code></div>
                 <button
                   type="button"
                   @click="copyToClipboard(oneLineCommand)"
@@ -125,8 +122,8 @@
             </div>
 
             <div>
-              <SerifHeadline level="h3">Download the script</SerifHeadline>
-              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+              <h2 class="text-2xl">Download the script</h2>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Download the script and run it manually:
               </p>
               <a
@@ -135,10 +132,10 @@
                 class="inline-flex"
               >
                 <span class="inline-flex items-baseline border border-rule px-3 py-2 hover:border-ink/40 transition-colors">
-                  <MonoLabel as="span" :style="{ color: 'var(--almanac-fg-mute)', textShadow: 'none' }">DOWNLOAD SETUP-MCP.SH</MonoLabel>
+                  <MonoLabel :style="{ color: 'var(--text-muted)', textShadow: 'none' }">DOWNLOAD SETUP-MCP.SH</MonoLabel>
                 </span>
               </a>
-              <div class="almanac-code mt-almanac-section-gap">
+              <div class="tufte-code mt-4">
                 <div class="text-mute"># After downloading:</div>
                 <div>chmod +x setup-mcp.sh</div>
                 <div>./setup-mcp.sh --token {{ generatedToken || 'YOUR_TOKEN' }}</div>
@@ -147,75 +144,74 @@
           </div>
 
           <!-- Manual Setup -->
-          <div v-if="setupMethod === 'manual'" class="mt-almanac-gutter space-y-almanac-gutter">
+          <div v-if="setupMethod === 'manual'" class="mt-6 space-y-6">
             <!-- System Info -->
             <div>
-              <MonoLabel as="h3">Detected System Information</MonoLabel>
+              <MonoLabel>Detected System Information</MonoLabel>
               <dl class="mt-2 space-y-2 text-[13px]">
                 <div class="flex justify-between gap-4">
                   <dt class="text-mute italic">Repository path</dt>
-                  <dd><code class="almanac-inline">{{ config?.repoPath }}</code></dd>
+                  <dd><code class="tufte-inline">{{ config?.repoPath }}</code></dd>
                 </div>
                 <div class="flex justify-between gap-4">
                   <dt class="text-mute italic">API URL</dt>
-                  <dd><code class="almanac-inline">{{ config?.appUrl }}</code></dd>
+                  <dd><code class="tufte-inline">{{ config?.appUrl }}</code></dd>
                 </div>
                 <div class="flex justify-between gap-4 items-start">
                   <dt class="text-mute italic">Claude config</dt>
-                  <dd class="text-right max-w-md break-all"><code class="almanac-inline">{{ config?.claudeConfigPath }}</code></dd>
+                  <dd class="text-right max-w-md break-all"><code class="tufte-inline">{{ config?.claudeConfigPath }}</code></dd>
                 </div>
               </dl>
             </div>
 
             <!-- Step 1 -->
             <div>
-              <SerifHeadline level="h3">1. Get configuration</SerifHeadline>
-              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+              <h2 class="text-2xl">1. Get configuration</h2>
+              <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Download the pre-configured file or copy the JSON below:
               </p>
-              <div class="flex items-center gap-almanac-section-gap mb-almanac-section-gap">
-                <ActionLabel label="DOWNLOAD CONFIG" @click="downloadConfigFile" />
-                <ActionLabel label="COPY JSON" @click="copyToClipboard(configJson)" />
+              <div class="flex items-center gap-4 mb-4">
+                <ActionLabel @click="downloadConfigFile">Download Config</ActionLabel>
+                <ActionLabel @click="copyToClipboard(configJson)">Copy JSON</ActionLabel>
               </div>
-              <div class="almanac-code overflow-x-auto max-h-96 overflow-y-auto"><pre>{{ configJson }}</pre></div>
+              <div class="tufte-code overflow-x-auto max-h-96 overflow-y-auto"><pre>{{ configJson }}</pre></div>
             </div>
 
             <!-- Step 2 -->
             <div>
-              <SerifHeadline level="h3">2. Install configuration</SerifHeadline>
+              <h2 class="text-2xl">2. Install configuration</h2>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-2">
                 Place the configuration file at:
               </p>
-              <div class="almanac-code">{{ config?.claudeConfigPath }}</div>
+              <div class="tufte-code">{{ config?.claudeConfigPath }}</div>
               <p class="text-[13px] text-mute italic mt-2">
-                If the file already exists, merge the <code class="almanac-inline">mcpServers</code> section with your existing configuration.
+                If the file already exists, merge the <code class="tufte-inline">mcpServers</code> section with your existing configuration.
               </p>
             </div>
 
             <!-- Step 3 -->
             <div>
-              <SerifHeadline level="h3">3. Restart Claude Desktop</SerifHeadline>
+              <h2 class="text-2xl">3. Restart Claude Desktop</h2>
               <p class="text-[14px] text-mute leading-[1.55] mt-1">
                 Completely quit and restart Claude Desktop for the changes to take effect.
               </p>
             </div>
           </div>
 
-          <SectionDivider />
+          <HairlineRule />
 
           <!-- Connection Test -->
           <div>
-            <SerifHeadline level="h3">Test your connection</SerifHeadline>
-            <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-almanac-section-gap">
+            <h2 class="text-2xl">Test your connection</h2>
+            <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
               After setting up Claude Desktop, test the connection here:
             </p>
             <ActionLabel
-              :label="testingConnection ? 'TESTING' : 'TEST CONNECTION'"
               :disabled="testingConnection"
               @click="testConnection"
-            />
+            >{{ testingConnection ? 'Testing' : 'Test Connection' }}</ActionLabel>
 
-            <div v-if="connectionTestResult" class="mt-almanac-section-gap py-almanac-section-gap border-l-2 border-rule pl-almanac-section-gap">
+            <div v-if="connectionTestResult" class="mt-4 py-4 border-l-2 border-rule pl-4">
               <p class="text-[14px]" :class="connectionTestResult.success ? 'text-ink' : 'text-rust'">
                 {{ connectionTestResult.success ? '✓' : '✗' }} {{ connectionTestResult.message }}
               </p>
@@ -225,11 +221,11 @@
             </div>
           </div>
 
-          <SectionDivider />
+          <HairlineRule />
 
           <!-- Available Tools -->
           <div>
-            <MonoLabel as="h3">Available MCP Tools</MonoLabel>
+            <MonoLabel>Available MCP Tools</MonoLabel>
             <ul class="mt-2 text-[13px] text-mute space-y-1 leading-[1.55]">
               <li><span class="text-ink">list_feeds</span> — get all your RSS feeds</li>
               <li><span class="text-ink">get_recent_articles</span> — fetch recent articles</li>
@@ -244,10 +240,10 @@
       </div>
 
       <!-- Error / Success -->
-      <div v-if="error" class="mt-almanac-gutter border-l-2 border-rule pl-almanac-section-gap">
+      <div v-if="error" class="mt-6 border-l-2 border-rule pl-4">
         <p class="text-[13px] text-rust italic">{{ error }}</p>
       </div>
-      <div v-if="successMessage" class="mt-almanac-gutter border-l-2 border-rule pl-almanac-section-gap">
+      <div v-if="successMessage" class="mt-6 border-l-2 border-rule pl-4">
         <p class="text-[13px] text-mute italic">{{ successMessage }}</p>
       </div>
     </div>
@@ -422,24 +418,24 @@ const formatDate = (date: string | undefined) => {
 
 <style scoped>
 /* Hairline-framed code block — no rounded box, no shadow. */
-.almanac-code {
-  border: 1px solid var(--almanac-rule-line);
+.tufte-code {
+  border: 1px solid var(--border-rule);
   padding: 12px;
-  font-family: var(--almanac-mono, "SF Mono", ui-monospace, monospace);
+  font-family: 'SF Mono', ui-monospace, monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--almanac-fg);
+  color: var(--text-strong);
   background: transparent;
 }
-.almanac-code pre {
+.tufte-code pre {
   margin: 0;
   white-space: pre-wrap;
 }
-.almanac-inline {
-  font-family: var(--almanac-mono, "SF Mono", ui-monospace, monospace);
+.tufte-inline {
+  font-family: 'SF Mono', ui-monospace, monospace;
   font-size: 12px;
-  color: var(--almanac-fg);
-  border-bottom: 1px solid var(--almanac-rule-line);
+  color: var(--text-strong);
+  border-bottom: 1px solid var(--border-rule);
   padding-bottom: 1px;
 }
 </style>
