@@ -1,10 +1,8 @@
 /** @type {import('tailwindcss').Config} */
-const plugin = require('tailwindcss/plugin')
-
 module.exports = {
-  darkMode: 'media', // Honors system preference (prefers-color-scheme)
+  darkMode: 'media',
   presets: [
-    require('./config/almanac.preset.cjs'),
+    require('./config/tufte.preset.cjs'),
   ],
   content: [
     "./components/**/*.{js,vue,ts}",
@@ -18,16 +16,23 @@ module.exports = {
       typography: () => ({
         DEFAULT: {
           css: {
-            fontFamily: 'var(--almanac-serif)',
-            color: 'var(--almanac-fg)',
-            maxWidth: 'var(--almanac-measure)',
-            h1: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
-            h2: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
-            h3: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
-            h4: { fontFamily: 'var(--almanac-serif)', color: 'var(--almanac-fg)' },
-            a: { color: 'var(--almanac-accent)' },
-            'blockquote p': { fontFamily: 'var(--almanac-serif)' },
-            hr: { borderColor: 'var(--almanac-rule-line)' },
+            fontFamily: "'et-book', Charter, Palatino, Georgia, serif",
+            color: 'var(--text-body)',
+            maxWidth: '65ch',
+            fontSize: '1.0625rem',
+            lineHeight: '1.6',
+            h1: { color: 'var(--text-strong)', fontWeight: '400' },
+            h2: { color: 'var(--text-strong)', fontWeight: '400' },
+            h3: { color: 'var(--text-strong)', fontWeight: '400' },
+            h4: { color: 'var(--text-strong)', fontWeight: '400' },
+            strong: { color: 'var(--text-strong)' },
+            a: { color: 'var(--text-accent)', textDecorationThickness: '1px', textUnderlineOffset: '2px' },
+            blockquote: { color: 'var(--text-muted)', borderLeftColor: 'var(--border-rule)', fontStyle: 'italic' },
+            hr: { borderColor: 'var(--border-rule)' },
+            code: { color: 'var(--text-strong)', backgroundColor: 'var(--surface-sunk)' },
+            pre: { backgroundColor: 'var(--surface-sunk)', color: 'var(--text-body)' },
+            img: { filter: 'saturate(.9)' },
+            figcaption: { color: 'var(--text-muted)' },
           },
         },
       }),
@@ -35,20 +40,5 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/typography'),
-    // The Almanac MonoLabel utility — 9px tracked uppercase mono, accent
-    // color, dark-mode glow. The Almanac substitute for chrome.
-    plugin(function ({ addComponents }) {
-      addComponents({
-        '.mono-label': {
-          fontFamily: 'var(--almanac-mono)',
-          fontSize: 'var(--almanac-size-monolabel)',
-          letterSpacing: 'var(--almanac-track-monolabel)',
-          textTransform: 'uppercase',
-          color: 'var(--almanac-accent)',
-          textShadow: '0 0 4px var(--almanac-glow)',
-          fontWeight: '500',
-        },
-      })
-    }),
   ],
 }

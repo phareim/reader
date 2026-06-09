@@ -3,24 +3,19 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
 
-  // Almanac base layer first (fonts + tokens + dark palette), then the app's
+  // Tufte base layer first (fonts + tokens + dark palette), then the app's
   // own main.css can override on top.
-  css: ['~/assets/css/almanac.css', '~/assets/css/main.css'],
+  css: ['~/assets/css/tufte.css', '~/assets/css/main.css'],
 
   app: {
     head: {
-      title: 'The Librarian',
+      title: 'The Reader',
       meta: [
-        { name: 'description', content: 'Your friendly librarian for organizing and curating the web\'s knowledge' }
+        { name: 'description', content: 'A calm reading room' }
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.svg' },
-        // Vendored Almanac design-system stylesheets (CSS-var palette +
-        // component layer). The repo-local assets/css/almanac.css mirrors the
-        // tokens so the app works even if these are cached/late.
-        { rel: 'stylesheet', href: '/almanac/tokens/tokens.css' },
-        { rel: 'stylesheet', href: '/almanac/components-web/almanac.css' }
       ]
     }
   },
@@ -149,10 +144,10 @@ export default defineNuxtConfig({
 
   components: {
     dirs: [
-      // Almanac shared primitives auto-imported WITHOUT a path prefix so they
-      // are <MonoLabel>, <PaperPanel>, etc. (NOT <AlmanacMonoLabel>).
+      // Tufte shared primitives auto-imported WITHOUT a path prefix so they
+      // are <MonoLabel>, <CardFrame>, etc. (NOT <TufteMonoLabel>).
       {
-        path: '~/components/almanac',
+        path: '~/components/tufte',
         pathPrefix: false
       },
       {

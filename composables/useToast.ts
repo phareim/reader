@@ -3,8 +3,6 @@
  * Extracted from pages/article/[id].vue for reusability
  */
 
-import { ref } from 'vue'
-
 export interface ToastOptions {
   duration?: number // Duration in milliseconds before auto-dismiss
 }
@@ -13,8 +11,8 @@ export interface ToastOptions {
  * Composable for displaying temporary success/error messages
  */
 export function useToast() {
-  const success = ref<string | null>(null)
-  const error = ref<string | null>(null)
+  const success = useState<string | null>('toastSuccess', () => null)
+  const error = useState<string | null>('toastError', () => null)
 
   let successTimeout: NodeJS.Timeout | null = null
   let errorTimeout: NodeJS.Timeout | null = null
