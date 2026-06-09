@@ -29,8 +29,28 @@ export function useTransform() {
   return useMotionValue(0)
 }
 
+// ── Controllable animations ────────────────────────────────────────────
+// Default: auto-resolve (existing tests). Flip __setManualAnimations(true)
+// to make every animate() return a deferred, then flush them all with
+// __resolveAnimations() — lets tests assert behavior mid-flight.
+let manualAnimations = false
+let pendingAnimations: Array<() => void> = []
+
+export function __setManualAnimations(on: boolean) {
+  manualAnimations = on
+  if (!on) __resolveAnimations()
+}
+
+export function __resolveAnimations() {
+  const resolvers = pendingAnimations
+  pendingAnimations = []
+  resolvers.forEach((resolve) => resolve())
+}
+
 export function animate(_mv: any, _target: any, _opts?: any) {
-  const p = Promise.resolve()
+  const p = manualAnimations
+    ? new Promise<void>((resolve) => pendingAnimations.push(resolve))
+    : Promise.resolve()
   return Object.assign(p, { stop: () => {} })
 }
 

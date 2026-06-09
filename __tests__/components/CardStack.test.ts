@@ -1,6 +1,9 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import CardStack from '~/components/stack/CardStack.vue'
+// Same file jest maps 'motion-v' to (moduleNameMapper), so this shares the
+// module instance the component sees — imported by path for correct typing.
+import { __setManualAnimations, __resolveAnimations } from '~/__tests__/mocks/motion-v'
 
 const saveArticle = jest.fn().mockResolvedValue(undefined)
 const unsaveArticle = jest.fn().mockResolvedValue(undefined)
@@ -34,7 +37,10 @@ function mountStack() {
   return mount(CardStack, { props: { articles }, global: { stubs } })
 }
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  __setManualAnimations(false)
+})
 
 describe('CardStack commit wiring', () => {
   it('left commit saves the top card and advances', async () => {
@@ -96,5 +102,34 @@ describe('CardStack commit wiring', () => {
     await (w.vm as any).undo()
     await flushPromises()
     expect(unElevate).toHaveBeenCalledWith(1, 'idea-1', false)
+  })
+
+  it('a second commit during an in-flight commit is ignored', async () => {
+    __setManualAnimations(true)
+    const w = mountStack()
+    const first = (w.vm as any).commit('left')
+    const second = (w.vm as any).commit('right') // busy → no-op
+    __resolveAnimations()
+    await first
+    await second
+    await flushPromises()
+    expect(saveArticle).toHaveBeenCalledTimes(1)
+    expect(saveArticle).toHaveBeenCalledWith(1)
+    expect(markAsRead).not.toHaveBeenCalled()
+    expect(w.text()).toContain('card-2') // exactly one card left the deck
+  })
+
+  it('undo during an in-flight commit is a no-op', async () => {
+    __setManualAnimations(true)
+    const w = mountStack()
+    const inflight = (w.vm as any).commit('left')
+    await (w.vm as any).undo() // busy → must not touch deck or history
+    expect(unsaveArticle).not.toHaveBeenCalled()
+    __resolveAnimations()
+    await inflight
+    await flushPromises()
+    expect(unsaveArticle).not.toHaveBeenCalled()
+    expect(saveArticle).toHaveBeenCalledWith(1)
+    expect(w.text()).toContain('card-2') // commit landed cleanly
   })
 })

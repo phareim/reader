@@ -9,12 +9,16 @@
     <div class="relative min-h-0 flex-1 py-4">
       <ClientOnly>
         <CardStack
+          v-if="loaded"
           ref="stack"
           :articles="deckArticles"
           :syncing="syncing"
           @sync="syncAll"
           @count="unreadCount = $event"
         />
+        <div v-else class="flex h-full items-center justify-center">
+          <MonoLabel dash>Loading…</MonoLabel>
+        </div>
       </ClientOnly>
     </div>
   </main>
@@ -37,14 +41,19 @@ const syncing = ref(false)
 // undo history mid-session. The deck refills only on load and explicit sync.
 const deckArticles = ref<Article[]>([])
 const unreadCount = ref(0) // kept live by CardStack's @count emit
+const loaded = ref(false) // gate CardStack so its empty state never flashes pre-fetch
 
 function refillDeck() {
   deckArticles.value = [...unreadArticles.value] as Article[]
 }
 
 onMounted(async () => {
-  await Promise.all([fetchArticles(), fetchSavedArticleIds()])
-  refillDeck()
+  try {
+    await Promise.all([fetchArticles(), fetchSavedArticleIds()])
+    refillDeck()
+  } finally {
+    loaded.value = true
+  }
 })
 
 async function syncAll() {

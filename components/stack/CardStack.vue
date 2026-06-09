@@ -1,38 +1,40 @@
 <template>
   <div class="relative h-full w-full" style="touch-action: none;">
-    <!-- Under-cards (depth) + top card (drag) -->
-    <template v-for="(article, i) in visibleCards" :key="article.id">
-      <!-- Top card -->
-      <motion.div
-        v-if="i === 0"
-        class="absolute inset-0 z-30"
-        :style="{ x, y, rotate }"
-        drag
-        drag-snap-to-origin
-        :drag-elastic="0.9"
-        :drag-momentum="false"
-        :while-press="{ scale: 1.015 }"
-        @drag-start="dragging = true"
-        @drag="onDrag"
-        @drag-end="onDragEnd"
-        @click="onTap(article)"
-      >
-        <ArticleCard :article="article" class="h-full" />
-      </motion.div>
-
-      <!-- Under-cards -->
-      <motion.div
-        v-else
-        class="absolute inset-0"
-        :class="i === 1 ? 'z-20' : 'z-10'"
-        :initial="false"
-        :animate="{ scale: 1 - i * 0.03, y: i * 12, opacity: 1 - i * 0.18 }"
-        :transition="DECK.SPRING"
-        aria-hidden="true"
-      >
-        <ArticleCard :article="article" class="h-full" />
-      </motion.div>
-    </template>
+    <!--
+      All visible cards render through this ONE branch, keyed by article id,
+      so a card promoted from i=1 to i=0 keeps its component instance and
+      springs (scale/opacity) into place instead of popping. The top card's y
+      is owned by the y MotionValue (style), so its animate target carries
+      scale/opacity only — mixing animate-y with the style MotionValue on the
+      same axis would conflict.
+    -->
+    <motion.div
+      v-for="(article, i) in visibleCards"
+      :key="article.id"
+      class="absolute inset-0"
+      :class="[
+        i === 0 ? 'z-30' : i === 1 ? 'z-20' : 'z-10',
+        { 'pointer-events-none': i !== 0 || busy },
+      ]"
+      :style="i === 0 ? { x, y, rotate } : undefined"
+      :initial="false"
+      :animate="i === 0
+        ? { scale: 1, opacity: 1 }
+        : { scale: 1 - i * 0.03, y: i * 12, opacity: 1 - i * 0.18 }"
+      :transition="DECK.SPRING"
+      :drag="i === 0 && !busy"
+      drag-snap-to-origin
+      :drag-elastic="0.9"
+      :drag-momentum="false"
+      :while-press="i === 0 ? { scale: 1.015 } : undefined"
+      :aria-hidden="i !== 0 ? 'true' : undefined"
+      @drag-start="onDragStart(i)"
+      @drag="(e: PointerEvent, info: PanInfo) => onDrag(i, e, info)"
+      @drag-end="(e: PointerEvent, info: PanInfo) => onDragEnd(i, e, info)"
+      @click="onTap(i, article)"
+    >
+      <ArticleCard :article="article" class="h-full" />
+    </motion.div>
 
     <!-- Pending-verb labels: the one accent, fading in toward commit -->
     <div v-if="dragging" class="pointer-events-none absolute inset-0 z-40">
@@ -62,7 +64,7 @@
 <script setup lang="ts">
 // ref/computed/watch imported explicitly (not relying on Nuxt auto-imports)
 // so the component also resolves under Jest. Harmless under Nuxt.
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { motion, useMotionValue, useTransform, animate } from 'motion-v'
 import type { PanInfo } from 'motion-v'
 import type { Article } from '~/types'
@@ -99,7 +101,8 @@ watch(
 )
 
 // The parent header shows the live deck size (the prop is a static snapshot).
-watch(deckIds, (ids) => emit('count', ids.length), { immediate: true, deep: true })
+// No `deep`: the deck array is always replaced wholesale, never mutated.
+watch(deckIds, (ids) => emit('count', ids.length), { immediate: true })
 
 const byId = computed(() => new Map(props.articles.map((a) => [String(a.id), a])))
 const visibleCards = computed(() =>
@@ -117,7 +120,13 @@ const pendingProgress = ref(0)
 const busy = ref(false)
 const movedFar = ref(false)
 
-function onDrag(_e: PointerEvent, info: PanInfo) {
+function onDragStart(i: number) {
+  if (i !== 0) return
+  dragging.value = true
+}
+
+function onDrag(i: number, _e: PointerEvent, info: PanInfo) {
+  if (i !== 0) return
   const { x: dx, y: dy } = info.offset
   if (Math.abs(dx) > 8 || Math.abs(dy) > 8) movedFar.value = true
   const absX = Math.abs(dx)
@@ -134,7 +143,8 @@ function onDrag(_e: PointerEvent, info: PanInfo) {
   }
 }
 
-async function onDragEnd(_e: PointerEvent, info: PanInfo) {
+async function onDragEnd(i: number, _e: PointerEvent, info: PanInfo) {
+  if (i !== 0) return
   dragging.value = false
   pending.value = null
   const dir = resolveDirection(info.offset.x, info.offset.y, info.velocity.x, info.velocity.y)
@@ -145,19 +155,35 @@ async function onDragEnd(_e: PointerEvent, info: PanInfo) {
   // else: dragSnapToOrigin springs the card home.
 }
 
-function onTap(article: Article) {
-  if (movedFar.value || busy.value) return
+function onTap(i: number, article: Article) {
+  if (i !== 0 || movedFar.value || busy.value) return
   navigateTo(`/article/${article.id}`)
 }
 
 /* ── Commits ───────────────────────────────────────────────────────── */
+
+// Safety net for `busy`: motion-dom's JSAnimation never resolves `finished`
+// when stopped (e.g. a pointer re-grab calling MotionValue.stop()), so a bare
+// await on animate() could wedge `busy` forever. Race against a timeout and
+// swallow rejections — commit's finally always restores the deck either way.
+const ANIMATION_SAFETY_MS = 1200
+function settleWithin(p: Promise<unknown>, ms = ANIMATION_SAFETY_MS): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    p.then(
+      () => { clearTimeout(t); resolve() },
+      () => { clearTimeout(t); resolve() },
+    )
+  })
+}
+
 async function flingOff(dir: DeckDirection, vx = 0, vy = 0) {
   const w = typeof window === 'undefined' ? 800 : window.innerWidth
   const h = typeof window === 'undefined' ? 800 : window.innerHeight
   const target = { left: -w * 1.2, right: w * 1.2, up: -h * 1.1, down: h * 1.1 }[dir]
   const mv = dir === 'left' || dir === 'right' ? x : y
   const velocity = dir === 'left' || dir === 'right' ? vx : vy
-  await animate(mv, target, { ...DECK.FLING, velocity })
+  await settleWithin(animate(mv, target, { ...DECK.FLING, velocity }))
 }
 
 function resetCard() {
@@ -166,21 +192,21 @@ function resetCard() {
 }
 
 async function springBack() {
-  await Promise.all([
+  await settleWithin(Promise.all([
     animate(x, 0, DECK.SPRING),
     animate(y, 0, DECK.SPRING),
-  ])
+  ]))
 }
 
 async function commit(dir: DeckDirection, v: { vx: number; vy: number } = { vx: 0, vy: 0 }) {
-  if (busy.value || deckIds.value.length === 0) return
+  if (busy.value || dragging.value || deckIds.value.length === 0) return
   busy.value = true
   const topId = deckIds.value[0]
 
   try {
     if (dir === 'up') {
       // Non-optimistic: hold the card up while SFL answers.
-      await animate(y, -140, DECK.SPRING)
+      await settleWithin(animate(y, -140, DECK.SPRING))
       let result
       try {
         result = await elevate(Number(topId))
@@ -190,30 +216,39 @@ async function commit(dir: DeckDirection, v: { vx: number; vy: number } = { vx: 
         return
       }
       await flingOff('up', 0, v.vy)
-      applyAdvance('up', { ideaId: result.ideaId, ideaExisting: result.existing })
+      resetCard()
+      applyAdvance('up', topId, { ideaId: result.ideaId, ideaExisting: result.existing })
       markAsRead(Number(topId), true).catch(() => {})
       showUndo('Elevate')
     } else if (dir === 'left') {
       await flingOff('left', v.vx)
-      applyAdvance('left')
+      resetCard()
+      applyAdvance('left', topId)
       saveArticle(Number(topId)).catch(() => showError('Save failed'))
       showUndo('Save')
     } else if (dir === 'right') {
       await flingOff('right', v.vx)
-      applyAdvance('right')
+      resetCard()
+      applyAdvance('right', topId)
       markAsRead(Number(topId), true).catch(() => showError('Mark-read failed'))
       showUndo('Read')
     } else {
       await flingOff('down', 0, v.vy)
-      applyAdvance('down')
+      resetCard()
+      applyAdvance('down', topId)
     }
   } finally {
-    resetCard()
+    resetCard() // idempotent safety net — the real reset happens pre-advance
     busy.value = false
   }
 }
 
-function applyAdvance(dir: DeckDirection, extra?: Partial<DeckHistoryEntry>) {
+function applyAdvance(dir: DeckDirection, topId: string, extra?: Partial<DeckHistoryEntry>) {
+  if (deckIds.value[0] !== topId) {
+    // Belt and braces: the deck shifted under an in-flight commit.
+    console.warn(`[CardStack] applyAdvance skipped: expected top ${topId}, found ${deckIds.value[0]}`)
+    return
+  }
   const { deck, entry } = advance(deckIds.value, dir)
   deckIds.value = deck
   if (entry) history.value = [...history.value, { ...entry, ...extra }]
@@ -231,7 +266,12 @@ function showUndo(label: string) {
   undoTimer = setTimeout(() => { undoVisible.value = false }, 5000)
 }
 
+onUnmounted(() => {
+  if (undoTimer) clearTimeout(undoTimer)
+})
+
 async function performUndo() {
+  if (busy.value) return // an in-flight commit owns the deck — undo would corrupt it
   undoVisible.value = false
   const result = undoDeck(deckIds.value, history.value)
   if (!result) return
