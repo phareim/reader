@@ -27,7 +27,6 @@
   },
   "homepage": "https://github.com/phareim/reader#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.67.0",
     "@extractus/feed-extractor": "^7.1.7",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@nuxtjs/tailwindcss": "^6.14.0",
@@ -38,9 +37,7 @@
     "dompurify": "^3.3.3",
     "dotenv": "^17.2.3",
     "isomorphic-dompurify": "^2.35.0",
-    "marked": "^17.0.1",
     "nuxt": "^3.17.7",
-    "openai": "^6.15.0",
     "zod": "^4.1.12"
   },
   "overrides": {

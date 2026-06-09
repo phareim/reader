@@ -24,6 +24,7 @@ export interface Article {
   author?: string | null
   content?: string | null
   summary?: string | null
+  imageUrl?: string | null
   publishedAt?: string | null
   isRead: boolean
   isStarred: boolean
@@ -56,10 +57,3 @@ export interface SyncResponse {
   }
 }
 
-// Summarization types
-export type {
-  SummarizeRequest,
-  SummarizeResponse,
-  SummarizeMetadata,
-  ArticleForSummary
-} from './summarization'

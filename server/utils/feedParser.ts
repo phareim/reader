@@ -1,5 +1,4 @@
 import { extract } from '@extractus/feed-extractor'
-import { getRandomUnsplashImage } from './unsplash'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
@@ -83,8 +82,9 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
 }
 
 /**
- * Extract image URL from RSS item using multiple strategies
- * Falls back to Unsplash random image if nothing found
+ * Extract image URL from RSS item using multiple strategies.
+ * Returns undefined when no image is found — callers must not substitute
+ * a stock-photo service; imageUrl should simply be absent.
  */
 async function extractImageUrl(item: any, rawContent?: string): Promise<string | undefined> {
 
@@ -118,12 +118,6 @@ async function extractImageUrl(item: any, rawContent?: string): Promise<string |
     if (imgMatch?.[1]) {
       return imgMatch[1]
     }
-  }
-
-  // 5. Fallback to Unsplash random image
-  const unsplashImage = await getRandomUnsplashImage()
-  if (unsplashImage) {
-    return unsplashImage
   }
 
   return undefined
