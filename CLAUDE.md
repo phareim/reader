@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A modern, self-hosted RSS feed reader built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2). Inspired by Google Reader with features like feed organization with tags, saved articles, keyboard shortcuts, and a clean reading experience.
+**The Reader** — a calm, self-hosted RSS reader built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2). The entrance is a swipeable **card deck** of unread articles (one card, five verbs); supporting rooms are the **shelf** (saved articles) and **sources** (feed management). The whole surface is styled in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one crimson accent per screen). Deployed at `reader.phareim.no`.
 
 ## Development Commands
 
@@ -27,58 +27,53 @@ npm run test:watch
 npm run test:coverage
 
 # Run a single test file / pattern
-npx jest __tests__/utils/swipeCurve.test.ts
+npx jest __tests__/utils/deck.test.ts
 npx jest -t "name of test"
 ```
 
-Tests live in `__tests__/` mirroring the source tree (`__tests__/components`, `__tests__/utils`). `~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). Coverage instinct is broad but the actual suite is sparse — mock network/feed calls rather than hitting live feeds.
+Tests live in `__tests__/` mirroring the source tree. Current suites:
+- `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `undo`)
+- `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
+- `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
+- `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
+
+`~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). **`motion-v` is ESM and is mocked entirely** rather than transformed: `moduleNameMapper` points `motion-v` at `__tests__/mocks/motion-v.ts`, which renders `motion.*` as passthrough divs (cached per tag for stable component identity) and exposes `__setManualAnimations` / `__resolveAnimations` so tests can assert behavior mid-flight. Mock network calls rather than hitting live feeds; Nuxt auto-imported composables don't exist under Jest, so component tests provide them as `globalThis` stubs.
 
 ## Architecture
 
 ### Tech Stack
 - **Frontend**: Nuxt 3 (Vue 3) with auto-imported components and composables
-- **Styling**: Tailwind CSS with `@tailwindcss/typography` for article content, themed by the **Almanac design system** (see "Almanac Design System & Card-Stack Reader" below)
+- **Styling**: Tailwind CSS themed by the **Tufte Viz design system** (see "Tufte Viz Design System & Card Deck" below), `@tailwindcss/typography` for reader prose
+- **Animation**: `motion-v` (Motion for Vue) — drag physics, springs, and flings on the card deck
 - **Backend**: Nitro server routes (REST-style API)
 - **Database**: Cloudflare D1 (binding `DB`)
 - **Storage**: Cloudflare R2 for article content (binding `ARTICLE_BUCKET`)
-- **AI**: Three providers, used for different surfaces (see "AI Features" below) — Cloudflare Workers AI (binding `AI`), OpenAI SDK, Anthropic SDK
 - **Auth**: Email/password with PBKDF2 hashing + cookie sessions (zero deps)
 - **Feed Parsing**: `@extractus/feed-extractor` for RSS/Atom feeds (NOT rss-parser — that name is historical)
-- **Content Sanitization**: isomorphic-dompurify for safe HTML rendering; `marked` for Markdown (AI summaries)
+- **Content Sanitization**: isomorphic-dompurify via `utils/processArticleContent.ts`
+- **Knowledge pipeline**: swipe-up "elevate" sends an article into the SFL idea tracker (see "Elevate to SFL" below)
 
 ### State Management Pattern
 
-This app uses Nuxt's `useState` for global state management instead of Pinia/Vuex. Key composables:
+This app uses Nuxt's `useState` for global state management instead of Pinia/Vuex. Current composables:
 
-- **`useFeeds()`**: Feed list, selection state (`selectedFeedId`, `selectedTag`), tag organization
-- **`useArticles()`**: Article list, read/unread filtering, selection state
-- **`useSavedArticles()`**: Saved article IDs, save/unsave operations
-- **`useSavedArticlesByTag()`**: Organization of saved articles by tags
+- **`useArticles()`**: Article list, `unreadArticles` computed, `fetchArticles`, `markAsRead`, `markAllAsRead`
+- **`useFeeds()`**: Feed list, `feedsByTag` grouping (untagged feeds group under `'__inbox__'`), add/delete/sync/tag operations
+- **`useSavedArticles()`**: Saved article IDs (a `Set` in `useState`), `saveArticle` / `unsaveArticle` / `isSaved`
 - **`useTags()`**: Tag management and counts
-- **`useKeyboardShortcuts()`**: Global keyboard navigation (j/k, o, m, r, etc., plus the deck keys `←→↑↓`/`u` — see below)
-- **`useDeckGesture()`**: Pointer/touch drag for the card stack — the top card follows the finger (translate + slight rotate), commits an action past a threshold, springs back otherwise. Also exposes an imperative `commit(direction)` so keyboard shortcuts and on-screen `ActionLabel`s drive the same path.
+- **`useElevate()`**: `elevate(articleId)` → `{ ideaId, existing }` and `unElevate(articleId, ideaId?, existing?)` — thin client for the elevate endpoints
+- **`useToast()`**: Success/error toasts with auto-dismiss (rendered by `AppToast.vue`)
+- **`useAuth()`**: Session state, sign-in/out
 
-Each composable returns reactive state and methods. State is shared across all components that call the same composable.
+Each composable returns reactive state and methods. State is shared across all components that call the same composable. (The old `useKeyboardShortcuts`, `useDeckGesture`, and `useSavedArticlesByTag` composables were deleted in the 2026-06 rebuild — keyboard handling now lives in the pages that own it, and drag physics lives in `motion-v` inside `CardStack`.)
 
-Pure deck logic lives in **`utils/deck.ts`** (unit-tested in `__tests__/utils/deck.test.ts`): `resolveDirection(dx, dy, threshold)`, `advance(deckIds, action)`, `undo(history)`, and `DECK_COMMIT_THRESHOLD`. `useDeckGesture` delegates direction resolution to `resolveDirection`.
-
-### Special Feed/Tag IDs
-
-The app uses special numeric values for `selectedFeedId`:
-- `null` = All feeds view
-- `-1` = Saved articles view
-- `-2` = Overview mode (shows EmptyState with unread counts by tag)
-- `> 0` = Specific feed ID
-
-Special tag values:
-- `'__inbox__'` = Untagged feeds/articles
-- `'__saved_untagged__'` = Saved articles without tags
+Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetches saved articles, and `useFeeds().feedsByTag` groups untagged feeds under the `'__inbox__'` key (the Sources page renders it as "Inbox").
 
 ### Database Schema Key Points
 
-**Feed-Tag Relationship**: Many-to-many through `FeedTag` join table. Feeds can have multiple tags, displayed as collapsible folders in the sidebar.
+**Feed-Tag Relationship**: Many-to-many through `FeedTag` join table. Feeds can have multiple tags; the Sources room groups feeds by tag.
 
-**Saved Articles**: Independent `SavedArticle` table (not a boolean on Article) to support:
+**Saved Articles ("the shelf")**: Independent `SavedArticle` table (not a boolean on Article) to support:
 - User-specific saved state (multi-user ready)
 - Tags on saved articles via `SavedArticleTag`
 - Future features like notes
@@ -87,37 +82,30 @@ Special tag values:
 
 ### Component Organization
 
-**Almanac primitives** (`components/almanac/`) — small, presentational building blocks every reskinned surface composes. Auto-imported with **no path prefix** (configured in `nuxt.config.ts`), so they are `<MonoLabel>`, `<PaperPanel>`, etc., NOT `<AlmanacMonoLabel>`:
-- `MonoLabel.vue` - 9px tracked uppercase mono label with a leading em-dash (`— SECTION`)
-- `SerifHeadline.vue` - Source Serif headline, `level` prop scales the size
-- `SectionDivider.vue` / `HeaderDivider.vue` - hairline `<hr>` rules (never boxes)
-- `PaperPanel.vue` - hairline-framed paper surface (no shadow, no radius) — the card-stack cards and modals compose this
-- `ActionLabel.vue` - **the Almanac substitute for a button**: a `MonoLabel` inside a hairline border, emits `click`; `accent` prop promotes it to the one rust/amber accent. Use this anywhere a button is needed
-- `OrbitalGlyph.vue` / `Starfield.vue` - vendored SVGs; `Starfield` renders dark-mode only
+**Tufte primitives** (`components/tufte/`) — small presentational building blocks every surface composes. Auto-imported with **no path prefix** (configured in `nuxt.config.ts`), so they are `<MonoLabel>`, `<CardFrame>`, etc., NOT `<TufteMonoLabel>`:
+- `MonoLabel.vue` - 10px tracked uppercase mono label; `dash` prop adds the leading em-dash (`— SECTION`), `accent` promotes it to the screen's one accent
+- `ActionLabel.vue` - **the Tufte substitute for a button**: a bordered mono label, emits `click`; `accent` prop promotes it to the single crimson accent. Use this anywhere a button is needed
+- `CardFrame.vue` - hairline-framed raised paper surface (no shadow, no radius) — deck cards, modals, and prompts compose this
+- `HairlineRule.vue` - hairline `<hr>` (never boxes); `strong` prop for the heavier rule
 
-**Card stack** (`components/stack/`) — the reading entrance (see architecture section below):
-- `CardStack.vue` - manages the deck, renders the top ~3 cards as offset paper sheets, wires `useDeckGesture` to the top card, performs the commit actions (save/read/open/skip), exposes `commit(direction)` + `undo()`
-- `ArticleStackCard.vue` - a single card (`PaperPanel`): source `MonoLabel`, serif headline, hero, 3-line excerpt; bound to the live drag transform with the pending-action accent
-- `DeckEmptyState.vue` - "all caught up" (`OrbitalGlyph` + serif line + `— SYNC ALL`)
-- `UndoToast.vue` - brief `— UNDO` affordance after a save/read commit
+**Card deck** (`components/stack/`) — the reading entrance:
+- `CardStack.vue` - owns the deck state + motion-v physics, performs the five verbs, exposes `commit(direction)`, `undo()`, and `openTop()` to the page
+- `ArticleCard.vue` - a single card (`CardFrame`): full-bleed hero with overlaid headline when an image exists, typographic head otherwise; excerpt + reading time
+- `DeckEmptyState.vue` - "all caught up" + Sync all
+- `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
-**Menu Components** (`components/menu/`):
-- `MenuHeader.vue` - Header with close button and "The Librarian" title (clickable to go to overview)
-- `AddFeedSection.vue` - Wraps `FeedUrlInput` component
-- `SavedArticlesSection.vue` - Collapsible saved articles with tags
-- `FeedsSection.vue` - Main feeds list with tag folders
-- `FeedDropdownMenu.vue` - Reusable dropdown for feed actions (mark as read, tags, delete)
-- `BottomActions.vue` - Sync all and sign in/out
+**Shared chrome** (`components/`):
+- `BottomBar.vue` - fixed bottom room-switcher (Deck / Shelf / Sources); hidden on `/article/*` and `/login`
+- `AppToast.vue` - renders `useToast()` state
+- `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
+- `PwaUpdatePrompt.vue` - service-worker update prompt
 
-**Main Components**:
-- `HamburgerMenu.vue` - Slide-in menu, assembles menu sections
-- `components/article/ArticleCard.vue` - Article row used on the list pages (saved/feed/tag), reskinned to the Almanac reading-column model (hairline-separated rows, not boxes)
-- `EmptyState.vue` - Shown in overview mode (`selectedFeedId === -2`); the card-stack's own exhausted state is `DeckEmptyState.vue`
-- `FeedUrlInput.vue` - Reusable feed URL input with discover/add buttons (used in menu and EmptyState)
-- `PageHeader.vue` - Sticky header showing context (feed/tag name) and current article
-- `KeyboardShortcutsHelp.vue` - Help dialog for keyboard shortcuts (documents the deck keys)
-
-The **home page** (`pages/index.vue`) is the card stack (`CardStack`), not a list. The full-screen serif **reader** is `pages/article/[id].vue`. The list/column pages are `pages/saved.vue`, `pages/feed/[id].vue`, `pages/tag/[name].vue`.
+**Pages** (the three rooms + satellites):
+- `pages/index.vue` - **the deck** (CardStack); also owns the deck keyboard handler
+- `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies)
+- `pages/shelf.vue` - saved articles as hairline rows with a flat tag filter
+- `pages/sources.vue` - add/manage feeds grouped by tag, sync all, account footer
+- `pages/login.vue`, `pages/mcp-settings.vue`
 
 ### API Routes Structure
 
@@ -127,29 +115,29 @@ Routes follow REST conventions:
 - `GET /api/feeds` - List user's feeds with unread counts
 - `POST /api/feeds` - Add new feed (discovers and fetches initial articles)
 - `POST /api/feeds/discover` - Discover RSS feeds from a URL
+- `POST /api/feeds/add-smart` - Add a feed with smarter discovery
+- `GET /api/feeds/:id` - Single feed
 - `DELETE /api/feeds/:id` - Delete feed
 - `POST /api/feeds/:id/refresh` - Manually refresh a feed
 - `PATCH /api/feeds/:id/tags` - Update feed tags
 
 **Articles**:
 - `GET /api/articles` - List articles with filtering (feedId, feedIds, isRead)
+- `GET /api/articles/:id` - Single article with full content
 - `PATCH /api/articles/:id/read` - Mark article as read/unread
 - `POST /api/articles/mark-all-read` - Bulk mark as read
-- `POST /api/articles/:id/save` - Save article
+- `DELETE /api/articles/:id` - Delete article
+- `POST /api/articles/:id/save` - Save article (shelf)
 - `DELETE /api/articles/:id/save` - Unsave article
+- `POST /api/articles/:id/elevate` - Elevate to SFL (creates a page idea, marks read) — see "Elevate to SFL"
+- `DELETE /api/articles/:id/elevate` - Undo an elevate (body `{ ideaId?, existing? }`)
 - `POST /api/articles/:id/fetch-fulltext` - Fetch + store full article body (RSS often gives only excerpts)
 - `POST /api/articles/fetch-fulltext-bulk` - Batch full-text fetch
-- `POST /api/articles/summarize` - AI newsletter-style summary of a feed/tag/saved set (OpenAI)
 - `POST /api/articles/manual` - Add a manual (non-RSS) article
-
-**AI / extras**:
-- `POST /api/claude` - One-shot Claude (Anthropic Haiku) prompt endpoint
-- `POST /api/tags/:name/summary` - AI summary of a tag's articles (Cloudflare Workers AI)
-- `POST /api/feeds/add-smart` - Add a feed with smarter discovery
-- `GET /api/unsplash/random` - Random Unsplash image (feed/article cover fallback)
 
 **Saved Articles**:
 - `GET /api/saved-articles` - List user's saved articles (optional tag filter)
+- `GET /api/saved-articles/counts` - Saved counts
 - `PATCH /api/saved-articles/:id/tags` - Update saved article tags
 
 **Tags**:
@@ -161,104 +149,121 @@ Routes follow REST conventions:
 **Sync**:
 - `POST /api/sync` - Sync all active feeds for the user
 
+### Removed surfaces (2026-06 rebuild)
+
+The AI features were torn out with the UX rebuild: newsletter-style summaries (`/api/articles/summarize`), per-tag summaries (`/api/tags/:name/summary`), the one-shot `/api/claude` endpoint, and the Unsplash fallback image endpoint are all **gone**. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are no longer needed, and the Worker has no `AI` binding. Legacy article rows may still carry Unsplash filler image URLs from the old feed parser — `utils/cardData.ts` (`cardImageUrl`) filters them client-side; never show them.
+
+### Elevate to SFL
+
+The swipe-up verb promotes an article into the SFL idea tracker (sfl.hareim.no), which the wider knowledge pipeline (sleeper-articles → thoughts/wiki) polls downstream.
+
+- **Server client**: `server/utils/sfl.ts` — `createPageIdea` / `deleteIdea` against `${NUXT_SFL_API_URL}/api/ideas` with Bearer auth, 10s timeouts, response-shape validation. SFL **dedupes page ideas by URL**: POSTing an existing URL returns `{ existing: true, idea }` instead of creating.
+- **Route contract**: `POST /api/articles/:id/elevate` creates the SFL idea, then marks the article read (mirroring `read.patch.ts`); if the local DB write fails it compensates by deleting the idea it just created (only when `!existing`). Returns `{ success, ideaId, existing }`. `DELETE /api/articles/:id/elevate` takes `{ ideaId?, existing? }` and deletes the idea **only when it was created by the elevate** (`existing` ideas predate us and are not ours to delete), then marks the article unread.
+- **Client semantics**: elevate is **non-optimistic** — `CardStack` holds the card mid-air while SFL answers and springs it back on failure ("Could not reach SFL — card kept"). The deck history entry records `ideaId` + `ideaExisting` so undo can reverse correctly.
+- **Config**: `NUXT_SFL_API_URL` (set in `wrangler.toml` `[vars]` for prod, `.env.local` for dev) and `NUXT_SFL_API_KEY` (dev: `.env.local`; prod: `wrangler secret put NUXT_SFL_API_KEY`). When either is missing the endpoints 503 ("SFL is not configured") and the UI fails soft.
+
 ### Key Patterns
 
-**Authentication**: `getOptionalUser()` is the core auth primitive — it resolves MCP token (via `X-MCP-Token` header) or session cookie, returning `null` if unauthenticated. `getAuthenticatedUser()` wraps it and throws 401. Use `toPublicUser(user)` from `server/utils/auth.ts` to shape user objects for API responses (ensures consistent `{ id, email, name, image }` shape). Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto, constant-time comparison), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
+**Authentication**: `getOptionalUser()` is the core auth primitive — it resolves MCP token (via `X-MCP-Token` header) or session cookie, returning `null` if unauthenticated. `getAuthenticatedUser()` wraps it and throws 401. Use `toPublicUser(user)` from `server/utils/auth.ts` to shape user objects for API responses. Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto, constant-time comparison), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
 
-**Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data, `getArticleBucket()` for article content (R2), and `getAI()` for the Workers AI binding. All three read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`.
+**Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content (R2). Both read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`.
 
-**Feed Parsing**: Use `parseRSSFeed()` from `server/utils/feedParser.ts` (wraps `@extractus/feed-extractor`). It falls back to an Unsplash image for the favicon when a feed has none.
+**Feed Parsing**: Use `parseRSSFeed()` from `server/utils/feedParser.ts` (wraps `@extractus/feed-extractor`). Feed favicons come from Google's S2 favicon service (`https://www.google.com/s2/favicons?domain=…`) derived from the feed's domain — NOT Unsplash (that fallback was removed).
 
 **Feed Sync**: Use `syncSingleFeed()` from `server/utils/feedSync.ts` for syncing a single feed (shared by both `/api/sync` and `/api/feeds/:id/refresh`).
 
 **Tag Operations**: Use `getOrCreateTag()` from `server/utils/tags.ts` for get-or-create tag pattern (shared by feed tags, saved article tags, and manual article endpoints).
 
-**Toast Messages**: Use `useToast()` composable for success/error messages with auto-dismiss. All pages use this (do not use raw refs with setTimeout).
+**Toast Messages**: Use `useToast()` composable for success/error messages with auto-dismiss; `AppToast.vue` (mounted in `app.vue`) renders them. Do not use raw refs with setTimeout.
 
-**HTML Sanitization**: Use `DOMPurify.sanitize()` on article content before displaying (done client-side in Article.vue).
+**HTML Sanitization**: Use `processArticleContent()` from `utils/processArticleContent.ts` (DOMPurify allowlist + forcing `target="_blank" rel="noopener noreferrer"` on links) before rendering article HTML — done client-side in `pages/article/[id].vue`.
 
-**Optimistic Updates**: Some actions (like marking as read, saving) update local state immediately before API call for snappy UX. When using `useState` with `Set`, always replace the Set (create a new one) rather than mutating in place, since Vue's reactivity doesn't track Set mutations.
+**Full-text fetching**: RSS items frequently carry only an excerpt. `server/utils/fulltext.ts` (`fetchFullText`) fetches the source URL (15s timeout, browser UA) and stores the body in R2 via `article-content.ts`. The reader auto-triggers it when the stored body is under ~1200 visible chars.
+
+**Optimistic Updates**: Save, mark-read, and skip update local state immediately (elevate deliberately does not — see above). When using `useState` with `Set`, always replace the Set (create a new one) rather than mutating in place, since Vue's reactivity doesn't track Set mutations.
 
 **Date Formatting**: Use `formatRelativeDate()` from `utils/formatDate.ts` for relative time display (e.g., "5 minutes ago"). Do not create local formatDate functions in components.
 
-### AI Features
-
-Three providers are used deliberately — match the surface to the right one:
-
-- **OpenAI** (`OPENAI_API_KEY`) — newsletter-style multi-article summaries (`/api/articles/summarize`, logic in `server/utils/summarization.ts`). Returns Markdown with inline `[title](url)` citations; gracefully degrades with an error message if the key is unset.
-- **Cloudflare Workers AI** (`AI` binding, no key) — per-tag summaries (`/api/tags/:name/summary`) via `ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', …)` with a `llama-3.1-8b-instruct` fallback. Free/fast, runs at the edge, no external key.
-- **Anthropic** (`ANTHROPIC_API_KEY`) — the general-purpose `/api/claude` endpoint (Haiku 4.5).
-
-**Full-text fetching**: RSS items frequently carry only an excerpt. `server/utils/fulltext.ts` (`fetchFullText`) fetches the source URL (15s timeout, browser UA) and stores the body in R2 via `article-content.ts`. Exposed at `/api/articles/:id/fetch-fulltext` and the bulk variant.
-
 ### Keyboard Shortcuts
 
-Implemented in `useKeyboardShortcuts` composable:
+There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable).
 
-**Card stack (home)** — the deck keys drive the same `commit(direction)` path as swipe/tap. They are gated on deck handlers being passed (`deckStore`/`deckRead`/`deckOpen`/`deckSkip`/`deckUndo`), which `pages/index.vue` wires from `CardStack`:
-- `←` - Store (save) the top card
+**Deck (`pages/index.vue`)** — arrows drive the same `CardStack.commit(direction)` path as swipes:
+- `←` - Save (shelf) the top card
 - `→` - Mark the top card read
-- `↑` - Open the reader
+- `↑` - Elevate to SFL
 - `↓` - Skip (move card to back of deck)
-- `u` - Undo the last save/read
+- `o` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
+- `u` - Undo the last verb
+- `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it)
+- `shift+r` - Sync all feeds
 
-**List pages / general**:
-- `j/k` - Navigate articles up/down
-- `o` - Open/close selected article
-- `m` - Mark selected as read
-- `shift+a` - Mark all as read
-- `s` - Save/unsave article
-- `r` - Refresh current feed
-- `shift+r` - Refresh all feeds
-- `g h` - Go to overview (home)
-- `?` - Show keyboard shortcuts help
+**Reader (`pages/article/[id].vue`)**:
+- `Esc` / `Backspace` - Back
+- `s` - Save/unsave (shelf)
+- `e` - Elevate to SFL
+- `v` - Open the original in a new tab
 
 ### Styling Notes
 
-- **Almanac aesthetic throughout** (see the dedicated section below): warm paper / midnight paper, Source Serif 4 body, hairline 1px rules (never card shadows or rounded buttons), exactly one rust (light) / amber (dark) accent per screen.
-- Dark mode is **system-preference** (`darkMode: 'media'`); the Almanac dark palette + night-sky gradient apply under `@media (prefers-color-scheme: dark)`. There is no manual theme toggle. Prefer the token utilities (`bg-paper`, `text-ink`, `text-mute`, `text-rust`, `border-rule`, `font-serif`) over `dark:` variants and never reintroduce `blue-*`, `bg-gray-*`, rounded buttons, or shadows.
-- Article content uses `@tailwindcss/typography` prose classes, restyled to serif / 65ch / rust links / hairline rules.
-- Transitions use Vue's `<Transition>` component with custom CSS classes.
+- **Tufte Viz aesthetic throughout** (see the dedicated section below): warm paper / dark paper, ET Book serif body, hairline 1px rules (never card shadows or rounded buttons), exactly **one crimson accent per screen** — during a drag that accent is the pending-verb label.
+- Dark mode is **system-preference** (`darkMode: 'media'` in `tailwind.config.js`); the dark palette lives in `assets/css/tufte.css` under `@media (prefers-color-scheme: dark)`. There is no manual theme toggle. Prefer the token utilities (`bg-paper`, `bg-paper-raised`, `text-ink`, `text-body`, `text-mute`, `text-accent-ink`, `border-rule`, `font-serif`, `max-w-measure`) over `dark:` variants and never reintroduce `blue-*`, `bg-gray-*`, rounded buttons, or shadows.
+- Reader prose uses `@tailwindcss/typography`, restyled in `tailwind.config.js` to ET Book / 65ch / accent links / hairline rules.
+- Interactive mono-label buttons should carry a `focus-visible` outline (Tailwind `focus-visible:outline focus-visible:outline-1` or a scoped `:focus-visible { outline: 1px solid var(--tufte-accent); }`).
 
-### Almanac Design System & Card-Stack Reader
+### Tufte Viz Design System & Card Deck
 
-The entire UX is a ground-up build in the **Almanac design system** (a warm-paper / midnight-paper, scholarly-serif aesthetic). Full design spec: `docs/superpowers/specs/2026-06-05-almanac-ux-rebuild-design.md`. Canonical system: `~/github/almanac-design/DESIGN.md`.
+The entire UX is a ground-up build in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one accent). Build plan: `docs/superpowers/plans/2026-06-09-tufte-reader-rebuild.md`. Canonical system: the `tufte-viz` skill at `~/github/skill-tufte-viz/`.
 
-**Vendoring**: the design system is copied into `public/almanac/` (it can't be reached at runtime on the deployed Worker). That gives `tokens/tokens.css`, `components-web/almanac.css`, the `OrbitalGlyph`/`Starfield` SVGs, and the Source Serif 4 woff2 fonts. Wiring:
-- `config/almanac.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) that exposes the token utilities.
-- `assets/css/almanac.css` — `@font-face` (regular + italic, `font-display: swap`) plus the dark palette under `@media (prefers-color-scheme: dark)`.
-- `app.vue` sets `bg-paper text-ink font-serif` and renders `<Starfield>` behind content in dark mode.
+**Vendoring** (the design system can't be reached at runtime on the deployed Worker):
+- `public/tufte/fonts/` — ET Book woff files (roman / italic / bold) + license
+- `assets/css/tufte.css` — `@font-face`, the `--tufte-*` base tokens, semantic aliases (`--text-*`, `--surface-*`, `--border-*`), and the dark palette under `@media (prefers-color-scheme: dark)`. Loaded first in `nuxt.config.ts` `css` so `main.css` can override.
+- `config/tufte.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) exposing the token utilities (`paper`, `ink`, `body`, `mute`, `accent`, `rule`, `measure`, …)
+- `app.vue` sets `bg-paper text-ink font-serif` and mounts `BottomBar` + `AppToast` + `PwaUpdatePrompt`
 
-**The card stack** is the app's entrance (`pages/index.vue` → `CardStack`). The deck is **all unread articles, newest first** (from `useArticles().fetchArticles()` with no feed); selecting a feed/tag in the menu refills the deck. The top ~3 cards render as offset hairline paper sheets (depth via translate + mute, never shadow). Interaction (one model on mobile touch + desktop keys), all routed through `CardStack.commit(direction)`:
+**Three rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar.
 
-| Gesture / key | Action | Implementation |
+**The five verbs** — one interaction model on touch and keys, all routed through `CardStack.commit(direction)`:
+
+| Gesture / key | Verb | Implementation |
 |---|---|---|
-| swipe ← / `←` | **Store** (save) | `useSavedArticles().save` then `advance` |
-| swipe → / `→` | **Mark read** | `useArticles().markAsRead(id, true)` then `advance` |
-| swipe ↑ / `↑` / tap | **Open reader** | navigate `/article/:id` (non-destructive, card stays) |
-| swipe ↓ / `↓` | **Skip** | `advance` moves the id to the back of the deck (no API call) |
-| `u` / `— UNDO` toast | **Undo** | reverses the last save/read API call + restores the card |
+| swipe ← / `←` | **Save** (shelf) | optimistic: fling, advance, `saveArticle().catch(toast)` |
+| swipe → / `→` | **Mark read** | optimistic: fling, advance, `markAsRead(id, true).catch(toast)` |
+| swipe ↑ / `↑` | **Elevate** to SFL | **non-optimistic**: card holds mid-air awaiting SFL, springs back on failure; on success also marks read |
+| swipe ↓ / `↓` | **Skip** | `advance` rotates the id to the back of the deck (no API call) |
+| tap / `o` / `Enter` | **Open** the reader | navigate `/article/:id` (non-destructive, card stays) |
 
-The drag is handled by `useDeckGesture` (top card follows the finger); pure deck mechanics are in `utils/deck.ts` (`resolveDirection`, `advance`, `undo`). On-screen actions are `ActionLabel`s (the Almanac button substitute), with the pending action shown as the single rust/amber accent during a drag. When the deck empties, `DeckEmptyState` shows.
+`u` / the `— UNDO` toast reverses the last destructive verb: unsave, mark-unread, or un-elevate (which deletes the SFL idea **only** when the elevate created it — `ideaExisting` entries are left alone — then marks unread).
+
+**Physics** (`motion-v` inside `CardStack.vue`): the top card is a `motion.div` with `drag` + `drag-snap-to-origin`; its `x`/`y` are MotionValues and `rotate` is a transform of `x` (max ±9°). All visible cards render through one keyed branch so a promoted card keeps its component instance and springs into place. Tunables live in `utils/deck.ts` `DECK` (distance/velocity thresholds, dominance ratio, spring/fling configs). Commit resolution = distance OR a same-direction flick, dominant axis only (`resolveDirection`). The pending verb fades in as the one accent during the drag.
+
+**Pure logic** (unit-tested, no DOM):
+- `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
+- `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
+
+**The deck-snapshot pattern** (`pages/index.vue`): the page passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load and explicit sync; the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
+
+**Race guards** in `CardStack`: `commit` no-ops while `busy` (an in-flight commit) or `dragging`; `performUndo` no-ops while `busy`; `applyAdvance` verifies the expected top id before mutating. `settleWithin()` races every awaited animation against a 1.2s timeout because motion-dom's `JSAnimation.finished` never resolves when an animation is stopped (e.g. a pointer re-grab) — without it `busy` could wedge forever.
 
 ### Environment Variables
 
-No auth-specific env vars required — sessions use the D1 database directly. Copy `.env.example` → `.env.local`. AI features each fail soft if their key is missing.
+No auth-specific env vars required — sessions use the D1 database directly. Copy `.env.example` → `.env.local`.
 
 ```bash
-# AI providers (each optional; the corresponding feature degrades if unset)
-OPENAI_API_KEY="..."       # article/newsletter summaries
-ANTHROPIC_API_KEY="..."    # /api/claude (Haiku)
-# (Cloudflare Workers AI uses the `AI` binding, not an env var)
-
 # Feed parsing (optional)
 FETCH_TIMEOUT=30000
 MAX_ARTICLES_PER_FEED=200
+
+# SFL elevate (swipe-up). Fails soft (503 + toast) if unset.
+NUXT_SFL_API_URL="https://sfl-api.aiwdm.workers.dev"
+NUXT_SFL_API_KEY="..."
 ```
+
+In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY` is a Worker secret (`wrangler secret put NUXT_SFL_API_KEY`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
 
 ### Deployment
 
-Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-pages`/Workers) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`), `AI` (Workers AI). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`).
+Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`).
 
 ### Common Development Patterns
 
@@ -266,7 +271,7 @@ Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-pages`/Workers) at `r
 
 **Adding a new API route**: Create in `server/api/` following the existing pattern. Use `defineEventHandler`, `getAuthenticatedUser`, and return typed responses.
 
-**Adding a new component**: Create in `components/` or subdirectory. Will be auto-imported. Use `<script setup>` with TypeScript.
+**Adding a new component**: Create in `components/` or subdirectory. Will be auto-imported (`components/tufte/` without prefix). Use `<script setup>` with TypeScript. Compose the Tufte primitives rather than re-inventing labels/buttons/rules.
 
 **Modifying database schema**:
 1. Update `database/d1-schema.sql`
@@ -276,9 +281,9 @@ Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-pages`/Workers) at `r
 
 Components communicate via:
 - **Props** - Parent to child data flow
-- **Emits** - Child to parent events
+- **Emits** - Child to parent events (e.g. CardStack's `@sync` / `@count`)
 - **Composables** - Shared global state (preferred over prop drilling)
-- **Watchers** - React to state changes (e.g., watching `selectedFeedId` to fetch articles)
+- **`defineExpose`** - The page drives CardStack imperatively (`commit` / `undo` / `openTop`) so keys and gestures share one path
 
 ### Testing Feed Discovery
 

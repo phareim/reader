@@ -11,7 +11,7 @@
       <button
         v-for="t in ['', ...tags]"
         :key="t || '__all__'"
-        class="font-mono uppercase"
+        class="font-mono uppercase focus-visible:outline focus-visible:outline-1"
         style="font-size: 10px; letter-spacing: 0.16em;"
         :class="activeTag === t ? 'text-accent-ink' : 'text-mute'"
         @click="setTag(t)"
@@ -39,7 +39,7 @@
             <MonoLabel v-for="t in a.tags || []" :key="t">{{ t }}</MonoLabel>
           </div>
           <button
-            class="font-mono uppercase text-mute hover:text-accent-ink"
+            class="font-mono uppercase text-mute hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
             style="font-size: 10px; letter-spacing: 0.16em;"
             @click="remove(a.id)"
           >&mdash; Remove</button>

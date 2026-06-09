@@ -26,7 +26,7 @@ const update = async () => {
           <div class="flex-1 min-w-0">
             <MonoLabel>Update</MonoLabel>
             <p class="text-[14px] text-ink leading-[1.55] mt-1">
-              A new version of The Librarian is available.
+              A new version of The Reader is available.
             </p>
           </div>
           <button

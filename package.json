@@ -43,7 +43,6 @@
   },
   "overrides": {
     "glob": "^10.4.5",
-    "inflight": "npm:@eslint/inflight@^1.0.0",
     "cookie": "^0.7.2"
   },
   "devDependencies": {

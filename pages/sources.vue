@@ -133,4 +133,5 @@ async function signOutAction() {
   color: var(--text-muted);
 }
 .src-action:hover { color: var(--text-strong); }
+.src-action:focus-visible { outline: 1px solid var(--tufte-accent); }
 </style>

@@ -291,5 +291,11 @@ async function performUndo() {
   }
 }
 
-defineExpose({ commit, undo: performUndo })
+/** Open the reader for the current top card (keyboard `o` / `Enter`). */
+function openTop() {
+  const id = deckIds.value[0]
+  if (id && !busy.value) navigateTo(`/article/${id}`)
+}
+
+defineExpose({ commit, undo: performUndo, openTop })
 </script>

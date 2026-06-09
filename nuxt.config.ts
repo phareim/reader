@@ -44,11 +44,11 @@ export default defineNuxtConfig({
     registerType: 'autoUpdate',
     disable: true,
     manifest: {
-      name: 'The Librarian',
-      short_name: 'Librarian',
-      description: 'Your friendly librarian for organizing and curating the web\'s knowledge',
-      theme_color: '#1f2937',
-      background_color: '#111827',
+      name: 'The Reader',
+      short_name: 'Reader',
+      description: 'A calm reading room',
+      theme_color: '#fbf9f4',
+      background_color: '#fbf9f4',
       icons: [
         {
           src: 'pwa-192x192.png',
@@ -76,34 +76,6 @@ export default defineNuxtConfig({
       ],
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
       runtimeCaching: [
-        {
-          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'google-fonts-cache',
-            expiration: {
-              maxEntries: 10,
-              maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-            },
-            cacheableResponse: {
-              statuses: [0, 200]
-            }
-          }
-        },
-        {
-          urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'gstatic-fonts-cache',
-            expiration: {
-              maxEntries: 10,
-              maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-            },
-            cacheableResponse: {
-              statuses: [0, 200]
-            }
-          }
-        },
         {
           urlPattern: /^\/api\/articles.*/i,
           handler: 'NetworkFirst',

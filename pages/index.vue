@@ -21,6 +21,8 @@
         </div>
       </ClientOnly>
     </div>
+
+    <HelpOverlay :open="helpOpen" @close="helpOpen = false" />
   </main>
 </template>
 
@@ -34,6 +36,7 @@ const { showSuccess, showError } = useToast()
 
 const stack = ref()
 const syncing = ref(false)
+const helpOpen = ref(false)
 
 // SNAPSHOT, deliberately not the live `unreadArticles` computed: markAsRead
 // optimistically flips isRead, which would shrink a computed deck on every
@@ -70,12 +73,16 @@ async function syncAll() {
   }
 }
 
-// Deck keyboard verbs (full shortcut system arrives in Task 12; arrows live
-// here because they belong to the deck).
+// Deck keyboard verbs. Shift is deliberately NOT in the modifier guard:
+// '?' requires shift, and shift+R is the sync-all chord.
 function onKey(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
   if (e.target instanceof HTMLElement && e.target.isContentEditable) return
+  if (helpOpen.value && e.key === 'Escape') {
+    helpOpen.value = false
+    return
+  }
   const map: Record<string, string> = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   }
@@ -84,6 +91,14 @@ function onKey(e: KeyboardEvent) {
     stack.value?.commit(map[e.key])
   } else if (e.key === 'u') {
     stack.value?.undo()
+  } else if (e.key === '?') {
+    helpOpen.value = !helpOpen.value
+  } else if (e.key === 'o' || e.key === 'Enter') {
+    // Ask the stack for its live top card — the local deckArticles snapshot
+    // goes stale as soon as the first commit removes a card.
+    stack.value?.openTop()
+  } else if (e.key === 'R' && e.shiftKey) {
+    syncAll()
   }
 }
 onMounted(() => window.addEventListener('keydown', onKey))
