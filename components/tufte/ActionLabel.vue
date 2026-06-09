@@ -1,7 +1,7 @@
 <template>
   <button
     type="button"
-    class="border px-3 py-1.5 font-mono uppercase transition-colors duration-150 select-none"
+    class="border px-3 py-1.5 font-mono uppercase transition-colors duration-150 select-none disabled:opacity-40 disabled:cursor-not-allowed"
     :class="accent
       ? 'border-accent text-accent-ink'
       : 'border-rule text-mute hover:border-rule-strong hover:text-ink'"

@@ -7,15 +7,18 @@ export interface ToastOptions {
   duration?: number // Duration in milliseconds before auto-dismiss
 }
 
+// Module-scoped handles so all callers share one pair of timers.
+// (State is already shared via useState; without this, component B's call to
+// showSuccess could silently cancel component A's auto-dismiss handle.)
+let successTimeout: ReturnType<typeof setTimeout> | null = null
+let errorTimeout: ReturnType<typeof setTimeout> | null = null
+
 /**
  * Composable for displaying temporary success/error messages
  */
 export function useToast() {
   const success = useState<string | null>('toastSuccess', () => null)
   const error = useState<string | null>('toastError', () => null)
-
-  let successTimeout: NodeJS.Timeout | null = null
-  let errorTimeout: NodeJS.Timeout | null = null
 
   /**
    * Show a success message

@@ -22,9 +22,9 @@ const update = async () => {
       class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 font-serif text-ink"
     >
       <PaperPanel>
-        <div class="flex items-start justify-between gap-almanac-section-gap">
+        <div class="flex items-start justify-between gap-3.5">
           <div class="flex-1 min-w-0">
-            <MonoLabel as="span">Update</MonoLabel>
+            <MonoLabel>Update</MonoLabel>
             <p class="text-[14px] text-ink leading-[1.55] mt-1">
               A new version of The Librarian is available.
             </p>
@@ -32,7 +32,7 @@ const update = async () => {
           <button
             type="button"
             @click="close"
-            class="flex-shrink-0 text-mute hover:text-rust transition-colors"
+            class="flex-shrink-0 text-mute hover:text-ink transition-colors"
             aria-label="Close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,9 +40,9 @@ const update = async () => {
             </svg>
           </button>
         </div>
-        <div class="mt-almanac-section-gap flex items-center gap-almanac-section-gap">
-          <ActionLabel label="RELOAD" accent @click="update" />
-          <ActionLabel label="LATER" @click="close" />
+        <div class="mt-3.5 flex items-center gap-3.5">
+          <ActionLabel accent @click="update">Reload</ActionLabel>
+          <ActionLabel @click="close">Later</ActionLabel>
         </div>
       </PaperPanel>
     </div>

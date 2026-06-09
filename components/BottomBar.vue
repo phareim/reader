@@ -9,9 +9,10 @@
         v-for="room in rooms"
         :key="room.path"
         :to="room.path"
-        class="flex-1 py-3 text-center font-mono uppercase"
+        class="flex-1 py-3 text-center font-mono uppercase focus-visible:outline focus-visible:outline-1"
         style="font-size: 10px; letter-spacing: 0.16em;"
         :class="isActive(room.path) ? 'text-accent-ink' : 'text-mute'"
+        :aria-current="isActive(room.path) ? 'page' : undefined"
       >{{ room.label }}</NuxtLink>
     </div>
   </nav>
