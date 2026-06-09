@@ -32,6 +32,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body?.ideaId && !body.existing) {
+    // The client-supplied ideaId is trusted because this is a single-user stack
+    // behind reader auth; if multi-user ever lands, verify the idea's URL
+    // matches the article before deleting.
     await deleteIdea(getSflConfig(), body.ideaId)
   }
 

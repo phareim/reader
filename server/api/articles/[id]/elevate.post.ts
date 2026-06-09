@@ -1,6 +1,6 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
-import { getSflConfig, createPageIdea } from '~/server/utils/sfl'
+import { getSflConfig, createPageIdea, deleteIdea } from '~/server/utils/sfl'
 
 /**
  * Elevate an article into the SFL knowledge pipeline: create a page idea in
@@ -30,15 +30,24 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Article not found' })
   }
 
-  const { ideaId, existing } = await createPageIdea(getSflConfig(), {
+  const cfg = getSflConfig()
+  const { ideaId, existing } = await createPageIdea(cfg, {
     url: article.url,
     title: article.title,
   })
 
   // Mirrors read.patch.ts: is_read flag + ISO read_at timestamp.
-  await db.prepare(
-    `UPDATE "Article" SET is_read = 1, read_at = ? WHERE id = ?`
-  ).bind(new Date().toISOString(), articleId).run()
+  try {
+    await db.prepare(
+      `UPDATE "Article" SET is_read = 1, read_at = ? WHERE id = ?`
+    ).bind(new Date().toISOString(), articleId).run()
+  } catch (err) {
+    // Compensate: undo the SFL idea we just created, but only when we created
+    // it (!existing). The !existing guard prevents deleting a pre-existing idea;
+    // SFL's URL-dedupe makes a failed compensation self-healing on retry.
+    if (!existing) await deleteIdea(cfg, ideaId).catch(() => {})
+    throw err
+  }
 
   return { success: true, ideaId, existing }
 })
