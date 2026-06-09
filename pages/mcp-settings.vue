@@ -6,9 +6,9 @@
         <div class="flex items-start justify-between mb-4">
           <div>
             <MonoLabel>Integration</MonoLabel>
-            <h2 class="text-3xl mt-1">Claude Desktop</h2>
+            <h1 class="text-3xl mt-1">Claude Desktop</h1>
           </div>
-          <NuxtLink to="/" class="text-[13px] text-mute italic hover:text-rust transition-colors whitespace-nowrap">
+          <NuxtLink to="/" class="text-[13px] text-mute italic hover:text-accent-ink transition-colors whitespace-nowrap">
             ← Back to Reader
           </NuxtLink>
         </div>
@@ -34,7 +34,7 @@
             type="button"
             @click="revokeToken"
             :disabled="loading"
-            class="text-[13px] text-mute italic hover:text-rust transition-colors disabled:opacity-50"
+            class="text-[13px] text-mute italic hover:text-accent-ink transition-colors disabled:opacity-50"
           >
             Revoke
           </button>
@@ -98,7 +98,7 @@
           <!-- Automatic Setup -->
           <div v-if="setupMethod === 'automatic'" class="mt-6 space-y-6">
             <div>
-              <h2 class="text-2xl">One-line setup</h2>
+              <h3 class="text-xl">One-line setup</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Run this command in your terminal to set up everything automatically:
               </p>
@@ -107,7 +107,7 @@
                 <button
                   type="button"
                   @click="copyToClipboard(oneLineCommand)"
-                  class="absolute top-2 right-2 text-mute hover:text-rust transition-colors"
+                  class="absolute top-2 right-2 text-mute hover:text-accent-ink transition-colors"
                   aria-label="Copy to clipboard"
                   title="Copy to clipboard"
                 >
@@ -122,7 +122,7 @@
             </div>
 
             <div>
-              <h2 class="text-2xl">Download the script</h2>
+              <h3 class="text-xl">Download the script</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Download the script and run it manually:
               </p>
@@ -166,7 +166,7 @@
 
             <!-- Step 1 -->
             <div>
-              <h2 class="text-2xl">1. Get configuration</h2>
+              <h3 class="text-xl">1. Get configuration</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
                 Download the pre-configured file or copy the JSON below:
               </p>
@@ -179,7 +179,7 @@
 
             <!-- Step 2 -->
             <div>
-              <h2 class="text-2xl">2. Install configuration</h2>
+              <h3 class="text-xl">2. Install configuration</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-2">
                 Place the configuration file at:
               </p>
@@ -191,7 +191,7 @@
 
             <!-- Step 3 -->
             <div>
-              <h2 class="text-2xl">3. Restart Claude Desktop</h2>
+              <h3 class="text-xl">3. Restart Claude Desktop</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1">
                 Completely quit and restart Claude Desktop for the changes to take effect.
               </p>
@@ -202,7 +202,7 @@
 
           <!-- Connection Test -->
           <div>
-            <h2 class="text-2xl">Test your connection</h2>
+            <h3 class="text-xl">Test your connection</h3>
             <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
               After setting up Claude Desktop, test the connection here:
             </p>
@@ -212,7 +212,7 @@
             >{{ testingConnection ? 'Testing' : 'Test Connection' }}</ActionLabel>
 
             <div v-if="connectionTestResult" class="mt-4 py-4 border-l-2 border-rule pl-4">
-              <p class="text-[14px]" :class="connectionTestResult.success ? 'text-ink' : 'text-rust'">
+              <p class="text-[14px]" :class="connectionTestResult.success ? 'text-ink' : 'text-accent-ink'">
                 {{ connectionTestResult.success ? '✓' : '✗' }} {{ connectionTestResult.message }}
               </p>
               <p v-if="connectionTestResult.success" class="text-[13px] text-mute italic mt-1">
@@ -241,7 +241,7 @@
 
       <!-- Error / Success -->
       <div v-if="error" class="mt-6 border-l-2 border-rule pl-4">
-        <p class="text-[13px] text-rust italic">{{ error }}</p>
+        <p class="text-[13px] text-accent-ink italic">{{ error }}</p>
       </div>
       <div v-if="successMessage" class="mt-6 border-l-2 border-rule pl-4">
         <p class="text-[13px] text-mute italic">{{ successMessage }}</p>

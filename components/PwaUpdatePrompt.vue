@@ -21,7 +21,7 @@ const update = async () => {
       v-if="needRefresh"
       class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 font-serif text-ink"
     >
-      <PaperPanel>
+      <CardFrame class="p-4">
         <div class="flex items-start justify-between gap-3.5">
           <div class="flex-1 min-w-0">
             <MonoLabel>Update</MonoLabel>
@@ -44,7 +44,7 @@ const update = async () => {
           <ActionLabel accent @click="update">Reload</ActionLabel>
           <ActionLabel @click="close">Later</ActionLabel>
         </div>
-      </PaperPanel>
+      </CardFrame>
     </div>
   </Transition>
 </template>

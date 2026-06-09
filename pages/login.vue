@@ -7,17 +7,17 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-5">
         <div v-if="isSignUp">
-          <MonoLabel>Name</MonoLabel>
-          <input v-model="name" type="text" autocomplete="name" class="tufte-input" />
+          <label for="name"><MonoLabel>Name</MonoLabel></label>
+          <input id="name" v-model="name" type="text" autocomplete="name" class="tufte-input" />
         </div>
         <div>
-          <MonoLabel>Email</MonoLabel>
-          <input v-model="email" type="email" required autocomplete="email" class="tufte-input" />
+          <label for="email"><MonoLabel>Email</MonoLabel></label>
+          <input id="email" v-model="email" type="email" required autocomplete="email" class="tufte-input" />
         </div>
         <div>
-          <MonoLabel>Password</MonoLabel>
+          <label for="password"><MonoLabel>Password</MonoLabel></label>
           <input
-            v-model="password" type="password" required
+            id="password" v-model="password" type="password" required minlength="8"
             :autocomplete="isSignUp ? 'new-password' : 'current-password'" class="tufte-input"
           />
         </div>
@@ -30,7 +30,7 @@
           </ActionLabel>
           <button type="button" class="font-mono uppercase text-mute"
             style="font-size: 10px; letter-spacing: 0.16em;"
-            @click="isSignUp = !isSignUp">
+            @click="isSignUp = !isSignUp; error = null">
             {{ isSignUp ? 'Have an account?' : 'New here?' }}
           </button>
         </div>
