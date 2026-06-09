@@ -33,9 +33,9 @@
 </template>
 
 <script setup lang="ts">
-import DOMPurify from 'isomorphic-dompurify'
 import { formatRelativeDate } from '~/utils/formatDate'
 import { stripHtml } from '~/utils/cardData'
+import { processArticleContent } from '~/utils/processArticleContent'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,7 +56,7 @@ const relativeDate = computed(() =>
   article.value?.publishedAt ? formatRelativeDate(article.value.publishedAt) : ''
 )
 const sanitizedContent = computed(() =>
-  article.value?.content ? DOMPurify.sanitize(article.value.content) : ''
+  processArticleContent(article.value?.content) ?? ''
 )
 
 /** RSS bodies under ~1200 visible chars are treated as excerpts → fetch full text. */
@@ -116,7 +116,9 @@ function openOriginal() {
 }
 
 function onKey(e: KeyboardEvent) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+  if (e.target instanceof HTMLElement && e.target.isContentEditable) return
   if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); goBack() }
   else if (e.key === 's') toggleSaveAction()
   else if (e.key === 'e') elevateAction()

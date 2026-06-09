@@ -73,7 +73,9 @@ async function syncAll() {
 // Deck keyboard verbs (full shortcut system arrives in Task 12; arrows live
 // here because they belong to the deck).
 function onKey(e: KeyboardEvent) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+  if (e.target instanceof HTMLElement && e.target.isContentEditable) return
   const map: Record<string, string> = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   }
