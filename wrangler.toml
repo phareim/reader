@@ -20,4 +20,6 @@ custom_domain = true
 binding = "ARTICLE_BUCKET"
 bucket_name = "reader-articles"
 
+[vars]
+NUXT_SFL_API_URL = "https://sfl-api.aiwdm.workers.dev"
 

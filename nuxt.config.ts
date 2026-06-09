@@ -29,7 +29,10 @@ export default defineNuxtConfig({
     preset: 'cloudflare-module'
   },
 
-  runtimeConfig: {},
+  runtimeConfig: {
+    sflApiUrl: '',  // NUXT_SFL_API_URL
+    sflApiKey: '',  // NUXT_SFL_API_KEY
+  },
 
   typescript: {
     strict: false,
