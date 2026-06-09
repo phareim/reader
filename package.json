@@ -37,6 +37,7 @@
     "dompurify": "^3.3.3",
     "dotenv": "^17.2.3",
     "isomorphic-dompurify": "^2.35.0",
+    "motion-v": "^2.3.0",
     "nuxt": "^3.17.7",
     "zod": "^4.1.12"
   },

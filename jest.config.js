@@ -18,6 +18,8 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^~/(.*)$': '<rootDir>/$1',
+    // motion-v is ESM; we mock it entirely rather than transform it.
+    '^motion-v$': '<rootDir>/__tests__/mocks/motion-v.ts',
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',
