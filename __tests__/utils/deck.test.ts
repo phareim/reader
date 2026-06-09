@@ -16,17 +16,20 @@ describe('resolveDirection (velocity-aware)', () => {
     expect(resolveDirection(-(DECK.DISTANCE_THRESHOLD + 1), 0, 0, 0)).toBe('left')
     expect(resolveDirection(0, -(DECK.DISTANCE_THRESHOLD + 1), 0, 0)).toBe('up')
     expect(resolveDirection(0, DECK.DISTANCE_THRESHOLD + 1, 0, 0)).toBe('down')
+    expect(resolveDirection(DECK.DISTANCE_THRESHOLD, 0, 0, 0)).toBe('right')
   })
 
   it('commits on a fast flick below the distance threshold', () => {
     expect(resolveDirection(40, 0, DECK.VELOCITY_THRESHOLD + 1, 0)).toBe('right')
     expect(resolveDirection(-40, 0, -(DECK.VELOCITY_THRESHOLD + 1), 0)).toBe('left')
     expect(resolveDirection(0, -40, 0, -(DECK.VELOCITY_THRESHOLD + 1))).toBe('up')
+    expect(resolveDirection(0, 40, 0, DECK.VELOCITY_THRESHOLD + 1)).toBe('down')
   })
 
   it('does NOT commit a flick whose velocity opposes the offset', () => {
     // dragged right but flicking back left toward origin
     expect(resolveDirection(60, 0, -(DECK.VELOCITY_THRESHOLD + 1), 0)).toBeNull()
+    expect(resolveDirection(0, 60, 0, -(DECK.VELOCITY_THRESHOLD + 1))).toBeNull()
   })
 
   it('returns null when neither axis dominates', () => {
@@ -82,5 +85,7 @@ describe('undo', () => {
     const history: DeckHistoryEntry[] = [{ id: 'a', action: 'down', prevIndex: 0 }]
     const result = undo(['b', 'c', 'a'], history)!
     expect(result.deck).toEqual(['a', 'b', 'c'])
+    expect(result.history).toEqual([])
+    expect(result.entry.action).toBe('down')
   })
 })
