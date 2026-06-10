@@ -13,6 +13,7 @@ import { parseFeed } from '~/server/utils/feedParser'
 import { discoverFeeds } from '~/server/utils/feedDiscovery'
 import { extractArticleMetadata } from '~/server/utils/articleExtractor'
 import { insertArticleWithContent } from '~/server/utils/article-store'
+import { lastRowId } from '~/server/utils/d1Result'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -77,7 +78,7 @@ export default defineEventHandler(async (event) => {
         new Date().toISOString()
       ).run()
 
-      const feedId = insertFeed.lastRowId
+      const feedId = lastRowId(insertFeed)
       if (!feedId) {
         throw new Error('Failed to create feed')
       }
@@ -197,7 +198,7 @@ export default defineEventHandler(async (event) => {
           new Date().toISOString()
         ).run()
 
-        const feedId = insertFeed.lastRowId
+        const feedId = lastRowId(insertFeed)
         if (!feedId) {
           throw new Error('Failed to create feed')
         }

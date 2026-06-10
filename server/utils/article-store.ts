@@ -1,5 +1,6 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { storeArticleContent } from '~/server/utils/article-content'
+import { lastRowId, rowsChanged } from '~/server/utils/d1Result'
 
 type ArticleInsert = {
   guid: string
@@ -42,16 +43,17 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
     publishedAt
   ).run()
 
-  if (!insert.changes || !insert.lastRowId) {
+  const articleId = lastRowId(insert)
+  if (!rowsChanged(insert) || !articleId) {
     return { inserted: false, id: null }
   }
 
   if (item.content) {
-    const contentKey = await storeArticleContent(event, insert.lastRowId, item.content)
+    const contentKey = await storeArticleContent(event, articleId, item.content)
     await db.prepare(
       'UPDATE "Article" SET content_key = ? WHERE id = ?'
-    ).bind(contentKey, insert.lastRowId).run()
+    ).bind(contentKey, articleId).run()
   }
 
-  return { inserted: true, id: insert.lastRowId }
+  return { inserted: true, id: articleId }
 }

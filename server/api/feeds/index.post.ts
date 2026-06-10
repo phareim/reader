@@ -2,6 +2,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { parseFeed } from '~/server/utils/feedParser'
 import { insertArticleWithContent } from '~/server/utils/article-store'
+import { lastRowId } from '~/server/utils/d1Result'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -58,7 +59,7 @@ export default defineEventHandler(async (event) => {
       new Date().toISOString()
     ).run()
 
-    const feedId = insertFeed.lastRowId
+    const feedId = lastRowId(insertFeed)
 
     if (!feedId) {
       throw createError({

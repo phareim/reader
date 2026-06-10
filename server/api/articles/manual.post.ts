@@ -9,6 +9,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
 import { getOrCreateTag } from '~/server/utils/tags'
+import { lastRowId } from '~/server/utils/d1Result'
 
 const manualArticleSchema = z.object({
   title: z.string().min(1).max(500),
@@ -68,7 +69,7 @@ export default defineEventHandler(async (event) => {
         0
       ).run()
 
-      feed = { id: insertFeed.lastRowId }
+      feed = { id: lastRowId(insertFeed) }
     }
 
     if (!feed?.id) {
