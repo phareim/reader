@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Article not found' })
   }
 
-  const cfg = getSflConfig()
+  const cfg = getSflConfig(event)
   const { ideaId, existing } = await createPageIdea(cfg, {
     url: article.url,
     title: article.title,

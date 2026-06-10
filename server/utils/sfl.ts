@@ -6,13 +6,18 @@
  * `existing` ideas as not-ours-to-delete on undo.
  */
 
+import type { H3Event } from 'h3'
+
 interface SflConfig {
   url: string
   key: string
 }
 
-export function getSflConfig(): SflConfig {
-  const config = useRuntimeConfig()
+export function getSflConfig(event: H3Event): SflConfig {
+  // The event is required: on Cloudflare Workers the env bindings only exist
+  // per-request, so the event-less useRuntimeConfig() (frozen at module load)
+  // never sees NUXT_SFL_API_URL / NUXT_SFL_API_KEY and always 503s in prod.
+  const config = useRuntimeConfig(event)
   if (!config.sflApiUrl || !config.sflApiKey) {
     throw createError({ statusCode: 503, statusMessage: 'SFL is not configured' })
   }
