@@ -40,13 +40,25 @@ const LEAD_IMAGE_META_SELECTORS = [
   'meta[name="twitter:image:src"]'
 ]
 
+/**
+ * Even with --json, wrangler prefixes the payload with progress lines
+ * ("├ Checking if file needs uploading") in --file mode — strip everything
+ * before the first line that opens the JSON array.
+ */
+function parseWranglerJson(out) {
+  const lines = out.split('\n')
+  const start = lines.findIndex((line) => line.trim().startsWith('['))
+  if (start === -1) throw new Error(`No JSON in wrangler output:\n${out}`)
+  return JSON.parse(lines.slice(start).join('\n'))
+}
+
 function d1(command) {
   const out = execFileSync(
     'npx',
     ['wrangler', 'd1', 'execute', 'reader-service', '--remote', '--json', '--command', command],
     { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 }
   )
-  return JSON.parse(out)[0]
+  return parseWranglerJson(out)[0]
 }
 
 function d1File(path) {
@@ -55,7 +67,7 @@ function d1File(path) {
     ['wrangler', 'd1', 'execute', 'reader-service', '--remote', '--json', '--file', path],
     { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 }
   )
-  return JSON.parse(out)
+  return parseWranglerJson(out)
 }
 
 function leadImageFromHead(html, articleUrl) {
