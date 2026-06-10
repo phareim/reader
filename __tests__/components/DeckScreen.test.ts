@@ -61,6 +61,7 @@ describe('DeckScreen', () => {
     await flushPromises()
 
     expect(fetchArticles).toHaveBeenCalledWith(undefined, undefined, undefined)
+    expect(fetchSavedArticleIds).toHaveBeenCalledTimes(1)
     expect(w.text()).toContain('The Reader')
   })
 
@@ -69,6 +70,7 @@ describe('DeckScreen', () => {
     await flushPromises()
 
     expect(fetchArticles).toHaveBeenCalledWith(undefined, undefined, 'tech')
+    expect(fetchSavedArticleIds).toHaveBeenCalledTimes(1)
     expect(w.text()).toContain('tech')
   })
 
