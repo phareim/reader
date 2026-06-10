@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
 
   const feedIdParam = query.feedId as string | undefined
   const feedIdsParam = query.feedIds as string | undefined
+  const tagParam = (query.tag as string | undefined)?.trim()
   const isRead = query.isRead === 'true' ? true : query.isRead === 'false' ? false : undefined
   const isStarred = query.isStarred === 'true' ? true : undefined
   const excludeSaved = query.excludeSaved === 'true'
@@ -43,6 +44,25 @@ export default defineEventHandler(async (event) => {
       }
 
       allowedFeedIds = [parsedFeedId]
+    }
+    // Handle tag filter
+    else if (tagParam) {
+      const tag = await db.prepare(
+        'SELECT id FROM "Tag" WHERE user_id = ? AND name = ? COLLATE NOCASE'
+      ).bind(user.id, tagParam).first()
+
+      if (!tag) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: 'Tag not found'
+        })
+      }
+
+      const feedsResult = await db.prepare(
+        'SELECT ft.feed_id AS id FROM "FeedTag" ft JOIN "Feed" f ON f.id = ft.feed_id WHERE ft.tag_id = ? AND f.user_id = ?'
+      ).bind((tag as any).id, user.id).all()
+
+      allowedFeedIds = (feedsResult.results || []).map((row: any) => row.id)
     }
     // Handle multiple feedIds
     else if (feedIdsParam) {
