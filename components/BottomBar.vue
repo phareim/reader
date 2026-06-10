@@ -27,11 +27,10 @@ const rooms = [
   { path: '/sources', label: 'Sources' },
 ]
 
-const visible = computed(() =>
-  !route.path.startsWith('/article') && route.path !== '/login'
-)
+const visible = computed(() => route.name !== 'article-id' && route.name !== 'login')
 
 function isActive(path: string) {
-  return path === '/' ? route.path === '/' : route.path.startsWith(path)
+  if (path === '/') return route.path === '/' || route.name === 'tag'
+  return route.path.startsWith(path)
 }
 </script>

@@ -22,7 +22,12 @@
 
     <!-- Grouped feed list -->
     <section v-for="(group, tag) in feedsByTag" :key="tag" class="mt-8">
-      <MonoLabel dash>{{ tag === '__inbox__' ? 'Inbox' : tag }}</MonoLabel>
+      <NuxtLink
+        v-if="tag !== '__inbox__' && !RESERVED.has(String(tag))"
+        :to="`/${encodeURIComponent(String(tag))}`"
+        class="focus-visible:outline focus-visible:outline-1"
+      ><MonoLabel dash>{{ tag }}</MonoLabel></NuxtLink>
+      <MonoLabel v-else dash>{{ tag === '__inbox__' ? 'Inbox' : String(tag) }}</MonoLabel>
       <ul class="mt-1">
         <li v-for="feed in group" :key="feed.id" class="border-b border-rule py-3">
           <div class="flex items-baseline justify-between gap-3">
@@ -56,6 +61,8 @@
 
 <script setup lang="ts">
 import type { Feed } from '~/types'
+
+const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article'])
 
 const { feeds, feedsByTag, fetchFeeds, addFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()
