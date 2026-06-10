@@ -56,6 +56,14 @@
         <NuxtLink v-else to="/login"><MonoLabel accent>Sign in</MonoLabel></NuxtLink>
       </div>
     </footer>
+
+    <TagEditorOverlay
+      v-if="tagEditorFeed"
+      :feed="tagEditorFeed"
+      :all-tags="allTags"
+      @close="tagEditorFeed = null"
+      @save="saveTags"
+    />
   </main>
 </template>
 
@@ -64,7 +72,7 @@ import type { Feed } from '~/types'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article'])
 
-const { feeds, feedsByTag, fetchFeeds, addFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
+const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()
 const { user, signOut } = useAuth()
 const { showSuccess, showError } = useToast()
@@ -72,6 +80,7 @@ const { showSuccess, showError } = useToast()
 const newUrl = ref('')
 const adding = ref(false)
 const syncing = ref(false)
+const tagEditorFeed = ref<Feed | null>(null)
 
 onMounted(() => fetchFeeds())
 
@@ -97,10 +106,14 @@ async function markRead(feedId: number) {
   } catch { showError('Failed to mark read') }
 }
 
-async function editTags(feed: Feed) {
-  const input = window.prompt('Tags (comma-separated)', feed.tags.join(', '))
-  if (input === null) return
-  const tags = input.split(',').map((t) => t.trim()).filter(Boolean)
+function editTags(feed: Feed) {
+  tagEditorFeed.value = feed
+}
+
+async function saveTags(tags: string[]) {
+  const feed = tagEditorFeed.value
+  tagEditorFeed.value = null
+  if (!feed) return
   try {
     await updateFeedTags(feed.id, tags)
     showSuccess('Tags updated')

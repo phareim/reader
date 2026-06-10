@@ -36,6 +36,7 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
 - `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern
+- `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
 - `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
 
 `~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). **`motion-v` is ESM and is mocked entirely** rather than transformed: `moduleNameMapper` points `motion-v` at `__tests__/mocks/motion-v.ts`, which renders `motion.*` as passthrough divs (cached per tag for stable component identity) and exposes `__setManualAnimations` / `__resolveAnimations` so tests can assert behavior mid-flight. Mock network calls rather than hitting live feeds; Nuxt auto-imported composables don't exist under Jest, so component tests provide them as `globalThis` stubs.
@@ -100,6 +101,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `BottomBar.vue` - fixed bottom room-switcher (Deck / Shelf / Sources); hidden on `/article/*` and `/login`
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
+- `TagEditorOverlay.vue` - full-screen tag editor for a feed (Teleport paper sheet — `bg-paper`, no backdrop, no tap-to-dismiss): removable chips + input with autocomplete on existing tags (Enter/comma commit, arrows navigate suggestions, Backspace on empty input removes last chip, Esc cancels via its own window listener). Dumb overlay — takes `feed` + `allTags` props, emits `save(tags)` / `close`; the page owns the API call. Mount with `v-if` so draft state resets per open
 - `PwaUpdatePrompt.vue` - service-worker update prompt
 
 **Pages** (the three rooms + satellites):
@@ -107,7 +109,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
 - `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies)
 - `pages/shelf.vue` - saved articles as hairline rows with a flat tag filter
-- `pages/sources.vue` - add/manage feeds grouped by tag, sync all, account footer
+- `pages/sources.vue` - add/manage feeds grouped by tag (tag editing via `TagEditorOverlay`), sync all, account footer
 - `pages/login.vue`, `pages/mcp-settings.vue`
 
 ### API Routes Structure
