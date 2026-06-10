@@ -21,6 +21,51 @@ export function extractReadableContent(html: string, articleUrl: string): Extrac
   return { html: paragraphize(plain), source: 'fallback' }
 }
 
+const LEAD_IMAGE_META_SELECTORS = [
+  'meta[property="og:image:secure_url"]',
+  'meta[property="og:image"]',
+  'meta[name="og:image"]',
+  'meta[name="twitter:image"]',
+  'meta[property="twitter:image"]',
+  'meta[name="twitter:image:src"]'
+]
+
+/**
+ * Pick a lead image for the article: the publisher's og:image / twitter:image
+ * from the page head, else the first <img> in the extracted content (whose
+ * URLs are already absolute). Returns null when nothing usable is found.
+ */
+export function extractLeadImage(pageHtml: string, articleUrl: string, contentHtml?: string): string | null {
+  try {
+    const { document } = parseHTML(pageHtml)
+    for (const selector of LEAD_IMAGE_META_SELECTORS) {
+      const content = document.querySelector(selector)?.getAttribute('content')?.trim()
+      const resolved = httpUrl(content, articleUrl)
+      if (resolved) return resolved
+    }
+  } catch {
+    // fall through to the content image
+  }
+
+  if (contentHtml) {
+    const imgMatch = contentHtml.match(/<img[^>]+src=["']([^"']+)["']/i)
+    const resolved = httpUrl(imgMatch?.[1], articleUrl)
+    if (resolved) return resolved
+  }
+
+  return null
+}
+
+function httpUrl(value: string | null | undefined, base: string): string | null {
+  if (!value) return null
+  try {
+    const url = new URL(value, base)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * linkedom resolves baseURI from a <base> tag (or falls back to the global
  * location, which is wrong/absent outside a browser). Injecting the article

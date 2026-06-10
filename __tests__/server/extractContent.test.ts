@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { extractReadableContent, extractPlainText } from '~/server/utils/extractContent'
+import { extractReadableContent, extractPlainText, extractLeadImage } from '~/server/utils/extractContent'
 
 const ARTICLE_URL = 'https://example.com/essays/slow-reading'
 const fixture = fs.readFileSync(
@@ -59,6 +59,54 @@ describe('extractReadableContent', () => {
 
   it('returns null for pages with too little content', () => {
     expect(extractReadableContent('<html><body><p>Tiny.</p></body></html>', ARTICLE_URL)).toBeNull()
+  })
+})
+
+describe('extractLeadImage', () => {
+  const page = (head: string) => `<html><head>${head}</head><body><p>Body.</p></body></html>`
+
+  it('reads og:image from the page head', () => {
+    const html = page('<meta property="og:image" content="https://example.com/lead.jpg">')
+    expect(extractLeadImage(html, ARTICLE_URL)).toBe('https://example.com/lead.jpg')
+  })
+
+  it('resolves a relative og:image against the article URL', () => {
+    const html = page('<meta property="og:image" content="/images/lead.jpg">')
+    expect(extractLeadImage(html, ARTICLE_URL)).toBe('https://example.com/images/lead.jpg')
+  })
+
+  it('prefers og:image:secure_url and falls back to twitter:image', () => {
+    const secure = page(
+      '<meta property="og:image:secure_url" content="https://example.com/secure.jpg">' +
+        '<meta property="og:image" content="http://example.com/plain.jpg">'
+    )
+    expect(extractLeadImage(secure, ARTICLE_URL)).toBe('https://example.com/secure.jpg')
+
+    const twitter = page('<meta name="twitter:image" content="https://example.com/tw.jpg">')
+    expect(extractLeadImage(twitter, ARTICLE_URL)).toBe('https://example.com/tw.jpg')
+  })
+
+  it('prefers head metadata over the content image', () => {
+    const html = page('<meta property="og:image" content="https://example.com/og.jpg">')
+    const content = '<p>Text</p><img src="https://example.com/inline.jpg">'
+    expect(extractLeadImage(html, ARTICLE_URL, content)).toBe('https://example.com/og.jpg')
+  })
+
+  it('falls back to the first <img> in the extracted content', () => {
+    const content = '<p>Text</p><img src="https://example.com/inline.jpg" alt="">'
+    expect(extractLeadImage(page(''), ARTICLE_URL, content)).toBe('https://example.com/inline.jpg')
+  })
+
+  it('rejects non-http schemes (data URIs) and keeps looking', () => {
+    const html = page('<meta property="og:image" content="data:image/gif;base64,R0lGOD">')
+    const content = '<img src="https://example.com/real.jpg">'
+    expect(extractLeadImage(html, ARTICLE_URL, content)).toBe('https://example.com/real.jpg')
+    expect(extractLeadImage(html, ARTICLE_URL)).toBeNull()
+  })
+
+  it('returns null when the page offers nothing', () => {
+    expect(extractLeadImage(page(''), ARTICLE_URL)).toBeNull()
+    expect(extractLeadImage(page(''), ARTICLE_URL, '<p>No images.</p>')).toBeNull()
   })
 })
 

@@ -1,6 +1,6 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { storeArticleContent } from '~/server/utils/article-content'
-import { extractReadableContent } from '~/server/utils/extractContent'
+import { extractReadableContent, extractLeadImage } from '~/server/utils/extractContent'
 
 type FullTextResult = {
   status: 'fetched' | 'failed' | 'skipped'
@@ -47,12 +47,25 @@ export const fetchFullText = async (event: any, article: { id: number; url: stri
       return { status: 'skipped', error: 'No extractable content' }
     }
 
+    // We already hold the page HTML — backfill the card image when the RSS
+    // item carried none (or only legacy Unsplash filler).
+    const leadImage = extractLeadImage(html, article.url, extracted.html)
+
     // Store in R2 and update D1
     const db = getD1(event)
     const contentKey = await storeArticleContent(event, article.id, extracted.html)
     await db.prepare(
-      `UPDATE "Article" SET full_text_status = 'fetched', full_text_error = NULL, content_key = ? WHERE id = ?`
-    ).bind(contentKey, article.id).run()
+      `UPDATE "Article"
+       SET full_text_status = 'fetched',
+           full_text_error = NULL,
+           content_key = ?1,
+           image_url = CASE
+             WHEN ?2 IS NOT NULL AND (image_url IS NULL OR image_url = '' OR image_url LIKE '%.unsplash.com%')
+             THEN ?2
+             ELSE image_url
+           END
+       WHERE id = ?3`
+    ).bind(contentKey, leadImage, article.id).run()
 
     return { status: 'fetched', content: extracted.html }
   } catch (err: any) {
