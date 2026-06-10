@@ -17,7 +17,7 @@
         <div class="font-mono uppercase" style="font-size: 10px; letter-spacing: 0.16em; color: rgba(255,250,240,.85);">
           &mdash; {{ article.feedTitle }} &middot; {{ relativeDate }}
         </div>
-        <h2 class="mt-1.5 text-2xl leading-snug" style="color: #fffdf6; text-shadow: 0 1px 2px rgba(0,0,0,.35);">
+        <h2 class="mt-1.5 text-2xl leading-snug sm:text-3xl" style="color: #fffdf6; text-shadow: 0 1px 2px rgba(0,0,0,.35);">
           {{ article.title }}
         </h2>
       </div>
@@ -29,13 +29,16 @@
         <MonoLabel dash>{{ article.feedTitle }}</MonoLabel>
         <MonoLabel>{{ relativeDate }}</MonoLabel>
       </div>
-      <h2 class="mt-3 text-2xl leading-snug text-ink">{{ article.title }}</h2>
+      <h2 class="mt-3 text-2xl leading-snug text-ink sm:text-3xl">{{ article.title }}</h2>
       <HairlineRule class="mt-4" />
     </div>
 
     <!-- Shared body -->
     <div class="flex min-h-0 flex-1 flex-col px-5 py-4">
-      <p class="excerpt-clamp text-base leading-relaxed text-body">{{ excerptText }}</p>
+      <p
+        class="excerpt-clamp text-base leading-relaxed text-body sm:text-lg"
+        :class="image ? 'excerpt-clamp--with-image' : 'excerpt-clamp--full'"
+      >{{ excerptText }}</p>
       <div class="mt-auto pt-3">
         <MonoLabel v-if="minutes">{{ minutes }} min read</MonoLabel>
       </div>
@@ -52,7 +55,7 @@ const props = defineProps<{ article: Article }>()
 
 const image = computed(() => cardImageUrl(props.article.imageUrl))
 const excerptText = computed(() =>
-  excerpt(props.article.content || props.article.summary, 280)
+  excerpt(props.article.content || props.article.summary, 600)
 )
 const minutes = computed(() => readingTimeMinutes(props.article.content))
 const relativeDate = computed(() =>
@@ -66,5 +69,17 @@ const relativeDate = computed(() =>
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Tall viewports leave the card mostly empty below a 4-line excerpt — let the
+   text breathe into the space. The image variant gets fewer lines since the
+   hero already takes 52% of the card's height. */
+@media (min-height: 700px) {
+  .excerpt-clamp--full { -webkit-line-clamp: 7; }
+  .excerpt-clamp--with-image { -webkit-line-clamp: 5; }
+}
+@media (min-height: 850px) {
+  .excerpt-clamp--full { -webkit-line-clamp: 10; }
+  .excerpt-clamp--with-image { -webkit-line-clamp: 7; }
 }
 </style>
