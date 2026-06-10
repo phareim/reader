@@ -34,6 +34,7 @@ npx jest -t "name of test"
 Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `undo`)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
+- `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
 - `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
@@ -173,7 +174,7 @@ The swipe-up verb promotes an article into the SFL idea tracker (sfl.hareim.no),
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content (R2). Both read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`.
 
-**Feed Parsing**: Use `parseRSSFeed()` from `server/utils/feedParser.ts` (wraps `@extractus/feed-extractor`). Feed favicons come from Google's S2 favicon service (`https://www.google.com/s2/favicons?domain=…`) derived from the feed's domain — NOT Unsplash (that fallback was removed).
+**Feed Parsing**: Use `parseFeed()` from `server/utils/feedParser.ts` (wraps `@extractus/feed-extractor`). Feed favicons come from Google's S2 favicon service (`https://www.google.com/s2/favicons?domain=…`) derived from the feed's domain — NOT Unsplash (that fallback was removed). Lead images come from `extractImageUrl()` in `server/utils/feedImage.ts` (pure, unit-tested): image enclosure → media:content/media:thumbnail (incl. inside YouTube's media:group) → itunes:image → first `<img>` in the body. feed-extractor parses XML with fast-xml-parser, so element attributes arrive as `@_url`/`@_type`/`@_href` and repeated elements as arrays — never read the xml2js `$.url` shape.
 
 **Feed Sync**: Use `syncSingleFeed()` from `server/utils/feedSync.ts` for syncing a single feed (shared by both `/api/sync` and `/api/feeds/:id/refresh`).
 

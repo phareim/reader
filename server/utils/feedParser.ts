@@ -1,4 +1,5 @@
 import { extract } from '@extractus/feed-extractor'
+import { extractImageUrl } from './feedImage'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
@@ -82,48 +83,6 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
 }
 
 /**
- * Extract image URL from RSS item using multiple strategies.
- * Returns undefined when no image is found — callers must not substitute
- * a stock-photo service; imageUrl should simply be absent.
- */
-async function extractImageUrl(item: any, rawContent?: string): Promise<string | undefined> {
-
-  // 1. Try enclosure (if it's an image)
-  if (item.enclosure?.url) {
-    const enclosureType = item.enclosure.type || ''
-    if (enclosureType.startsWith('image/')) {
-      return item.enclosure.url
-    }
-  }
-
-  // 2. Try media:content or media:thumbnail
-  if (item.mediaContent?.$?.url) {
-    return item.mediaContent.$.url
-  }
-  if (item.mediaThumbnail?.$?.url) {
-    return item.mediaThumbnail.$.url
-  }
-
-  // 3. Try itunes:image
-  if (item.itunesImage?.$?.href) {
-    return item.itunesImage.$.href
-  }
-  if (item.itunes?.image) {
-    return item.itunes.image
-  }
-
-  // 4. Extract first <img> tag from HTML content
-  if (rawContent) {
-    const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i)
-    if (imgMatch?.[1]) {
-      return imgMatch[1]
-    }
-  }
-
-  return undefined
-}
-
-/**
  * Parse RSS/Atom feed from URL
  */
 export async function parseFeed(url: string): Promise<ParsedFeed> {
@@ -138,6 +97,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
           contentEncoded: entry['content:encoded'],
           mediaContent: entry['media:content'],
           mediaThumbnail: entry['media:thumbnail'],
+          mediaGroup: entry['media:group'],
           enclosure: entry.enclosure,
           itunesImage: entry['itunes:image'],
           itunes: entry.itunes,
@@ -170,7 +130,7 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
           author: typeof (item as any).author === 'object' ? ((item as any).author?.name || JSON.stringify((item as any).author)) : (item as any).author,
           content: rawContent, // Sanitization now done client-side
           summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
-          imageUrl: await extractImageUrl(item, rawContent),
+          imageUrl: extractImageUrl(item, rawContent),
           publishedAt: normalizeDate(item.published)
         }
       })
