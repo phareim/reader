@@ -15,7 +15,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid article ID' })
   }
 
-  const body = await readBody<{ ideaId?: string; existing?: boolean }>(event)
+  // Query params, not readBody: Nitro's cloudflare-module entry never buffers
+  // DELETE bodies (its method regex is /post|put|patch/i), so reading one on
+  // the deployed Worker throws an unhandled exception (Cloudflare 1101).
+  const query = getQuery(event)
+  const body = {
+    ideaId: typeof query.ideaId === 'string' ? query.ideaId : undefined,
+    existing: query.existing === 'true',
+  }
 
   const db = getD1(event)
   const article = await db.prepare(

@@ -136,7 +136,7 @@ Routes follow REST conventions:
 - `POST /api/articles/:id/save` - Save article (shelf)
 - `DELETE /api/articles/:id/save` - Unsave article
 - `POST /api/articles/:id/elevate` - Elevate to SFL (creates a page idea, marks read) — see "Elevate to SFL"
-- `DELETE /api/articles/:id/elevate` - Undo an elevate (body `{ ideaId?, existing? }`)
+- `DELETE /api/articles/:id/elevate` - Undo an elevate (query `?ideaId=&existing=` — DELETE bodies are dropped by the Workers entry)
 - `POST /api/articles/:id/fetch-fulltext` - Fetch + store full article body (RSS often gives only excerpts)
 - `POST /api/articles/fetch-fulltext-bulk` - Batch full-text fetch
 - `POST /api/articles/manual` - Add a manual (non-RSS) article
@@ -164,7 +164,7 @@ The AI features were torn out with the UX rebuild: newsletter-style summaries (`
 The swipe-up verb promotes an article into the SFL idea tracker (sfl.hareim.no), which the wider knowledge pipeline (sleeper-articles → thoughts/wiki) polls downstream.
 
 - **Server client**: `server/utils/sfl.ts` — `createPageIdea` / `deleteIdea` against `${NUXT_SFL_API_URL}/api/ideas` with Bearer auth, 10s timeouts, response-shape validation. SFL **dedupes page ideas by URL**: POSTing an existing URL returns `{ existing: true, idea }` instead of creating.
-- **Route contract**: `POST /api/articles/:id/elevate` creates the SFL idea, then marks the article read (mirroring `read.patch.ts`); if the local DB write fails it compensates by deleting the idea it just created (only when `!existing`). Returns `{ success, ideaId, existing }`. `DELETE /api/articles/:id/elevate` takes `{ ideaId?, existing? }` and deletes the idea **only when it was created by the elevate** (`existing` ideas predate us and are not ours to delete), then marks the article unread.
+- **Route contract**: `POST /api/articles/:id/elevate` creates the SFL idea, then marks the article read (mirroring `read.patch.ts`); if the local DB write fails it compensates by deleting the idea it just created (only when `!existing`). Returns `{ success, ideaId, existing }`. `DELETE /api/articles/:id/elevate` takes `?ideaId=&existing=` as query params (never a request body — Nitro’s cloudflare-module entry only buffers post/put/patch bodies, so a DELETE body crashes the deployed Worker) and deletes the idea **only when it was created by the elevate** (`existing` ideas predate us and are not ours to delete), then marks the article unread.
 - **Client semantics**: elevate is **non-optimistic** — `CardStack` holds the card mid-air while SFL answers and springs it back on failure ("Could not reach SFL — card kept"). The deck history entry records `ideaId` + `ideaExisting` so undo can reverse correctly.
 - **Config**: `NUXT_SFL_API_URL` (set in `wrangler.toml` `[vars]` for prod, `.env.local` for dev) and `NUXT_SFL_API_KEY` (dev: `.env.local`; prod: `wrangler secret put NUXT_SFL_API_KEY`). When either is missing the endpoints 503 ("SFL is not configured") and the UI fails soft.
 

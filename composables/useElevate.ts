@@ -8,9 +8,12 @@ export const useElevate = () => {
   }
 
   const unElevate = async (articleId: number, ideaId?: string, existing?: boolean) => {
+    // Query params, not a body: Nitro's cloudflare-module entry drops DELETE
+    // request bodies (it only buffers post/put/patch), which crashes the
+    // Worker when the route tries to read one.
     await $fetch(`/api/articles/${articleId}/elevate`, {
       method: 'DELETE',
-      body: { ideaId, existing },
+      query: { ideaId, existing },
     })
   }
 
