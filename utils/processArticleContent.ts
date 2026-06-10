@@ -1,4 +1,5 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
 
 /**
  * Utility for processing article HTML content
@@ -15,15 +16,22 @@ import DOMPurify from 'isomorphic-dompurify'
 export function processArticleContent(content: string | null | undefined): string | null {
   if (!content) return null
 
+  // Legacy full-text blobs are tag-less plain text — restore paragraphs
+  if (looksLikePlainText(content)) {
+    content = paragraphize(content)
+  }
+
   // First, sanitize the HTML to prevent XSS attacks
   const sanitized = DOMPurify.sanitize(content, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+      'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's', 'sup', 'sub', 'a',
+      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'hr',
       'blockquote', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'img', 'figure', 'figcaption',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption',
       'div', 'span'
     ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class']
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'srcset', 'sizes', 'loading']
   })
 
   // Create a temporary div to parse the sanitized HTML

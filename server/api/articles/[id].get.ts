@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
     publishedAt: article.published_at,
     isRead: user ? Boolean(article.is_read) : false,
     readAt: user ? article.read_at : null,
+    fullTextStatus: article.full_text_status,
     feedId: article.feed_id,
     feedTitle: article.feed_title,
     feedFaviconUrl: article.feed_favicon_url,

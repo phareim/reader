@@ -1,0 +1,79 @@
+import * as fs from 'fs'
+import * as path from 'path'
+import { extractReadableContent, extractPlainText } from '~/server/utils/extractContent'
+
+const ARTICLE_URL = 'https://example.com/essays/slow-reading'
+const fixture = fs.readFileSync(
+  path.join(__dirname, '..', 'fixtures', 'article-sample.html'),
+  'utf-8'
+)
+
+describe('extractReadableContent', () => {
+  it('extracts rich HTML via Readability', () => {
+    const result = extractReadableContent(fixture, ARTICLE_URL)
+    expect(result).not.toBeNull()
+    expect(result!.source).toBe('readability')
+    const html = result!.html
+    expect(html).toContain('<h2>')
+    expect(html).toContain('<em>')
+    expect(html).toContain('<strong>')
+    expect(html).toContain('<blockquote>')
+    expect(html).toContain('<li>')
+    expect(html).toContain('<figcaption>')
+  })
+
+  it('drops site chrome (nav, header, footer, reader controls)', () => {
+    const html = extractReadableContent(fixture, ARTICLE_URL)!.html
+    expect(html).not.toContain('Text settings')
+    expect(html).not.toContain('Subscribe')
+    expect(html).not.toContain('Ten apps to read faster')
+    expect(html).not.toContain('Privacy')
+  })
+
+  it('resolves relative link and image URLs against the article URL', () => {
+    const html = extractReadableContent(fixture, ARTICLE_URL)!.html
+    expect(html).toContain('href="https://example.com/archive/slow-reading"')
+    expect(html).toContain('src="https://example.com/essays/images/margins.png"')
+    expect(html).toContain('https://example.org/notes')
+  })
+
+  it('resolves srcset candidates to absolute URLs', () => {
+    const html = extractReadableContent(fixture, ARTICLE_URL)!.html
+    expect(html).toContain('https://example.com/essays/images/margins-2x.png 2x')
+  })
+
+  it('promotes lazy data-src images to src', () => {
+    const html = extractReadableContent(fixture, ARTICLE_URL)!.html
+    expect(html).toContain('https://example.com/images/desk-lamp.jpg')
+    expect(html).not.toContain('data:image/gif')
+  })
+
+  it('falls back to paragraphized plain text when Readability finds nothing', () => {
+    const sentence =
+      'This is a long enough sentence of plain prose to clear the minimum extraction threshold for the fallback path. '
+    const junk = `<html><body><div>${sentence.repeat(3)}</div><div>${sentence.repeat(3)}</div></body></html>`
+    const result = extractReadableContent(junk, ARTICLE_URL)
+    expect(result).not.toBeNull()
+    expect(result!.html).toContain('<p>')
+  })
+
+  it('returns null for pages with too little content', () => {
+    expect(extractReadableContent('<html><body><p>Tiny.</p></body></html>', ARTICLE_URL)).toBeNull()
+  })
+})
+
+describe('extractPlainText', () => {
+  it('strips tags and preserves paragraph breaks as newlines', () => {
+    const text = extractPlainText('<html><body><p>One.</p><p>Two.</p></body></html>')
+    expect(text).toBe('One.\n\nTwo.')
+  })
+
+  it('removes script/style/nav content entirely', () => {
+    const text = extractPlainText(
+      '<html><body><nav>Menu</nav><script>evil()</script><p>Kept.</p></body></html>'
+    )
+    expect(text).not.toContain('Menu')
+    expect(text).not.toContain('evil')
+    expect(text).toContain('Kept.')
+  })
+})

@@ -36,6 +36,7 @@
 import { formatRelativeDate } from '~/utils/formatDate'
 import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
+import { looksLikePlainText } from '~/utils/paragraphize'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +72,8 @@ onMounted(async () => {
     return
   }
 
-  const visible = stripHtml(article.value?.content || '')
+  const content = article.value?.content || ''
+  const visible = stripHtml(content)
   if (visible.length < THIN_CHARS) {
     fetchingFullText.value = true
     try {
@@ -81,6 +83,16 @@ onMounted(async () => {
       // Keep the excerpt — "Original" is one tap away.
     } finally {
       fetchingFullText.value = false
+    }
+  } else if (looksLikePlainText(content) && article.value?.fullTextStatus !== 'failed') {
+    // Legacy tag-less full text: silently upgrade the stored copy to rich
+    // HTML. The paragraphized version already renders fine meanwhile, and
+    // the new pipeline always stores tagged HTML, so this fires once.
+    try {
+      await $fetch(`/api/articles/${id}/fetch-fulltext`, { method: 'POST' })
+      article.value = await $fetch(`/api/articles/${id}`)
+    } catch {
+      // Keep the paragraphized plain text.
     }
   }
 })

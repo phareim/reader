@@ -20,6 +20,8 @@ module.exports = {
     '^~/(.*)$': '<rootDir>/$1',
     // motion-v is ESM; we mock it entirely rather than transform it.
     '^motion-v$': '<rootDir>/__tests__/mocks/motion-v.ts',
+    // linkedom/worker is ESM-only; under Jest use the CJS main entry.
+    '^linkedom/worker$': '<rootDir>/node_modules/linkedom/cjs/index.js',
   },
   testMatch: [
     '**/__tests__/**/*.test.ts',
