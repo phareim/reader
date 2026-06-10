@@ -31,6 +31,8 @@ const visible = computed(() => route.name !== 'article-id' && route.name !== 'lo
 
 function isActive(path: string) {
   if (path === '/') return route.path === '/' || route.name === 'tag'
+  if (path === '/shelf') return route.name === 'shelf'
+  if (path === '/sources') return route.name === 'sources'
   return route.path.startsWith(path)
 }
 </script>
