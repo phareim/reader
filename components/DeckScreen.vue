@@ -56,13 +56,14 @@ function refillDeck() {
 const loadArticles = () => fetchArticles(undefined, undefined, props.tag)
 
 onMounted(async () => {
+  let is404 = false
   try {
     await Promise.all([loadArticles(), fetchSavedArticleIds()])
     refillDeck()
   } catch (err: any) {
-    if (err?.statusCode === 404) { emit('notFound'); return }
+    if (err?.statusCode === 404) { is404 = true; emit('notFound') }
   } finally {
-    loaded.value = true
+    if (!is404) loaded.value = true
   }
 })
 
