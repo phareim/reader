@@ -47,7 +47,7 @@ export async function syncSingleFeed(event: any, feed: FeedInfo): Promise<SyncRe
       feed.user_id
     ).run()
 
-    const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
+    const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 100
     const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
     let articlesAdded = 0

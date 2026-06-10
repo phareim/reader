@@ -203,7 +203,7 @@ export default defineEventHandler(async (event) => {
           throw new Error('Failed to create feed')
         }
 
-        const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 500
+        const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 100
         const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
         let articlesAdded = 0
         for (const item of articlesToAdd) {
