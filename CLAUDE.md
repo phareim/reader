@@ -95,13 +95,15 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
 **Shared chrome** (`components/`):
+- `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay); optional `tag` prop scopes the deck to one tag; emits `not-found` when tag doesn't exist
 - `BottomBar.vue` - fixed bottom room-switcher (Deck / Shelf / Sources); hidden on `/article/*` and `/login`
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
 - `PwaUpdatePrompt.vue` - service-worker update prompt
 
 **Pages** (the three rooms + satellites):
-- `pages/index.vue` - **the deck** (CardStack); also owns the deck keyboard handler
+- `pages/index.vue` - thin wrapper — mounts `<DeckScreen />` with no props
+- `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
 - `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies)
 - `pages/shelf.vue` - saved articles as hairline rows with a flat tag filter
 - `pages/sources.vue` - add/manage feeds grouped by tag, sync all, account footer
@@ -122,7 +124,7 @@ Routes follow REST conventions:
 - `PATCH /api/feeds/:id/tags` - Update feed tags
 
 **Articles**:
-- `GET /api/articles` - List articles with filtering (feedId, feedIds, isRead)
+- `GET /api/articles` - List articles with filtering (feedId, feedIds, isRead, tag (case-insensitive ASCII; 404 if unknown; empty list if tag has no feeds))
 - `GET /api/articles/:id` - Single article with full content
 - `PATCH /api/articles/:id/read` - Mark article as read/unread
 - `POST /api/articles/mark-all-read` - Bulk mark as read
@@ -188,7 +190,7 @@ The swipe-up verb promotes an article into the SFL idea tracker (sfl.hareim.no),
 
 There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable).
 
-**Deck (`pages/index.vue`)** — arrows drive the same `CardStack.commit(direction)` path as swipes:
+**Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes:
 - `←` - Save (shelf) the top card
 - `→` - Mark the top card read
 - `↑` - Elevate to SFL
@@ -221,7 +223,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `config/tufte.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) exposing the token utilities (`paper`, `ink`, `body`, `mute`, `accent`, `rule`, `measure`, …)
 - `app.vue` sets `bg-paper text-ink font-serif` and mounts `BottomBar` + `AppToast` + `PwaUpdatePrompt`
 
-**Three rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar.
+**Three rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar. Tag group headers on the Sources page link to `/TAG-NAME`; tag routes show the Deck room active in `BottomBar`.
 
 **The five verbs** — one interaction model on touch and keys, all routed through `CardStack.commit(direction)`:
 
@@ -241,7 +243,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
 - `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
 
-**The deck-snapshot pattern** (`pages/index.vue`): the page passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load and explicit sync; the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
+**The deck-snapshot pattern** (`components/DeckScreen.vue`): the component passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load and explicit sync; the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
 
 **Race guards** in `CardStack`: `commit` no-ops while `busy` (an in-flight commit) or `dragging`; `performUndo` no-ops while `busy`; `applyAdvance` verifies the expected top id before mutating. `settleWithin()` races every awaited animation against a 1.2s timeout because motion-dom's `JSAnimation.finished` never resolves when an animation is stopped (e.g. a pointer re-grab) — without it `busy` could wedge forever.
 
