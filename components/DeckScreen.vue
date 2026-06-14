@@ -1,7 +1,7 @@
 <template>
   <main class="mx-auto flex h-dvh max-w-xl flex-col px-4 pb-16 pt-4">
     <header class="flex items-baseline justify-between pb-3">
-      <MonoLabel dash>{{ props.tag ?? 'The Reader' }}</MonoLabel>
+      <MonoLabel dash>{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
       <MonoLabel>{{ unreadCount }} unread</MonoLabel>
     </header>
     <HairlineRule />
@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import type { Article } from '~/types'
 
-const props = defineProps<{ tag?: string }>()
+const props = defineProps<{ tag?: string; feedId?: number; title?: string }>()
 const emit = defineEmits<{ notFound: [] }>()
 
 const { fetchArticles, unreadArticles } = useArticles()
@@ -53,7 +53,7 @@ function refillDeck() {
   deckArticles.value = [...unreadArticles.value] as Article[]
 }
 
-const loadArticles = () => fetchArticles(undefined, undefined, props.tag)
+const loadArticles = () => fetchArticles(props.feedId, undefined, props.tag)
 
 onMounted(async () => {
   let is404 = false

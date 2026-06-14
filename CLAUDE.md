@@ -98,7 +98,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
 **Shared chrome** (`components/`):
-- `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay); optional `tag` prop scopes the deck to one tag; emits `not-found` when tag doesn't exist
+- `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay); optional `tag` prop scopes the deck to one tag and optional `feedId` (+ `title` for the header) scopes it to one feed; emits `not-found` when the tag/feed doesn't exist
 - `BottomBar.vue` - fixed bottom room-switcher (Deck / Shelf / Sources); hidden on `/article/*` and `/login`
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
@@ -108,6 +108,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 **Pages** (the three rooms + satellites):
 - `pages/index.vue` - thin wrapper — mounts `<DeckScreen />` with no props
 - `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
+- `pages/feed/[id].vue` - feed-scoped deck (`/feed/:id`); same `DeckScreen` as the tag deck (passes `feedId` + the feed's `title` for the header), resolves the title from `useFeeds()`, Tufte not-found for an unknown/NaN id; `BottomBar` shows Deck tab active. Each feed title on the Sources page links here
 - `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies)
 - `pages/shelf.vue` - saved articles as hairline rows with a flat tag filter
 - `pages/sources.vue` - add/manage feeds grouped by tag (tag editing via `TagEditorOverlay`), sync all, account footer

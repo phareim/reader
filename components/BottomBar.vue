@@ -30,7 +30,7 @@ const rooms = [
 const visible = computed(() => route.name !== 'article-id' && route.name !== 'login')
 
 function isActive(path: string) {
-  if (path === '/') return route.path === '/' || route.name === 'tag'
+  if (path === '/') return route.path === '/' || route.name === 'tag' || route.name === 'feed-id'
   if (path === '/shelf') return route.name === 'shelf'
   if (path === '/sources') return route.name === 'sources'
   return route.path.startsWith(path)

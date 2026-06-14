@@ -57,7 +57,7 @@ export const useArticles = () => {
 
       articles.value = response.articles
     } catch (err: any) {
-      if (err?.statusCode === 404 && tag) throw err
+      if (err?.statusCode === 404 && (tag || feedId !== undefined)) throw err
       error.value = err.message || 'Failed to fetch articles'
       console.error('Error fetching articles:', err)
     } finally {

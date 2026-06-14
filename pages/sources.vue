@@ -31,7 +31,10 @@
       <ul class="mt-1">
         <li v-for="feed in group" :key="feed.id" class="border-b border-rule py-3">
           <div class="flex items-baseline justify-between gap-3">
-            <span class="min-w-0 truncate text-lg text-ink">{{ feed.title }}</span>
+            <NuxtLink
+              :to="`/feed/${feed.id}`"
+              class="min-w-0 truncate text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
+            >{{ feed.title }}</NuxtLink>
             <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
           </div>
           <div class="mt-1.5 flex gap-4">
