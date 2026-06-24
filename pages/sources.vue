@@ -28,8 +28,8 @@
         class="focus-visible:outline focus-visible:outline-1"
       ><MonoLabel dash>{{ tag }}</MonoLabel></NuxtLink>
       <MonoLabel v-else dash>{{ tag === '__inbox__' ? 'Inbox' : String(tag) }}</MonoLabel>
-      <ul class="mt-1">
-        <li v-for="feed in group" :key="feed.id" class="border-b border-rule py-3">
+      <TransitionGroup tag="ul" name="feed-row" class="mt-1">
+        <li v-for="feed in group" :key="feed.id" class="feed-row border-b border-rule py-3">
           <div class="flex items-baseline justify-between gap-3">
             <NuxtLink
               :to="`/feed/${feed.id}`"
@@ -43,7 +43,7 @@
             <button class="src-action hover:text-accent-ink" @click="confirmDelete(feed)">Delete</button>
           </div>
         </li>
-      </ul>
+      </TransitionGroup>
     </section>
 
     <!-- Footer -->
@@ -126,8 +126,9 @@ async function saveTags(tags: string[]) {
 async function confirmDelete(feed: Feed) {
   if (!window.confirm(`Delete "${feed.title}" and all its articles?`)) return
   try {
-    await deleteFeed(feed.id)
-    showSuccess('Feed deleted')
+    const res = await deleteFeed(feed.id)
+    const n = res?.deletedArticles ?? 0
+    showSuccess(n === 1 ? 'Deleted — 1 article' : `Deleted — ${n} articles`)
   } catch { showError('Failed to delete feed') }
 }
 
@@ -157,4 +158,13 @@ async function signOutAction() {
 }
 .src-action:hover { color: var(--text-strong); }
 .src-action:focus-visible { outline: 1px solid var(--tufte-accent); }
+
+/* Feed row removal: fade + collapse so a deleted feed leaves the list cleanly */
+.feed-row { transition: opacity .28s ease, transform .28s ease; }
+.feed-row-leave-active { position: relative; }
+.feed-row-leave-to { opacity: 0; transform: translateX(-12px); }
+.feed-row-move { transition: transform .28s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .feed-row, .feed-row-leave-active, .feed-row-move { transition: none; }
+}
 </style>

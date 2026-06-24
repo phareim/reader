@@ -103,7 +103,10 @@ export const useFeeds = () => {
     error.value = null
 
     try {
-      await $fetch(`/api/feeds/${id}`, { method: 'DELETE' })
+      const response = await $fetch<{ success: boolean; deletedArticles: number }>(
+        `/api/feeds/${id}`,
+        { method: 'DELETE' }
+      )
 
       // Remove from local state
       feeds.value = feeds.value.filter(f => f.id !== id)
@@ -113,6 +116,8 @@ export const useFeeds = () => {
         selectedFeedId.value = null
         selectedTag.value = null
       }
+
+      return response
     } catch (err: any) {
       error.value = err.message || 'Failed to delete feed'
       throw err
