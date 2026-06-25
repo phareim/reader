@@ -235,6 +235,7 @@ There is no global shortcut composable — each page owns its handler (with guar
 **Reader (`pages/article/[id].vue`)**:
 - `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
 - `s` - Save/unsave (shelf)
+- `r` - Mark read and return to the deck (also the accent "Mark as read" button at the end of the article)
 - `e` - Elevate to SFL
 - `v` - Open the original in a new tab
 - `h` - Highlight the current selection (opens the note overlay; no-op without a selection)

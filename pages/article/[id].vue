@@ -24,7 +24,14 @@
       <HairlineRule class="my-6" />
 
       <p v-if="fetchingFullText" class="italic text-mute">Fetching the full article…</p>
-      <article ref="articleEl" class="prose pb-24" v-html="sanitizedContent" @click="onArticleClick" />
+      <article ref="articleEl" class="prose" v-html="sanitizedContent" @click="onArticleClick" />
+
+      <HairlineRule class="my-6" />
+      <div class="flex justify-center pb-24">
+        <ActionLabel accent :disabled="markingRead" @click="markReadAndReturn">
+          {{ markingRead ? 'Marking…' : 'Mark as read' }}
+        </ActionLabel>
+      </div>
     </template>
 
     <p v-else-if="error" class="mt-10 italic text-mute">{{ error }}</p>
@@ -82,6 +89,7 @@ const article = ref<any>(null)
 const error = ref<string | null>(null)
 const fetchingFullText = ref(false)
 const elevating = ref(false)
+const markingRead = ref(false)
 
 // ── Highlights ──────────────────────────────────────────────────────────────
 const articleEl = ref<HTMLElement | null>(null)
@@ -252,6 +260,18 @@ async function elevateAction() {
   }
 }
 
+async function markReadAndReturn() {
+  if (markingRead.value) return
+  markingRead.value = true
+  try {
+    await markAsRead(id, true)
+    navigateTo('/')
+  } catch {
+    showError('Could not mark as read')
+    markingRead.value = false
+  }
+}
+
 function openOriginal() {
   if (article.value?.url) window.open(article.value.url, '_blank', 'noopener')
 }
@@ -268,6 +288,7 @@ function onKey(e: KeyboardEvent) {
   }
   if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); goBack() }
   else if (e.key === 's') toggleSaveAction()
+  else if (e.key === 'r') markReadAndReturn()
   else if (e.key === 'e') elevateAction()
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'h') startHighlight()
