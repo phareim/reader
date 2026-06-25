@@ -33,6 +33,7 @@ const keys = [
   ['shift + r', 'Sync all feeds'],
   ['esc (reader)', 'Back'],
   ['s / e / v (reader)', 'Save · Elevate · Original'],
+  ['h (reader)', 'Highlight selection'],
   ['?', 'This card'],
 ]
 </script>

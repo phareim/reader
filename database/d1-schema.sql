@@ -105,6 +105,22 @@ CREATE TABLE IF NOT EXISTS "SavedArticleTag" (
   PRIMARY KEY (saved_article_id, tag_id)
 );
 
+-- Highlight table — a yellow-pen mark on a passage, optionally annotated.
+-- Independent of the shelf: a highlight does not require a SavedArticle and
+-- does not mark the article read. Each mark is also pushed to SFL as a
+-- self-contained `quote` idea (sfl_idea_id), NULL only when SFL fails soft.
+CREATE TABLE IF NOT EXISTS "Highlight" (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  article_id INTEGER NOT NULL REFERENCES "Article"(id) ON DELETE CASCADE,
+  sfl_idea_id TEXT,
+  quote TEXT NOT NULL,
+  note TEXT,
+  start_offset INTEGER NOT NULL,
+  end_offset INTEGER NOT NULL,
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
@@ -123,6 +139,8 @@ CREATE INDEX IF NOT EXISTS idx_saved_article_user_id_saved_at ON "SavedArticle"(
 CREATE INDEX IF NOT EXISTS idx_saved_article_article_id_user_id ON "SavedArticle"(article_id, user_id);
 
 CREATE INDEX IF NOT EXISTS idx_tag_user_id ON "Tag"(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_highlight_article_user ON "Highlight"(article_id, user_id);
 
 -- ============================================================================
 -- TRIGGERS

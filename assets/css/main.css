@@ -2,3 +2,14 @@
 @view-transition {
   navigation: auto;
 }
+
+/* The yellow pen — passages the reader marked. Tappable to read the note. */
+mark.hl {
+  background-color: var(--highlight);
+  color: inherit;
+  border-radius: 0;
+  cursor: pointer;
+  padding: 0.05em 0;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}

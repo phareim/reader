@@ -52,6 +52,10 @@
   --accent-ink:   #9a2a17;  /* accent text on paper (AA), pressed accent    */
   --accent-wash:  #f3ddd6;  /* faintest crimson tint — selection, hot rows  */
 
+  /* ── The yellow pen. A deliberate second mark colour — a highlighter, not
+        the accent — for passages the reader chose to keep. ─────────────────── */
+  --highlight:    #fbe7a1;  /* warm yellow that sits on warm paper           */
+
   /* ── Surface — charts paint no background of their own ───────────────── */
   --tufte-bg:     transparent;
 
@@ -97,6 +101,8 @@
   --tufte-accent: #ff6b4a;
   --accent-ink:   #ff8a6e;
   --accent-wash:  #2a1a14;
+
+  --highlight:    #5a4a1e;  /* dimmer pen on midnight paper */
 
   --signal-up:    #6cae7e;
   --signal-down:  var(--accent-ink);
