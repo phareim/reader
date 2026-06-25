@@ -38,6 +38,9 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
 - `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
+- `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
+- `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
+- `__tests__/utils/highlightDom.test.ts` — `paintHighlight` (exact + indexOf fallback, cross-element spans), `unpaint`/`clearHighlights` round-trips
 - `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
 
 `~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). **`motion-v` is ESM and is mocked entirely** rather than transformed: `moduleNameMapper` points `motion-v` at `__tests__/mocks/motion-v.ts`, which renders `motion.*` as passthrough divs (cached per tag for stable component identity) and exposes `__setManualAnimations` / `__resolveAnimations` so tests can assert behavior mid-flight. Mock network calls rather than hitting live feeds; Nuxt auto-imported composables don't exist under Jest, so component tests provide them as `globalThis` stubs.
@@ -65,6 +68,7 @@ This app uses Nuxt's `useState` for global state management instead of Pinia/Vue
 - **`useSavedArticles()`**: Saved article IDs (a `Set` in `useState`), `saveArticle` / `unsaveArticle` / `isSaved`
 - **`useTags()`**: Tag management and counts
 - **`useElevate()`**: `elevate(articleId)` → `{ ideaId, existing }` and `unElevate(articleId, ideaId?, existing?)` — thin client for the elevate endpoints
+- **`useHighlights()`**: `fetchHighlights(articleId)`, `createHighlight(articleId, { quote, note, startOffset, endOffset })`, `deleteHighlight(id)` — thin client for the highlight endpoints (see "Highlights → SFL" below)
 - **`useToast()`**: Success/error toasts with auto-dismiss (rendered by `AppToast.vue`)
 - **`useAuth()`**: Session state, sign-in/out
 
@@ -81,7 +85,9 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - Tags on saved articles via `SavedArticleTag`
 - Future features like notes
 
-**Cascading Deletes**: All user data cascades on user deletion. Deleting a feed cascades to articles and saved articles.
+**Highlights ("the yellow pen")**: Independent `Highlight` table (migration `005-highlights.sql`) — one row per marked passage, with `quote`, optional `note`, and plain-text `start_offset`/`end_offset` into the rendered article's `textContent`. `sfl_idea_id` holds the SFL `quote` idea it mirrors to (NULL when SFL failed soft). Independent of the shelf (no `SavedArticle` needed) and does not mark the article read. See "Highlights → SFL" below.
+
+**Cascading Deletes**: All user data cascades on user deletion. Deleting a feed cascades to articles, saved articles, and highlights.
 
 ### Component Organization
 
@@ -103,13 +109,15 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
 - `TagEditorOverlay.vue` - full-screen tag editor for a feed (Teleport paper sheet — `bg-paper`, no backdrop, no tap-to-dismiss): removable chips + input with autocomplete on existing tags (Enter/comma commit, arrows navigate suggestions, Backspace on empty input removes last chip, Esc cancels via its own window listener). Dumb overlay — takes `feed` + `allTags` props, emits `save(tags)` / `close`; the page owns the API call. Mount with `v-if` so draft state resets per open
+- `HighlightNoteOverlay.vue` - full-screen note sheet for a fresh highlight (Teleport paper sheet, mirrors `TagEditorOverlay`): shows the quoted passage + a `<textarea>` for the optional note (`#tags` hint). Takes `quote` + `saving` props, emits `save(note)` / `close`; Cmd/Ctrl+Enter commits, Esc cancels. Mount with `v-if` so the draft resets per open
+- `HighlightPopover.vue` - small Teleported `CardFrame` near a tapped mark: renders the note via `renderNoteHtml` (hashtags accent-styled) or "No note", a `— IN SFL` `MonoLabel` when synced, and a **Remove** `ActionLabel`. Takes `highlight` + `x`/`y` (clamped into the viewport), emits `remove` / `close`
 - `PwaUpdatePrompt.vue` - service-worker update prompt
 
 **Pages** (the three rooms + satellites):
 - `pages/index.vue` - thin wrapper — mounts `<DeckScreen />` with no props
 - `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
 - `pages/feed/[id].vue` - feed-scoped deck (`/feed/:id`); same `DeckScreen` as the tag deck (passes `feedId` + the feed's `title` for the header), resolves the title from `useFeeds()`, Tufte not-found for an unknown/NaN id; `BottomBar` shows Deck tab active. Each feed title on the Sources page links here
-- `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies)
+- `pages/article/[id].vue` - the full-screen serif reader (auto-fetches full text for thin RSS bodies). Also owns **highlighting**: selecting text shows a floating `— HIGHLIGHT` pill (or press `h`) → `HighlightNoteOverlay` → paints a yellow `<mark>`; tapping a mark opens `HighlightPopover`. On mount (after the body settles) it fetches + paints stored highlights; a `watch(sanitizedContent)` re-anchors them after the one-time full-text re-render
 - `pages/shelf.vue` - saved articles as hairline rows with a flat tag filter
 - `pages/sources.vue` - add/manage feeds grouped by tag (tag editing via `TagEditorOverlay`), sync all, account footer
 - `pages/login.vue`, `pages/mcp-settings.vue`
@@ -142,6 +150,11 @@ Routes follow REST conventions:
 - `POST /api/articles/fetch-fulltext-bulk` - Batch full-text fetch
 - `POST /api/articles/manual` - Add a manual (non-RSS) article
 
+**Highlights** (see "Highlights → SFL"):
+- `GET /api/articles/:id/highlights` - List the article's highlights (ordered by `start_offset`)
+- `POST /api/articles/:id/highlights` - Create a highlight `{ quote, note, startOffset, endOffset }` → SFL `quote` idea + local row
+- `DELETE /api/highlights/:id` - Delete a highlight (id in path, no body) + its SFL idea
+
 **Saved Articles**:
 - `GET /api/saved-articles` - List user's saved articles (optional tag filter)
 - `GET /api/saved-articles/counts` - Saved counts
@@ -168,6 +181,16 @@ The swipe-up verb promotes an article into the SFL idea tracker (sfl.hareim.no),
 - **Route contract**: `POST /api/articles/:id/elevate` creates the SFL idea, then marks the article read (mirroring `read.patch.ts`); if the local DB write fails it compensates by deleting the idea it just created (only when `!existing`). Returns `{ success, ideaId, existing }`. `DELETE /api/articles/:id/elevate` takes `?ideaId=&existing=` as query params (never a request body — Nitro’s cloudflare-module entry only buffers post/put/patch bodies, so a DELETE body crashes the deployed Worker) and deletes the idea **only when it was created by the elevate** (`existing` ideas predate us and are not ours to delete), then marks the article unread.
 - **Client semantics**: elevate is **non-optimistic** — `CardStack` holds the card mid-air while SFL answers and springs it back on failure ("Could not reach SFL — card kept"). The deck history entry records `ideaId` + `ideaExisting` so undo can reverse correctly.
 - **Config**: `NUXT_SFL_API_URL` (set in `wrangler.toml` `[vars]` for prod, `.env.local` for dev) and `NUXT_SFL_API_KEY` (dev: `.env.local`; prod: `wrangler secret put NUXT_SFL_API_KEY`). When either is missing the endpoints 503 ("SFL is not configured") and the UI fails soft.
+
+### Highlights → SFL
+
+The yellow-pen verb saves a *specific passage* (not the whole article) to SFL as a self-contained `quote` idea. Shares the SFL config above.
+
+- **Anchoring**: a highlight is stored as plain-text `start_offset`/`end_offset` into the rendered article's `textContent` (the processed `sanitizedContent` is deterministic) plus the exact `quote` string. `utils/highlightDom.ts` (pure, jsdom-tested) does the DOM work: `getSelectionOffsets` (selection → offsets), `paintHighlight` (wrap the range in `<mark class="hl" data-hl-id>`, splitting across element boundaries; falls back to `textContent.indexOf(quote)` when offsets drift after the full-text re-render), `unpaint`, `clearHighlights`.
+- **Hashtags**: `#words` in the note become **real SFL tags**. `utils/hashtags.ts` (pure, shared client+server): `extractHashtags` (unicode-aware, deduped, lowercased) and `renderNoteHtml` (escape + wrap `#tag` in an accent span for the popover). The `#word` also stays visible in the note text.
+- **Server client** (`server/utils/sfl.ts`, alongside the elevate helpers): `createQuoteIdea` posts `{ type:'quote', title:<quote≤120>, summary:note, data:{ text, note, source_url, source_title } }` with **no `url`** (quote dedup is url-scoped; we want many quotes per article). `findOrCreateTag` (GET `/api/tags` match-by-title, else POST a `type:'tag'` idea) + `tagIdea` (POST `/api/connections` `label:'tagged_with'`, swallows the 400 "already exists") mirror the canonical `~/sfl-hook` convention. Both are **best-effort** — a tag failure never fails the highlight.
+- **Route contract**: `POST /api/articles/:id/highlights` creates the quote idea, promotes hashtags to tags, then inserts the local `Highlight` row. **Fails soft**: if `getSflConfig` 503s (SFL unconfigured) the mark is still stored locally with `sfl_idea_id = NULL`; any *other* SFL error (network/timeout) is surfaced. `DELETE /api/highlights/:id` (id in path — no DELETE body, per the Workers entry) deletes the local row and the SFL idea when one exists.
+- **Client semantics**: **non-optimistic** — the page awaits the server id before painting the mark (`saveHighlight` in `pages/article/[id].vue`). Independent of the shelf and does **not** mark the article read.
 
 ### Feed-candidate report (Sleeper only)
 
@@ -210,14 +233,17 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `shift+r` - Sync all feeds
 
 **Reader (`pages/article/[id].vue`)**:
-- `Esc` / `Backspace` - Back
+- `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
 - `s` - Save/unsave (shelf)
 - `e` - Elevate to SFL
 - `v` - Open the original in a new tab
+- `h` - Highlight the current selection (opens the note overlay; no-op without a selection)
+
+While the note overlay is open it owns its own keys (Cmd/Ctrl+Enter saves, Esc cancels); the page handler defers to it.
 
 ### Styling Notes
 
-- **Tufte Viz aesthetic throughout** (see the dedicated section below): warm paper / dark paper, ET Book serif body, hairline 1px rules (never card shadows or rounded buttons), exactly **one crimson accent per screen** — during a drag that accent is the pending-verb label.
+- **Tufte Viz aesthetic throughout** (see the dedicated section below): warm paper / dark paper, ET Book serif body, hairline 1px rules (never card shadows or rounded buttons), exactly **one crimson accent per screen** — during a drag that accent is the pending-verb label. The lone sanctioned exception is the **yellow highlighter** (`--highlight` token in `tufte.css`, `mark.hl` rule in `main.css`): a deliberate *second* mark colour for saved passages — crimson stays reserved for the active verb/pill.
 - Dark mode is **system-preference** (`darkMode: 'media'` in `tailwind.config.js`); the dark palette lives in `assets/css/tufte.css` under `@media (prefers-color-scheme: dark)`. There is no manual theme toggle. Prefer the token utilities (`bg-paper`, `bg-paper-raised`, `text-ink`, `text-body`, `text-mute`, `text-accent-ink`, `border-rule`, `font-serif`, `max-w-measure`) over `dark:` variants and never reintroduce `blue-*`, `bg-gray-*`, rounded buttons, or shadows.
 - Reader prose uses `@tailwindcss/typography`, restyled in `tailwind.config.js` to ET Book / 65ch / accent links / hairline rules.
 - Interactive mono-label buttons should carry a `focus-visible` outline (Tailwind `focus-visible:outline focus-visible:outline-1` or a scoped `:focus-visible { outline: 1px solid var(--tufte-accent); }`).
@@ -274,7 +300,7 @@ In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_
 
 ### Deployment
 
-Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`).
+Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `005-highlights.sql` (the `Highlight` table).
 
 One Workers **secret** must exist for the elevate feature: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key; `NUXT_SFL_API_URL` ships in `wrangler.toml` `[vars]`). Without it, elevate returns 503 and everything else works.
 
