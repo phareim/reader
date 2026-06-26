@@ -6,19 +6,6 @@
     </header>
     <HairlineRule class="mt-3" />
 
-    <!-- Flat tag filter — derived from the current page of articles (v1 limitation) -->
-    <div v-if="tags.length" class="flex flex-wrap gap-x-4 gap-y-2 py-3">
-      <button
-        v-for="t in ['', ...tags]"
-        :key="t || '__all__'"
-        class="font-mono uppercase focus-visible:outline focus-visible:outline-1"
-        style="font-size: 10px; letter-spacing: 0.16em;"
-        :class="activeTag === t ? 'text-accent-ink' : 'text-mute'"
-        @click="setTag(t)"
-      >{{ t || 'All' }}</button>
-    </div>
-    <HairlineRule v-if="tags.length" />
-
     <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
     <p v-else-if="articles.length === 0" class="mt-8 italic text-mute">
       Nothing on the shelf yet — swipe a card left when something touches you.
@@ -59,34 +46,17 @@ const { showError, showSuccess } = useToast()
 
 const articles = ref<Article[]>([])
 const loading = ref(true)
-const activeTag = ref('')
 
-// Tags derive from the current loaded page of articles (v1 limitation:
-// when a tag filter is active the chip list only covers what's visible,
-// not the full saved corpus).
-const tags = computed(() => {
-  const set = new Set<string>()
-  for (const a of articles.value) for (const t of a.tags || []) set.add(t)
-  return Array.from(set).sort()
-})
-
-async function load(tag = '') {
+async function load() {
   loading.value = true
   try {
-    const params: Record<string, string> = {}
-    if (tag) params.tag = tag
-    const res = await $fetch<{ articles: Article[] }>('/api/saved-articles', { params })
+    const res = await $fetch<{ articles: Article[] }>('/api/saved-articles')
     articles.value = res.articles
   } catch {
     showError('Could not load the shelf')
   } finally {
     loading.value = false
   }
-}
-
-function setTag(t: string) {
-  activeTag.value = t
-  load(t)
 }
 
 async function remove(id: number) {
