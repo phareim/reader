@@ -11,6 +11,15 @@ body {
   overflow-x: hidden;
 }
 
+/* The right-edge progress rail replaces the native scrollbar. */
+html {
+  scrollbar-width: none; /* Firefox */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* WebKit/Blink */
+}
+
 .prose {
   overflow-wrap: break-word;
   word-break: break-word;
