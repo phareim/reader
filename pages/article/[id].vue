@@ -1,4 +1,10 @@
 <template>
+  <!-- Reading progress: a hairline-thin rail on the right edge that fills
+       downward as the reader scrolls through the article. -->
+  <div class="fixed right-0 top-0 z-40 h-screen w-[2px] bg-faint" aria-hidden="true">
+    <div class="w-full bg-mute" :style="{ height: scrollPercent + '%' }" />
+  </div>
+
   <main class="mx-auto max-w-measure px-5 py-6">
     <!-- Action row -->
     <div class="flex items-center justify-between">
@@ -294,17 +300,34 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'h') startHighlight()
 }
 
-// Hide the selection pill once the viewport shifts under it.
-function onScroll() { pill.value = null }
+// Reading progress (0–100), driven by how far the page has scrolled.
+const scrollPercent = ref(0)
+function updateProgress() {
+  const doc = document.documentElement
+  const max = doc.scrollHeight - doc.clientHeight
+  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (doc.scrollTop / max) * 100)) : 0
+}
+
+// Hide the selection pill once the viewport shifts under it, and advance the rail.
+function onScroll() {
+  pill.value = null
+  updateProgress()
+}
+
+// The body height changes when the full-text upgrade re-renders — re-measure.
+watch(sanitizedContent, () => nextTick().then(updateProgress))
 
 onMounted(() => {
   window.addEventListener('keydown', onKey)
   document.addEventListener('selectionchange', onSelect)
   window.addEventListener('scroll', onScroll, true)
+  window.addEventListener('resize', updateProgress)
+  updateProgress()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   document.removeEventListener('selectionchange', onSelect)
   window.removeEventListener('scroll', onScroll, true)
+  window.removeEventListener('resize', updateProgress)
 })
 </script>

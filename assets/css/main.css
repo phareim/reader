@@ -3,6 +3,32 @@
   navigation: auto;
 }
 
+/* The reader scrolls only up and down — never sideways. Wide article media
+   (images, embeds, tables) is clamped to the measure and long words/URLs wrap;
+   code blocks keep their own horizontal scroll instead of pushing the page. */
+html,
+body {
+  overflow-x: hidden;
+}
+
+.prose {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.prose img,
+.prose video,
+.prose iframe,
+.prose table {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* The yellow pen — passages the reader marked. Tappable to read the note. */
 mark.hl {
   background-color: var(--highlight);
