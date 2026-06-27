@@ -23,6 +23,7 @@ const route = useRoute()
 
 const rooms = [
   { path: '/', label: 'Deck' },
+  { path: '/found', label: 'Found' },
   { path: '/shelf', label: 'Shelf' },
   { path: '/sources', label: 'Sources' },
 ]
@@ -31,6 +32,7 @@ const visible = computed(() => route.name !== 'article-id' && route.name !== 'lo
 
 function isActive(path: string) {
   if (path === '/') return route.path === '/' || route.name === 'tag' || route.name === 'feed-id'
+  if (path === '/found') return route.name === 'found'
   if (path === '/shelf') return route.name === 'shelf'
   if (path === '/sources') return route.name === 'sources'
   return route.path.startsWith(path)

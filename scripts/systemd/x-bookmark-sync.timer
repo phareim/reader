@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — run the X bookmark sync twice a day
+
+[Timer]
+# Twice daily (07:30 and 19:30 local). Persistent catches up a run missed
+# while the host was off; the randomized delay avoids hammering X on the dot.
+OnCalendar=*-*-* 07,19:30:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

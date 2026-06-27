@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
           last_error,
           error_count,
           is_active,
+          kind,
           created_at
         FROM "Feed"
         WHERE user_id = ?
@@ -65,7 +66,8 @@ export default defineEventHandler(async (event) => {
         lastFetchedAt: feed.last_fetched_at,
         lastError: feed.last_error,
         errorCount: Number(feed.error_count || 0),
-        isActive: Boolean(feed.is_active)
+        isActive: Boolean(feed.is_active),
+        kind: feed.kind || 'rss'
       }))
     }
   } catch (error: any) {

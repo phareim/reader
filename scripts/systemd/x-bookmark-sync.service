@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — sync X bookmarks into the Found feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/x-bookmark-sync.mjs
+# Secrets/state are read from ~/.config/x-bookmarks/ and ~/.config/reader/ —
+# no EnvironmentFile needed.
+Nice=10

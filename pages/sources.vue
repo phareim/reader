@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import type { Feed } from '~/types'
 
-const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article'])
+const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found'])
 
 const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()

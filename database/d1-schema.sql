@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS "Feed" (
   error_count INTEGER DEFAULT 0,
   fetch_interval INTEGER DEFAULT 900,
   is_active INTEGER DEFAULT 1,
+  -- 'rss' (default), 'found' (social bookmarks, push-only), or 'manual'
+  kind TEXT NOT NULL DEFAULT 'rss',
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE(user_id, url)
@@ -66,6 +68,8 @@ CREATE TABLE IF NOT EXISTS "Article" (
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   full_text_status TEXT DEFAULT 'pending',
   full_text_error TEXT,
+  -- per-item origin for Found articles ('x-bookmark', …); NULL for RSS
+  source TEXT,
   UNIQUE(feed_id, guid)
 );
 
@@ -130,6 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_session_token ON "session"(token);
 
 CREATE INDEX IF NOT EXISTS idx_feed_user_id ON "Feed"(user_id);
 CREATE INDEX IF NOT EXISTS idx_feed_is_active ON "Feed"(is_active);
+CREATE INDEX IF NOT EXISTS idx_feed_user_kind ON "Feed"(user_id, kind);
 
 CREATE INDEX IF NOT EXISTS idx_article_feed_id_is_read ON "Article"(feed_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_article_is_read_published_at ON "Article"(is_read, published_at DESC);

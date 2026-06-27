@@ -11,6 +11,7 @@ export interface Feed {
   lastError?: string | null
   errorCount: number
   isActive: boolean
+  kind?: 'rss' | 'found' | 'manual'
 }
 
 export interface Article {

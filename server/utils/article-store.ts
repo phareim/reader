@@ -11,6 +11,7 @@ type ArticleInsert = {
   summary?: string | null
   imageUrl?: string | null
   publishedAt?: Date | string | null
+  source?: string | null
 }
 
 export const insertArticleWithContent = async (event: any, feedId: number, item: ArticleInsert) => {
@@ -29,8 +30,9 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
       author,
       summary,
       image_url,
-      published_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      published_at,
+      source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).bind(
     feedId,
@@ -40,7 +42,8 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
     item.author || null,
     item.summary || null,
     item.imageUrl || null,
-    publishedAt
+    publishedAt,
+    item.source || null
   ).run()
 
   const articleId = lastRowId(insert)

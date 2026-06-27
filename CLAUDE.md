@@ -41,6 +41,8 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
 - `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
 - `__tests__/utils/highlightDom.test.ts` — `paintHighlight` (exact + indexOf fallback, cross-element spans), `unpaint`/`clearHighlights` round-trips
+- `__tests__/components/BottomBar.test.ts` — the four rooms render in order, Found active only on the found route, hidden on reader/login
+- `__tests__/components/FoundPage.test.ts` — Found-feed resolution (empty state + refetch vs. deck scoped to the `kind='found'` feed)
 - `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
 
 `~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). **`motion-v` is ESM and is mocked entirely** rather than transformed: `moduleNameMapper` points `motion-v` at `__tests__/mocks/motion-v.ts`, which renders `motion.*` as passthrough divs (cached per tag for stable component identity) and exposes `__setManualAnimations` / `__resolveAnimations` so tests can assert behavior mid-flight. Mock network calls rather than hitting live feeds; Nuxt auto-imported composables don't exist under Jest, so component tests provide them as `globalThis` stubs.
@@ -105,7 +107,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 
 **Shared chrome** (`components/`):
 - `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay); optional `tag` prop scopes the deck to one tag and optional `feedId` (+ `title` for the header) scopes it to one feed; emits `not-found` when the tag/feed doesn't exist
-- `BottomBar.vue` - fixed bottom room-switcher (Deck / Shelf / Sources); hidden on `/article/*` and `/login`
+- `BottomBar.vue` - fixed bottom room-switcher (Deck / Found / Shelf / Sources); hidden on `/article/*` and `/login`
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
 - `TagEditorOverlay.vue` - full-screen tag editor for a feed (Teleport paper sheet — `bg-paper`, no backdrop, no tap-to-dismiss): removable chips + input with autocomplete on existing tags (Enter/comma commit, arrows navigate suggestions, Backspace on empty input removes last chip, Esc cancels via its own window listener). Dumb overlay — takes `feed` + `allTags` props, emits `save(tags)` / `close`; the page owns the API call. Mount with `v-if` so draft state resets per open
@@ -168,6 +170,18 @@ Routes follow REST conventions:
 
 **Sync**:
 - `POST /api/sync` - Sync all active feeds for the user
+
+**Ingest** (the "Found" feed — see "Found feed (social bookmarks)"):
+- `POST /api/ingest` - Generic, source-agnostic seam. MCP-authed. Body `{ source, externalId, url, title, author?, content?, summary?, imageUrl?, publishedAt? }` → resolves/creates the user's `kind='found'` feed and inserts an unread article (guid = `${source}:${externalId}`, idempotent). Does **not** save or mark read.
+
+### Found feed (social bookmarks)
+
+A push-only feed (`Feed.kind='found'`, `is_active=0`) that collects bookmarks/saves from social sources — X bookmarks today, more later. It behaves like any other feed (its unread articles flow into the main Deck and it lists under Sources) **and** has a dedicated **Found** tab in `BottomBar` (`pages/found.vue` → a `DeckScreen` scoped to the Found feed; the five verbs work, so swipe-up elevates a found item straight into SFL→wiki).
+
+- **Reader stays source-agnostic.** All source-specific logic lives in Sleeper-side collectors that normalize each item and POST to `/api/ingest`. Adding a new source = a new collector, zero Reader changes. `Article.source` records per-item origin (`'x-bookmark'`, …).
+- **X collector**: `scripts/x-bookmark-sync.mjs` (Sleeper-only, like `feed-candidates.mjs`). Refreshes the X OAuth2 user token (rotates + persists), pages newest-first through @phareim's bookmarks (stops once caught up to already-seen ids; bounded by `FIRST_PAGE=25` / `--max-pages`), renders each new tweet to HTML **with quoted + reply/thread context** (carried in one call via expansions — no extra per-tweet X cost), and POSTs to `/api/ingest`. Flags: `--dry-run`, `--verbose`, `--max-pages N`.
+- **Auth/config (files, not env)**: X creds + rotating OAuth token + sync state in `~/.config/x-bookmarks/{env,token.json,state.json}` (the OAuth2 user token was minted once via PKCE with `bookmark.read`); Reader creds in `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). `state.json` was seeded with the 299 pre-existing bookmarks (already sent to SFL) so Found only collects new ones.
+- **Schedule**: systemd **user** timer `x-bookmark-sync.timer` (twice daily, `Persistent=true`; units vendored under `scripts/systemd/`). `journalctl --user -u x-bookmark-sync` to tail; `systemctl --user start x-bookmark-sync.service` to run now. X bills per post returned ($0.005); twice-daily + small pages keeps idle cost ≈ pennies/run.
 
 ### Removed surfaces (2026-06 rebuild)
 
@@ -259,7 +273,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `config/tufte.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) exposing the token utilities (`paper`, `ink`, `body`, `mute`, `accent`, `rule`, `measure`, …)
 - `app.vue` sets `bg-paper text-ink font-serif` and mounts `BottomBar` + `AppToast` + `PwaUpdatePrompt`
 
-**Three rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar. Tag group headers on the Sources page link to `/TAG-NAME`; tag routes show the Deck room active in `BottomBar`.
+**Four rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Found** room (`/found`, social bookmarks — a `DeckScreen` scoped to the Found feed; see "Found feed (social bookmarks)"), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar. Tag group headers on the Sources page link to `/TAG-NAME`; tag routes show the Deck room active in `BottomBar`.
 
 **The five verbs** — one interaction model on touch and keys, all routed through `CardStack.commit(direction)`:
 
@@ -301,7 +315,7 @@ In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_
 
 ### Deployment
 
-Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `005-highlights.sql` (the `Highlight` table).
+Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `006-found.sql` (adds `Feed.kind` + `Article.source` for the Found feed).
 
 One Workers **secret** must exist for the elevate feature: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key; `NUXT_SFL_API_URL` ships in `wrangler.toml` `[vars]`). Without it, elevate returns 503 and everything else works.
 
