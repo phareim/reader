@@ -1,7 +1,7 @@
 <template>
   <!-- Reading progress: a hairline-thin rail on the right edge that fills
        downward as the reader scrolls through the article. -->
-  <div class="fixed right-0 top-0 z-40 h-screen w-[2px] bg-faint" aria-hidden="true">
+  <div class="fixed right-0 top-0 z-40 h-screen w-[2px] bg-rule" aria-hidden="true">
     <div class="w-full bg-mute" :style="{ height: scrollPercent + '%' }" />
   </div>
 
@@ -303,9 +303,12 @@ function onKey(e: KeyboardEvent) {
 // Reading progress (0–100), driven by how far the page has scrolled.
 const scrollPercent = ref(0)
 function updateProgress() {
-  const doc = document.documentElement
-  const max = doc.scrollHeight - doc.clientHeight
-  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (doc.scrollTop / max) * 100)) : 0
+  // Measure the viewport scroll (window.scrollY), not documentElement.scrollTop:
+  // with overflow-x: hidden on html/body the scroll container that actually
+  // owns scrollTop varies by browser, but window.scrollY always tracks the
+  // viewport. Document height is still read off documentElement.
+  const max = document.documentElement.scrollHeight - window.innerHeight
+  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0
 }
 
 // Hide the selection pill once the viewport shifts under it, and advance the rail.
