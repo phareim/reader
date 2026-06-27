@@ -182,6 +182,7 @@ A push-only feed (`Feed.kind='found'`, `is_active=0`) that collects bookmarks/sa
 - **X collector**: `scripts/x-bookmark-sync.mjs` (Sleeper-only, like `feed-candidates.mjs`). Refreshes the X OAuth2 user token (rotates + persists), pages newest-first through @phareim's bookmarks (stops once caught up to already-seen ids; bounded by `FIRST_PAGE=25` / `--max-pages`), renders each new tweet to HTML **with quoted + reply/thread context** (carried in one call via expansions — no extra per-tweet X cost), and POSTs to `/api/ingest`. Flags: `--dry-run`, `--verbose`, `--max-pages N`.
 - **Auth/config (files, not env)**: X creds + rotating OAuth token + sync state in `~/.config/x-bookmarks/{env,token.json,state.json}` (the OAuth2 user token was minted once via PKCE with `bookmark.read`); Reader creds in `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). `state.json` was seeded with the 299 pre-existing bookmarks (already sent to SFL) so Found only collects new ones.
 - **Schedule**: systemd **user** timer `x-bookmark-sync.timer` (twice daily, `Persistent=true`; units vendored under `scripts/systemd/`). `journalctl --user -u x-bookmark-sync` to tail; `systemctl --user start x-bookmark-sync.service` to run now. X bills per post returned ($0.005); twice-daily + small pages keeps idle cost ≈ pennies/run.
+- **Full reference + native-app integration spec**: [`docs/found-feed.md`](docs/found-feed.md).
 
 ### Removed surfaces (2026-06 rebuild)
 
