@@ -303,12 +303,14 @@ function onKey(e: KeyboardEvent) {
 // Reading progress (0–100), driven by how far the page has scrolled.
 const scrollPercent = ref(0)
 function updateProgress() {
-  // Measure the viewport scroll (window.scrollY), not documentElement.scrollTop:
-  // with overflow-x: hidden on html/body the scroll container that actually
-  // owns scrollTop varies by browser, but window.scrollY always tracks the
-  // viewport. Document height is still read off documentElement.
-  const max = document.documentElement.scrollHeight - window.innerHeight
-  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0
+  // Read the scroll position defensively: normally the viewport scrolls
+  // (window.scrollY), but a stray overflow on html/body can move the scroll
+  // onto documentElement or body instead — so fall back across all three.
+  const doc = document.documentElement
+  const scrollTop = window.scrollY || doc.scrollTop || document.body.scrollTop || 0
+  const scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight)
+  const max = scrollHeight - window.innerHeight
+  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0
 }
 
 // Hide the selection pill once the viewport shifts under it, and advance the rail.

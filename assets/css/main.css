@@ -5,9 +5,11 @@
 
 /* The reader scrolls only up and down — never sideways. Wide article media
    (images, embeds, tables) is clamped to the measure and long words/URLs wrap;
-   code blocks keep their own horizontal scroll instead of pushing the page. */
-html,
-body {
+   code blocks keep their own horizontal scroll instead of pushing the page.
+   Clip horizontal overflow on the root element ONLY — putting overflow-x on
+   <body> turns the body into its own scroll container, which moves the page's
+   scroll position off window/documentElement and breaks the progress rail. */
+html {
   overflow-x: hidden;
 }
 
