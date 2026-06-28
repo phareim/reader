@@ -100,6 +100,7 @@ import { formatRelativeDate } from '~/utils/formatDate'
 import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
 import { looksLikePlainText } from '~/utils/paragraphize'
+import { looksTruncated } from '~/utils/truncation'
 import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights } from '~/utils/highlightDom'
 import type { Highlight } from '~/composables/useHighlights'
 
@@ -223,7 +224,11 @@ const sanitizedContent = computed(() =>
 // The body can re-render once (thin-RSS full-text upgrade); re-anchor after.
 watch(sanitizedContent, () => nextTick().then(repaintHighlights))
 
-/** RSS bodies under ~1200 visible chars are treated as excerpts → fetch full text. */
+/**
+ * RSS bodies under ~1200 visible chars are treated as excerpts → fetch full
+ * text. Some feeds (Ars Technica, FeedBurner) ship longer excerpts that still
+ * end in a "Read full article" footer — `looksTruncated` catches those too.
+ */
 const THIN_CHARS = 1200
 
 onMounted(async () => {
@@ -237,7 +242,12 @@ onMounted(async () => {
 
   const content = article.value?.content || ''
   const visible = stripHtml(content)
-  if (visible.length < THIN_CHARS) {
+  const thin = visible.length < THIN_CHARS
+  // A truncated excerpt that cleared THIN_CHARS — but don't retry a page we
+  // already failed to extract (avoids re-fetching on every open).
+  const truncated =
+    looksTruncated(content, article.value?.url) && article.value?.fullTextStatus !== 'failed'
+  if (thin || truncated) {
     fetchingFullText.value = true
     try {
       await $fetch(`/api/articles/${id}/fetch-fulltext`, { method: 'POST' })
