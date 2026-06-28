@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — run the Bluesky bookmark sync twice a day
+
+[Timer]
+# Twice daily (07:40 and 19:40 local), offset from the X sync so the collectors
+# don't all fire on the same second. Persistent catches up a missed run.
+OnCalendar=*-*-* 07,19:40:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

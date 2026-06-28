@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — run the Instapaper save sync twice a day
+
+[Timer]
+# Twice daily (07:50 and 19:50 local), offset from the X / Bluesky syncs.
+# Persistent catches up a run missed while the host was off.
+OnCalendar=*-*-* 07,19:50:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

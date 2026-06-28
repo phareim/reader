@@ -14,12 +14,13 @@ Sleeper-side collectors.
 
 ```
 X bookmarks ──┐
-Mastodon ─────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
-Reddit ───────┘   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
+Bluesky ──────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
+Instapaper ───┘   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.**
+changes.** Three collectors ship today (`source=x-bookmark`, `bluesky`,
+`instapaper`); each is a standalone `scripts/*-sync.mjs` + a systemd user timer.
 
 ## Data model (migration `006-found.sql`)
 
@@ -127,6 +128,94 @@ X v2 is pay-per-usage at **$0.005 per post returned**. Twice-daily polling of a
 for posts actually returned. `since_id` is deliberately **not** used: bookmarking
 an *old* tweet would surface a low id at the top of the newest-first list, which an
 id high-water mark would wrongly skip — hence the explicit `seen_ids` set instead.
+
+## Bluesky bookmark collector (Sleeper-side)
+
+`scripts/bluesky-bookmark-sync.mjs` — the lowest-friction collector. Bluesky app
+passwords are free, there's no OAuth dance and no per-call billing.
+
+Each run:
+1. Opens an AT Protocol session from the app password (`createSession`), reusing
+   + refreshing the cached JWT (`refreshSession`) across runs.
+2. Pages newest-first through the authed user's native bookmarks
+   (`app.bsky.bookmark.getBookmarks`, proxied through the PDS), stopping once it
+   reaches already-ingested ids (bounded by `FIRST_PAGE=50` / `--max-pages`).
+3. Renders each new bookmark to HTML from the **hydrated `postView`** — text,
+   images, quoted post, and external link card all arrive in the one call (no
+   extra fetches).
+4. POSTs each to `/api/ingest` as `source=bluesky`, with `externalId` = the
+   post's `at://` URI (globally unique).
+
+Flags: `--dry-run`, `--verbose`, `--max-pages N`.
+
+### Auth / config
+
+| Path | Holds |
+|---|---|
+| `~/.config/bluesky/env` | `BLUESKY_IDENTIFIER` (handle or DID), `BLUESKY_APP_PASSWORD`, optional `BLUESKY_PDS` (default `https://bsky.social`) |
+| `~/.config/bluesky/token.json` | cached session `{ accessJwt, refreshJwt, did, handle }` |
+| `~/.config/bluesky/state.json` | `seen_ids[]` high-water set, `last_run`, `total_ingested` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` (shared with the X collector) |
+
+Mint an app password at **Bluesky → Settings → App Passwords** (no special
+scopes needed) and drop it into `env`. First run creates `token.json` and
+`state.json` automatically. Deleted/blocked bookmarks are skipped (and marked
+seen so they aren't retried).
+
+## Instapaper collector (Sleeper-side)
+
+`scripts/instapaper-sync.mjs` — Instapaper *is* a save-for-later service, so this
+is the most natural fit; saves carry the full article text.
+
+Each run:
+1. Obtains (or reuses) an OAuth 1.0a access token via **xAuth** (username +
+   password → token, cached once). HMAC-SHA1 signing is hand-rolled with
+   `node:crypto` (verified against the `oauth-1.0a` reference vector).
+2. Lists the chosen folder (`bookmarks/list`, default `unread`).
+3. For each *new* save, best-effort fetches the full article HTML
+   (`bookmarks/get_text`) so Found cards have real bodies — falls back to the
+   save's description.
+4. POSTs each to `/api/ingest` as `source=instapaper`, `externalId` =
+   `bookmark_id`.
+
+Flags: `--dry-run`, `--verbose`, `--folder NAME` (`unread|starred|archive|<id>`),
+`--no-text` (skip `get_text`).
+
+### Auth / config
+
+| Path | Holds |
+|---|---|
+| `~/.config/instapaper/env` | `INSTAPAPER_CONSUMER_KEY`, `INSTAPAPER_CONSUMER_SECRET`, `INSTAPAPER_USERNAME`, `INSTAPAPER_PASSWORD`, optional `INSTAPAPER_FOLDER` |
+| `~/.config/instapaper/token.json` | cached `{ oauth_token, oauth_token_secret }` |
+| `~/.config/instapaper/state.json` | `seen_ids[]`, `last_run`, `total_ingested` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+
+**One external gate:** the consumer key/secret comes from Instapaper's
+human-reviewed [request form](https://www.instapaper.com/main/request_oauth_consumer_token).
+Until it's granted the collector throws on the missing key (and its timer is
+harmless — the run just exits). Once the key lands, the username/password are
+only needed for the first run; after that the cached `token.json` is used and the
+password can be removed from `env`.
+
+## Schedules (all three collectors)
+
+systemd **user** timers, vendored under `scripts/systemd/`, staggered so they
+don't fire on the same second:
+
+| Timer | OnCalendar |
+|---|---|
+| `x-bookmark-sync.timer` | `07,19:30` |
+| `bluesky-bookmark-sync.timer` | `07,19:40` |
+| `instapaper-sync.timer` | `07,19:50` |
+
+All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
+```
+cp scripts/systemd/<name>.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now <name>.timer
+```
+Ops: `journalctl --user -u <name>` to tail · `systemctl --user start
+<name>.service` to run now · run the script with `--dry-run --verbose` to test
+before enabling the timer.
 
 ## Tests
 
