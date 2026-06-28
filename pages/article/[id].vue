@@ -6,13 +6,35 @@
   </div>
 
   <main class="mx-auto max-w-measure px-5 py-6">
-    <!-- Action row -->
+    <!-- Action row. On phones the buttons collapse to icons (see ActionLabel)
+         so the four of them stay within the hairline rule's width; from sm: up
+         they spell out their labels. -->
     <div class="flex items-center justify-between">
-      <ActionLabel @click="goBack">Back</ActionLabel>
-      <div class="flex gap-2">
-        <ActionLabel :accent="saved" @click="toggleSaveAction">{{ saved ? 'Saved' : 'Save' }}</ActionLabel>
-        <ActionLabel @click="elevateAction" :disabled="elevating">{{ elevating ? 'Elevating…' : 'Elevate' }}</ActionLabel>
-        <ActionLabel @click="openOriginal">Original</ActionLabel>
+      <ActionLabel aria-label="Back" @click="goBack">
+        <template #icon>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5" /><path d="M12 5l-7 7 7 7" /></svg>
+        </template>
+        Back
+      </ActionLabel>
+      <div class="flex gap-1.5 sm:gap-2">
+        <ActionLabel :accent="saved" :aria-label="saved ? 'Saved' : 'Save'" @click="toggleSaveAction">
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4z" /></svg>
+          </template>
+          {{ saved ? 'Saved' : 'Save' }}
+        </ActionLabel>
+        <ActionLabel aria-label="Elevate" :disabled="elevating" @click="elevateAction">
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5" /><path d="M6 11l6-6 6 6" /></svg>
+          </template>
+          {{ elevating ? 'Elevating…' : 'Elevate' }}
+        </ActionLabel>
+        <ActionLabel aria-label="Open original" @click="openOriginal">
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7" /><path d="M9 7h8v8" /></svg>
+          </template>
+          Original
+        </ActionLabel>
       </div>
     </div>
     <HairlineRule class="mt-4" />
