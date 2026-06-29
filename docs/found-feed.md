@@ -17,13 +17,16 @@ X bookmarks ──┐
 Bluesky ──────┤
 Mastodon ─────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
 Reddit ───────┤   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
-Instapaper ───┘
+Instapaper ───┤
+AI digest ────┘   (synthesizes many → one)
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Five collectors ship today (`source=x-bookmark`, `bluesky`,
-`mastodon`, `reddit`, `instapaper`); each is a standalone `scripts/*-sync.mjs` +
-a systemd user timer.
+changes.** Six collectors ship today (`source=x-bookmark`, `bluesky`,
+`mastodon`, `reddit`, `instapaper`, `ai-digest`); each is a standalone
+`scripts/*-sync.mjs` + a systemd user timer. The first five normalize *one social
+item → one card*; the sixth (the AI digest) is the odd one out — it reads *many*
+items and synthesizes *one* card (see "AI digest collector" below).
 
 ## Data model (migration `006-found.sql`)
 
@@ -265,13 +268,47 @@ harmless — the run just exits). Once the key lands, the username/password are
 only needed for the first run; after that the cached `token.json` is used and the
 password can be removed from `env`.
 
-## Schedules (all three collectors)
+## AI digest collector (Sleeper-side)
+
+`scripts/ai-digest-sync.mjs` — the odd one out: instead of *one social item → one
+card*, it reads *many SFL ideas → synthesizes → one card*. The recurring
+AI-discovery job already drops `ai-news`-tagged ideas into SFL; this collector
+reads the **tag** (not the producer, so the job can evolve underneath it), not a
+single source. Each morning it:
+
+1. pulls the last ~26h of `ai-news`-tagged ideas (`GET /api/ideas?tag=ai-news`);
+2. asks an LLM (Venice.ai's OpenAI-compatible API, model `zai-org-glm-5-2`,
+   plain `fetch` — no SDK dep) for a short, calm editor's-letter digest as an
+   HTML fragment, grouped into 2–4 themes, each claim linked to its source url;
+3. POSTs it as **one** card via `/api/ingest` with `source=ai-digest`,
+   `externalId=<YYYY-MM-DD>` → guid `ai-digest:<date>`, **idempotent per day**.
+
+Notes: the `ai-news` ideas are mostly `type:note` with `url=null` and the source
+link buried in the body — `sourceUrl()` recovers it; `unwrapDeadLinks()` strips
+any `href="#"` Claude invents despite the prompt. Empty window → posts nothing
+(silence is the calm default). Claude failure → a deterministic linked-list
+fallback still lands. Full design + open questions:
+[`found-feed-ai-digest.md`](found-feed-ai-digest.md).
+
+### Auth / config
+
+| File | Holds |
+|---|---|
+| `~/.config/ai-digest/env` | `SFL_API_URL`, `SFL_API_KEY`, `VENICE_API_KEY` (falls back to shell `VENICE_API_TOKEN`), optional `DIGEST_MODEL` (default `zai-org-glm-5-2`) / `VENICE_API_URL` / `DIGEST_WINDOW_HOURS` |
+| `~/.config/ai-digest/state.json` | `last_run`, `last_date`, `total_posted` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+
+Flags: `--dry-run` (synthesize + print the HTML, don't POST), `--verbose`,
+`--window-hours N`, `--date YYYY-MM-DD` (rebuild a specific day).
+
+## Schedules (all collectors)
 
 systemd **user** timers, vendored under `scripts/systemd/`, staggered so they
 don't fire on the same second:
 
 | Timer | OnCalendar |
 |---|---|
+| `ai-digest-sync.timer` | `06:30` (daily — first in Found at breakfast) |
 | `x-bookmark-sync.timer` | `07,19:30` |
 | `bluesky-bookmark-sync.timer` | `07,19:40` |
 | `instapaper-sync.timer` | `07,19:50` |

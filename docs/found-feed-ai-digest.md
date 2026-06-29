@@ -1,6 +1,10 @@
-# Plan — the morning AI digest (a synthesized Found card)
+# The morning AI digest (a synthesized Found card)
 
-> Status: **plan, not yet built.** Companion to [`found-feed.md`](found-feed.md).
+> Status: **shipped 2026-06-29.** `scripts/ai-digest-sync.mjs` +
+> `scripts/systemd/ai-digest-sync.{service,timer}`, timer enabled (06:30 daily),
+> first card posted. Companion to [`found-feed.md`](found-feed.md), whose "AI
+> digest collector" section is the operational summary; this doc keeps the design
+> rationale + open questions.
 
 ## What we're building
 
@@ -16,7 +20,7 @@ Reader stays completely source-agnostic; zero Reader-app changes.
 
 ```
   SFL  ──GET /api/ideas?tag=ai-news──►  scripts/ai-digest-sync.mjs  ──POST /api/ingest──►  Found feed
- (the recurring AI-discovery job          (read window → Claude            (one dated card,
+ (the recurring AI-discovery job          (read window → glm               (one dated card,
   already drops ai-news ideas here)        synthesis → HTML)                source='ai-digest')
 ```
 
@@ -39,26 +43,32 @@ change of producer needs no change here.
 
 ## The synthesis
 
-Runs on Sleeper, so it can call Anthropic directly (the Reader Worker
-deliberately has no AI binding — that constraint does not apply here).
+Runs on Sleeper, so it calls an LLM directly (the Reader Worker deliberately has
+no AI binding — that constraint does not apply here). We use **Venice.ai** (its
+OpenAI-compatible API) so the daily Venice token allowance covers this work.
 
-- **SDK:** `@anthropic-ai/sdk` — already vendored at
-  `~/sfl-hook/node_modules/@anthropic-ai/sdk`; the collector gets its own
-  `node_modules` or reuses the repo's.
-- **Key:** `ANTHROPIC_API_KEY` from `~/.config/write/env` (also present in
-  `~/.config/sfl/hook.env`). Loaded by the script, never hardcoded.
-- **Model:** `claude-sonnet-4-6`, one non-streamed call, cached system block
-  (mirrors the sfl-hook / write-api convention).
+- **API:** `POST https://api.venice.ai/api/v1/chat/completions` — plain `fetch`,
+  no SDK (keeps the Reader's no-AI-deps stance, matches the builtin-only style of
+  the other collectors).
+- **Key:** `VENICE_API_KEY` in `~/.config/ai-digest/env` (falls back to the
+  shell's `VENICE_API_TOKEN` for interactive runs). Loaded by the script.
+- **Model:** `zai-org-glm-5-2` (override via `DIGEST_MODEL`). glm-class models
+  reason before answering, so the call sets `venice_parameters.disable_thinking`
+  + `strip_thinking_response`, `max_tokens: 4000` for headroom, and `temperature:
+  0.4`. `include_venice_system_prompt:false` lets our system block fully govern.
 - **Prompt:** system block sets the voice — *a calm, declarative morning brief
   for one reader; group the day's items into 2–4 themes; lead with the single
   thing most worth knowing; link every claim back to its source URL; no hype, no
-  filler.* User block is the JSON list of `{title, summary, url}` from the window.
-- **Output contract:** Claude returns **clean HTML** (an `<h2>`/`<h3>` + `<p>` +
-  `<ul><li><a>` structure) — no `<html>`/`<body>` wrapper. This renders directly
-  through the reader's `@tailwindcss/typography` prose styling and the
-  display-time DOMPurify pass, exactly like an X-bookmark body. A deterministic
-  **fallback** (just the linked list of titles, no prose) is emitted if the
-  Claude call fails, so a model outage still produces a useful card.
+  filler; drop low-signal/auto-tag noise; never invent links.* User block is the
+  JSON list of `{title, text, url}` from the window.
+- **Output contract:** the model returns a **clean HTML fragment** (`<p>` +
+  `<h3>` + `<ul><li><a>`) — no `<html>`/`<body>` wrapper. `extractFragment()`
+  drops any reasoning preamble or code fence and slices from the first block tag;
+  `unwrapDeadLinks()` strips any placeholder link. It renders directly through
+  the reader's `@tailwindcss/typography` prose styling and the display-time
+  DOMPurify pass, exactly like an X-bookmark body. A deterministic **fallback**
+  (just the linked list of titles, no prose) is emitted if the call fails, so a
+  model outage still produces a useful card.
 
 ## The write
 
@@ -72,7 +82,7 @@ other collectors). Payload:
 | `externalId` | the digest date, `YYYY-MM-DD` → guid `ai-digest:2026-06-29`, **idempotent per day** |
 | `title`      | `AI digest · <weekday> <D Mon>` (e.g. `AI digest · Mon 29 Jun`) |
 | `content`    | the synthesized HTML |
-| `summary`    | the lead sentence (Claude's one-line "most worth knowing"), ≤ 2000 chars |
+| `summary`    | derived from the digest HTML (first ~280 visible chars), ≤ 2000 chars |
 | `url`        | a stable per-day anchor — see Open question 1 |
 | `imageUrl`   | omit (typographic card; the deck renders a clean head, no hero) |
 | `publishedAt`| the run timestamp |
@@ -100,8 +110,9 @@ New file `~/.config/ai-digest/env` (one per collector, matching the house style)
 ```
 SFL_API_URL=https://sfl-api.aiwdm.workers.dev
 SFL_API_KEY=<the SFL key>            # same key the Reader's elevate uses
-ANTHROPIC_API_KEY=<...>             # or sourced from ~/.config/write/env
-DIGEST_MODEL=claude-sonnet-4-6      # optional override
+VENICE_API_KEY=<...>               # Venice.ai token (or shell VENICE_API_TOKEN)
+DIGEST_MODEL=zai-org-glm-5-2        # optional override
+VENICE_API_URL=https://api.venice.ai/api/v1/chat/completions  # optional override
 DIGEST_WINDOW_HOURS=26             # optional override
 ```
 
@@ -131,13 +142,13 @@ Tail: `journalctl --user -u ai-digest-sync`. Run now: `systemctl --user start ai
 ## Edge cases & failure modes
 
 1. **Empty window** → post nothing, exit 0. (No "nothing happened today" card.)
-2. **Claude call fails** → emit the deterministic linked-list fallback so a card
+2. **LLM call fails** → emit the deterministic linked-list fallback so a card
    still lands; log the error.
 3. **SFL unreachable** → exit non-zero, post nothing; the timer's `Persistent`
    + next morning recover. (A missed day is a missed newsletter, not a crash.)
 4. **Reader ingest 401/5xx** → log + exit non-zero; idempotent guid makes the
    next run safe.
-5. **Thin/garbage items** — the prompt instructs Claude to drop low-signal
+5. **Thin/garbage items** — the prompt instructs the model to drop low-signal
    entries rather than pad; we don't pre-filter in code beyond the time window.
 6. **De-dup against the wider Found feed** — out of scope; the digest is a
    synthesis layer, overlap with raw social cards is expected and fine.

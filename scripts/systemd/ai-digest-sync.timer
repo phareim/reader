@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — build the morning AI digest once a day
+
+[Timer]
+# 06:30 local — ahead of the 07:xx/08:xx social-collector wave, so the digest is
+# the first thing waiting in Found at breakfast. Persistent catches up a run
+# missed while the host was off (you still get the morning's digest, late).
+OnCalendar=*-*-* 06:30:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

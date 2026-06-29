@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — synthesize the morning AI digest into the Found feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/ai-digest-sync.mjs
+# Secrets/state are read from ~/.config/ai-digest/ and ~/.config/reader/
+# (ANTHROPIC_API_KEY falls back to ~/.config/write/env) — no EnvironmentFile needed.
+Nice=10
