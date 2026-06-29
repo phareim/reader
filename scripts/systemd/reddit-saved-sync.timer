@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — run the Reddit saved sync twice a day
+
+[Timer]
+# Twice daily (08:10 and 20:10 local), offset from the other Found collectors so
+# they don't all fire on the same second. Persistent catches up a missed run.
+OnCalendar=*-*-* 08,20:10:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -16,13 +16,14 @@ Sleeper-side collectors.
 X bookmarks ──┐
 Bluesky ──────┤
 Mastodon ─────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
-Instapaper ───┘   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
+Reddit ───────┤   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
+Instapaper ───┘
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Four collectors ship today (`source=x-bookmark`, `bluesky`,
-`mastodon`, `instapaper`); each is a standalone `scripts/*-sync.mjs` + a systemd
-user timer.
+changes.** Five collectors ship today (`source=x-bookmark`, `bluesky`,
+`mastodon`, `reddit`, `instapaper`); each is a standalone `scripts/*-sync.mjs` +
+a systemd user timer.
 
 ## Data model (migration `006-found.sql`)
 
@@ -194,6 +195,41 @@ with the `read:bookmarks` scope, then copy *Your access token*. No client
 id/secret needed for a single-user personal token. First run creates
 `state.json`; bookmarks of deleted/unviewable statuses are skipped.
 
+## Reddit collector (Sleeper-side)
+
+`scripts/reddit-saved-sync.mjs` — Reddit's analog to bookmarks is the **saved**
+list, which holds both saved *posts* and saved *comments*.
+
+Each run:
+1. Mints an OAuth2 bearer token via the "script" app **password grant** (tokens
+   last ~1h, so it mints fresh each run — no refresh-token bookkeeping).
+2. Pages newest-first through `GET /user/{username}/saved` (`raw_json=1` so the
+   embedded HTML isn't entity-encoded), following the `after` cursor; stops once
+   it reaches already-ingested ids (bounded by `FIRST_PAGE=50` / `--max-pages`).
+3. Renders each item by kind — `t3` posts (title, selftext, preview image,
+   external link) and `t1` comments (body + thread title) — straight from the
+   listing, no extra fetches.
+4. POSTs each to `/api/ingest` as `source=reddit`, `externalId` = the fullname
+   (`t3_…` / `t1_…`).
+
+Flags: `--dry-run`, `--verbose`, `--max-pages N`.
+
+### Auth / config
+
+| Path | Holds |
+|---|---|
+| `~/.config/reddit/env` | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`, optional `REDDIT_USER_AGENT` |
+| `~/.config/reddit/state.json` | `seen_ids[]` (fullnames), `last_run`, `total_ingested` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+
+Create a **script** app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)
+("create app" → type *script*). The client id sits under the app name; the secret
+is shown beside it. The password grant requires you to be a developer of that app.
+Reddit **requires a unique, descriptive `User-Agent`** or it 429s hard — the
+script defaults to `reader-found-collector/1.0 (by /u/<username>)`; override via
+`REDDIT_USER_AGENT`. **2FA:** if the account uses it, set `REDDIT_PASSWORD` to
+`yourpassword:123456` (password:otp) for the run that mints the token.
+
 ## Instapaper collector (Sleeper-side)
 
 `scripts/instapaper-sync.mjs` — Instapaper *is* a save-for-later service, so this
@@ -240,6 +276,7 @@ don't fire on the same second:
 | `bluesky-bookmark-sync.timer` | `07,19:40` |
 | `instapaper-sync.timer` | `07,19:50` |
 | `mastodon-bookmark-sync.timer` | `08,20:00` |
+| `reddit-saved-sync.timer` | `08,20:10` |
 
 All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
 ```
