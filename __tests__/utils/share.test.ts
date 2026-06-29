@@ -25,14 +25,9 @@ describe('xShareUrl', () => {
 })
 
 describe('threadsShareUrl', () => {
-  it('folds title + url into a single text param', () => {
-    const u = new URL(threadsShareUrl(TITLE, LINK))
+  it('puts only the link in the text param (Threads renders it as a card)', () => {
+    const u = new URL(threadsShareUrl(LINK))
     expect(u.origin + u.pathname).toBe('https://www.threads.net/intent/post')
-    expect(u.searchParams.get('text')).toBe(`${TITLE} ${LINK}`)
-  })
-
-  it('uses just the url when the title is empty', () => {
-    const u = new URL(threadsShareUrl('  ', LINK))
     expect(u.searchParams.get('text')).toBe(LINK)
   })
 })

@@ -55,15 +55,16 @@
       <article ref="articleEl" class="prose" v-html="sanitizedContent" @click="onArticleClick" />
 
       <HairlineRule class="my-6" />
-      <div class="flex flex-col items-center gap-5 pb-24">
+      <!-- Mark-as-read sits inline with the two share buttons. The share
+           buttons (public web-intent compose URLs) stay non-accent so the
+           single crimson stays on "Mark as read"; brand glyphs render on
+           every width. -->
+      <div class="flex items-center justify-center gap-3 pb-24">
         <ActionLabel accent :disabled="markingRead" @click="markReadAndReturn">
           {{ markingRead ? 'Marking…' : 'Mark as read' }}
         </ActionLabel>
 
-        <!-- Share to the public web-intent endpoints. Non-accent so the single
-             crimson stays on "Mark as read"; brand glyphs render on every width. -->
-        <div v-if="article.url" class="flex items-center gap-3">
-          <MonoLabel>Share</MonoLabel>
+        <template v-if="article.url">
           <ActionLabel aria-label="Share on X" @click="shareTo('x')">
             <template #icon>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
@@ -76,7 +77,7 @@
             </template>
             Threads
           </ActionLabel>
-        </div>
+        </template>
       </div>
     </template>
 
@@ -337,7 +338,7 @@ function shareTo(target: 'x' | 'threads') {
   const url = article.value?.url
   if (!url) return
   const title = article.value?.title
-  const intent = target === 'x' ? xShareUrl(title, url) : threadsShareUrl(title, url)
+  const intent = target === 'x' ? xShareUrl(title, url) : threadsShareUrl(url)
   window.open(intent, '_blank', 'noopener')
 }
 

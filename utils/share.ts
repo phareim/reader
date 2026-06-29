@@ -23,11 +23,10 @@ export function xShareUrl(title: string | null | undefined, url: string): string
 
 /**
  * Threads compose intent. Threads' intent endpoint has no separate `url` param,
- * so the link is folded into the post text (title + url, or just the url).
+ * so only the link goes in `text` — Threads renders it as a link card, and the
+ * title would otherwise show as raw text the user has to delete.
  */
-export function threadsShareUrl(title: string | null | undefined, url: string): string {
-  const text = clean(title)
-  const body = text ? `${text} ${url}` : url
-  const params = new URLSearchParams({ text: body })
+export function threadsShareUrl(url: string): string {
+  const params = new URLSearchParams({ text: url })
   return `https://www.threads.net/intent/post?${params.toString()}`
 }
