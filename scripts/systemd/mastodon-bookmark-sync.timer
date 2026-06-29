@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — run the Mastodon bookmark sync twice a day
+
+[Timer]
+# Twice daily (08:00 and 20:00 local), offset from the X / Bluesky / Instapaper
+# syncs so the collectors don't all fire on the same second. Persistent catches
+# up a run missed while the host was off.
+OnCalendar=*-*-* 08,20:00:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

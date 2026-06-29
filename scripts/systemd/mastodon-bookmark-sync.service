@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — sync Mastodon bookmarks into the Found feed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/mastodon-bookmark-sync.mjs
+# Secrets/state are read from ~/.config/mastodon/ and ~/.config/reader/ —
+# no EnvironmentFile needed.
+Nice=10

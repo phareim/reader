@@ -14,13 +14,15 @@ Sleeper-side collectors.
 
 ```
 X bookmarks ──┐
-Bluesky ──────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
+Bluesky ──────┤
+Mastodon ─────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
 Instapaper ───┘   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Three collectors ship today (`source=x-bookmark`, `bluesky`,
-`instapaper`); each is a standalone `scripts/*-sync.mjs` + a systemd user timer.
+changes.** Four collectors ship today (`source=x-bookmark`, `bluesky`,
+`mastodon`, `instapaper`); each is a standalone `scripts/*-sync.mjs` + a systemd
+user timer.
 
 ## Data model (migration `006-found.sql`)
 
@@ -162,6 +164,36 @@ scopes needed) and drop it into `env`. First run creates `token.json` and
 `state.json` automatically. Deleted/blocked bookmarks are skipped (and marked
 seen so they aren't retried).
 
+## Mastodon bookmark collector (Sleeper-side)
+
+`scripts/mastodon-bookmark-sync.mjs` — like Bluesky, free and friction-light:
+auth is a personal access token, no OAuth dance, no per-call cost.
+
+Each run:
+1. Pages newest-first through the authed user's bookmarks (`GET /api/v1/bookmarks`),
+   following the `Link: …; rel="next"` header for pagination (Mastodon paginates
+   bookmarks by an **internal bookmark id** exposed only in that header — *not* the
+   status id — so we never construct `max_id` ourselves). Stops once it reaches
+   already-ingested ids (bounded by `FIRST_PAGE=40` / `--max-pages`).
+2. Renders each bookmarked Status to HTML — content (already HTML), media,
+   boosted post (`reblog`), and link `card` all arrive in the one object.
+3. POSTs each to `/api/ingest` as `source=mastodon`, `externalId` = status id.
+
+Flags: `--dry-run`, `--verbose`, `--max-pages N`.
+
+### Auth / config
+
+| Path | Holds |
+|---|---|
+| `~/.config/mastodon/env` | `MASTODON_INSTANCE` (e.g. `https://mastodon.social`), `MASTODON_ACCESS_TOKEN` |
+| `~/.config/mastodon/state.json` | `seen_ids[]` high-water set, `last_run`, `total_ingested` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+
+Get the token on **your instance → Preferences → Development → New Application**,
+with the `read:bookmarks` scope, then copy *Your access token*. No client
+id/secret needed for a single-user personal token. First run creates
+`state.json`; bookmarks of deleted/unviewable statuses are skipped.
+
 ## Instapaper collector (Sleeper-side)
 
 `scripts/instapaper-sync.mjs` — Instapaper *is* a save-for-later service, so this
@@ -207,6 +239,7 @@ don't fire on the same second:
 | `x-bookmark-sync.timer` | `07,19:30` |
 | `bluesky-bookmark-sync.timer` | `07,19:40` |
 | `instapaper-sync.timer` | `07,19:50` |
+| `mastodon-bookmark-sync.timer` | `08,20:00` |
 
 All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
 ```
