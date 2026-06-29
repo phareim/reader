@@ -144,7 +144,7 @@ Routes follow REST conventions:
 - `GET /api/articles/:id` - Single article with full content
 - `PATCH /api/articles/:id/read` - Mark article as read/unread
 - `POST /api/articles/mark-all-read` - Bulk mark as read
-- `DELETE /api/articles/:id` - Delete article
+- `DELETE /api/articles/:id/delete` - Delete article (the route file is `[id]/delete.delete.ts`; note the `/delete` suffix — there is no bare `DELETE /api/articles/:id`)
 - `POST /api/articles/:id/save` - Save article (shelf)
 - `DELETE /api/articles/:id/save` - Unsave article
 - `POST /api/articles/:id/elevate` - Elevate to SFL (creates a page idea, marks read) — see "Elevate to SFL"
