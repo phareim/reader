@@ -8,6 +8,11 @@ function clean(s: string | null | undefined): string {
   return (s ?? '').trim()
 }
 
+/** Wrap a passage in typographic curly quotes for sharing. */
+function quoted(s: string | null | undefined): string {
+  return `“${clean(s)}”`
+}
+
 /**
  * X (Twitter) compose intent. X takes `text` and `url` as separate params and
  * renders the URL as its own card, so we keep the title in `text` and the link
@@ -28,5 +33,22 @@ export function xShareUrl(title: string | null | undefined, url: string): string
  */
 export function threadsShareUrl(url: string): string {
   const params = new URLSearchParams({ text: url })
+  return `https://www.threads.net/intent/post?${params.toString()}`
+}
+
+/**
+ * Share a highlighted passage to X: the quote (in curly quotes) as the post
+ * text, the article link in `url` so X renders it as its own card.
+ */
+export function xQuoteShareUrl(quote: string | null | undefined, url: string): string {
+  return xShareUrl(quoted(quote), url)
+}
+
+/**
+ * Share a highlighted passage to Threads: quote + link folded into the post
+ * text (Threads has no `url` param; it still renders the trailing link as a card).
+ */
+export function threadsQuoteShareUrl(quote: string | null | undefined, url: string): string {
+  const params = new URLSearchParams({ text: `${quoted(quote)} ${url}` })
   return `https://www.threads.net/intent/post?${params.toString()}`
 }

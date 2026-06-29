@@ -108,6 +108,7 @@
       :highlight="popover.highlight"
       :x="popover.x"
       :y="popover.y"
+      :source-url="article?.url"
       @remove="removeHighlight"
       @close="popover = null"
     />

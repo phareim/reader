@@ -42,7 +42,7 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
 - `__tests__/utils/highlightDom.test.ts` — `paintHighlight` (exact + indexOf fallback, cross-element spans), `unpaint`/`clearHighlights` round-trips
 - `__tests__/utils/truncation.test.ts` — `looksTruncated` (Ars "Read full article" footer, "Continue reading", `[…]` brackets, canonical-URL anchor; negatives for full bodies + inline read-more links)
-- `__tests__/utils/share.test.ts` — `xShareUrl` / `threadsShareUrl` (param shape, encoding, empty/null title, Threads link-only text)
+- `__tests__/utils/share.test.ts` — `xShareUrl` / `threadsShareUrl` / `xQuoteShareUrl` / `threadsQuoteShareUrl` (param shape, encoding, empty/null title, Threads link-only text, curly-quoted passage + link for quote shares)
 - `__tests__/components/BottomBar.test.ts` — the four rooms render in order, Found active only on the found route, hidden on reader/login
 - `__tests__/components/FoundPage.test.ts` — Found-feed resolution (empty state + refetch vs. deck scoped to the `kind='found'` feed)
 - `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
@@ -114,7 +114,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
 - `TagEditorOverlay.vue` - full-screen tag editor for a feed (Teleport paper sheet — `bg-paper`, no backdrop, no tap-to-dismiss): removable chips + input with autocomplete on existing tags (Enter/comma commit, arrows navigate suggestions, Backspace on empty input removes last chip, Esc cancels via its own window listener). Dumb overlay — takes `feed` + `allTags` props, emits `save(tags)` / `close`; the page owns the API call. Mount with `v-if` so draft state resets per open
 - `HighlightNoteOverlay.vue` - full-screen note sheet for a fresh highlight (Teleport paper sheet, mirrors `TagEditorOverlay`): shows the quoted passage + a `<textarea>` for the optional note (`#tags` hint). Takes `quote` + `saving` props, emits `save(note)` / `close`; Cmd/Ctrl+Enter commits, Esc cancels. Mount with `v-if` so the draft resets per open
-- `HighlightPopover.vue` - small Teleported `CardFrame` near a tapped mark: renders the note via `renderNoteHtml` (hashtags accent-styled) or "No note", a `— IN SFL` `MonoLabel` when synced, and a **Remove** `ActionLabel`. Takes `highlight` + `x`/`y` (clamped into the viewport), emits `remove` / `close`
+- `HighlightPopover.vue` - small Teleported `CardFrame` near a tapped mark: renders the note via `renderNoteHtml` (hashtags accent-styled) or "No note", a `— IN SFL` `MonoLabel` when synced, **X / Threads share buttons** (brand glyphs; share the marked passage in curly quotes + the article link via `xQuoteShareUrl` / `threadsQuoteShareUrl`, shown only when `sourceUrl` is set), and a **Remove** `ActionLabel`. Takes `highlight` + `x`/`y` (clamped into the viewport) + optional `sourceUrl`, emits `remove` / `close`
 - `PwaUpdatePrompt.vue` - service-worker update prompt
 
 **Pages** (the three rooms + satellites):

@@ -1,7 +1,13 @@
-import { xShareUrl, threadsShareUrl } from '~/utils/share'
+import {
+  xShareUrl,
+  threadsShareUrl,
+  xQuoteShareUrl,
+  threadsQuoteShareUrl,
+} from '~/utils/share'
 
 const LINK = 'https://example.com/a?b=1&c=2'
 const TITLE = 'Hello & welcome'
+const QUOTE = 'The people who will thrive'
 
 describe('xShareUrl', () => {
   it('puts the title in text and the link in url, both encoded', () => {
@@ -29,5 +35,22 @@ describe('threadsShareUrl', () => {
     const u = new URL(threadsShareUrl(LINK))
     expect(u.origin + u.pathname).toBe('https://www.threads.net/intent/post')
     expect(u.searchParams.get('text')).toBe(LINK)
+  })
+})
+
+describe('xQuoteShareUrl', () => {
+  it('wraps the quote in curly quotes as text, link in url', () => {
+    const u = new URL(xQuoteShareUrl(QUOTE, LINK))
+    expect(u.origin + u.pathname).toBe('https://x.com/intent/tweet')
+    expect(u.searchParams.get('text')).toBe(`“${QUOTE}”`)
+    expect(u.searchParams.get('url')).toBe(LINK)
+  })
+})
+
+describe('threadsQuoteShareUrl', () => {
+  it('folds the quoted passage + link into the text param', () => {
+    const u = new URL(threadsQuoteShareUrl(QUOTE, LINK))
+    expect(u.origin + u.pathname).toBe('https://www.threads.net/intent/post')
+    expect(u.searchParams.get('text')).toBe(`“${QUOTE}” ${LINK}`)
   })
 })
