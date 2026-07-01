@@ -99,9 +99,55 @@ async function xget(url) {
 
 const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const paras = t => esc(t).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('\n');
+// Native X Article bodies (`article.plain_text`) separate paragraphs with a single \n.
+const lineParas = t => esc(t).split(/\n+/).map(p => p.trim()).filter(Boolean).map(p => `<p>${p}</p>`).join('\n');
+const mediaUrl = m => m ? (m.url || m.preview_image_url) : null;
+
+// Render a native X Article bookmark (long-form) to HTML from the `article` field.
+function renderArticle(t, usersById, mediaByKey) {
+  const author = usersById.get(t.author_id) || {};
+  const handle = author.username ? `@${author.username}` : t.author_id;
+  const date = t.created_at ? new Date(t.created_at).toISOString().slice(0, 10) : '';
+  const a = t.article || {};
+  const statusUrl = `https://x.com/${author.username || 'i'}/status/${t.id}`;
+
+  const cover = mediaByKey.get(a.cover_media);
+  const coverUrl = mediaUrl(cover);
+  const inline = (a.media_entities || [])
+    .filter(k => k !== a.cover_media)
+    .map(k => mediaUrl(mediaByKey.get(k))).filter(Boolean)
+    .map(u => `<p><img src="${esc(u)}"></p>`).join('\n');
+
+  const html = [
+    `<p><strong>${esc(handle)}</strong>${author.name ? ` · ${esc(author.name)}` : ''}${date ? ` · ${date}` : ''}</p>`,
+    coverUrl ? `<p><img src="${esc(coverUrl)}" alt="${esc(a.title || '')}"></p>` : '',
+    lineParas(a.plain_text || ''),
+    inline,
+    `<p><a href="${esc(statusUrl)}">View on X →</a></p>`,
+  ].filter(Boolean).join('\n');
+
+  const title = (a.title || '').replace(/\s+/g, ' ').trim() || `${handle} on X`;
+  const summary = a.preview_text?.trim() || (a.plain_text || '').replace(/\s+/g, ' ').trim().slice(0, 280);
+  const leadImg = coverUrl
+    || (a.media_entities || []).map(k => mediaUrl(mediaByKey.get(k))).find(Boolean)
+    || null;
+
+  return {
+    source: 'x-bookmark',
+    externalId: t.id,
+    url: statusUrl,
+    title,
+    author: author.username ? `@${author.username}` : undefined,
+    content: html,
+    summary: summary || undefined,
+    imageUrl: leadImg || undefined,
+    publishedAt: t.created_at || undefined,
+  };
+}
 
 // Render a bookmark (+ its quoted/replied context, all from `includes`) to HTML.
 function renderTweet(t, usersById, tweetsById, mediaByKey) {
+  if (t.article) return renderArticle(t, usersById, mediaByKey);
   const author = usersById.get(t.author_id) || {};
   const handle = author.username ? `@${author.username}` : t.author_id;
   const text = t.note_tweet?.text || t.text || '';
@@ -181,8 +227,8 @@ if (!myId) throw new Error('users/me failed');
 
 const params = new URLSearchParams({
   max_results: String(FIRST_PAGE),
-  expansions: 'author_id,attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id',
-  'tweet.fields': 'id,text,note_tweet,created_at,lang,entities,referenced_tweets,attachments,conversation_id',
+  expansions: 'author_id,attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id,article.cover_media,article.media_entities',
+  'tweet.fields': 'id,text,note_tweet,article,created_at,lang,entities,referenced_tweets,attachments,conversation_id',
   'user.fields': 'id,name,username',
   'media.fields': 'media_key,type,url,preview_image_url,alt_text',
 });
