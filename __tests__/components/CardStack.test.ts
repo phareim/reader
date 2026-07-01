@@ -8,13 +8,14 @@ import { __setManualAnimations, __resolveAnimations } from '~/__tests__/mocks/mo
 const saveArticle = jest.fn().mockResolvedValue(undefined)
 const unsaveArticle = jest.fn().mockResolvedValue(undefined)
 const markAsRead = jest.fn().mockResolvedValue(undefined)
+const prefetchArticle = jest.fn().mockResolvedValue(undefined)
 const elevate = jest.fn().mockResolvedValue({ ideaId: 'idea-1', existing: false })
 const unElevate = jest.fn().mockResolvedValue(undefined)
 const showError = jest.fn()
 
 // Nuxt auto-imported composables don't exist under Jest — provide globals.
 ;(globalThis as any).useSavedArticles = () => ({ saveArticle, unsaveArticle })
-;(globalThis as any).useArticles = () => ({ markAsRead })
+;(globalThis as any).useArticles = () => ({ markAsRead, prefetchArticle })
 ;(globalThis as any).useElevate = () => ({ elevate, unElevate })
 ;(globalThis as any).useToast = () => ({ showError })
 ;(globalThis as any).navigateTo = jest.fn()

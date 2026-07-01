@@ -5,6 +5,7 @@ import { extractReadableContent, extractLeadImage } from '~/server/utils/extract
 type FullTextResult = {
   status: 'fetched' | 'failed' | 'skipped'
   content?: string
+  imageUrl?: string | null
   error?: string
 }
 
@@ -67,7 +68,13 @@ export const fetchFullText = async (event: any, article: { id: number; url: stri
        WHERE id = ?3`
     ).bind(contentKey, leadImage, article.id).run()
 
-    return { status: 'fetched', content: extracted.html }
+    // Read back the effective image_url (the CASE above only backfills when the
+    // row had none / only filler) so callers can update a card in place.
+    const row = await db.prepare(
+      'SELECT image_url FROM "Article" WHERE id = ?'
+    ).bind(article.id).first<{ image_url: string | null }>()
+
+    return { status: 'fetched', content: extracted.html, imageUrl: row?.image_url ?? null }
   } catch (err: any) {
     return { status: 'failed', error: err.message || 'Unknown error' }
   }

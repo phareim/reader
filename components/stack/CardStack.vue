@@ -81,7 +81,7 @@ const props = defineProps<{ articles: Article[]; syncing?: boolean }>()
 const emit = defineEmits<{ sync: []; count: [n: number] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
-const { markAsRead } = useArticles()
+const { markAsRead, prefetchArticle } = useArticles()
 const { elevate, unElevate } = useElevate()
 const { showError } = useToast()
 
@@ -107,6 +107,17 @@ watch(deckIds, (ids) => emit('count', ids.length), { immediate: true })
 const byId = computed(() => new Map(props.articles.map((a) => [String(a.id), a])))
 const visibleCards = computed(() =>
   deckIds.value.slice(0, 3).map((id) => byId.value.get(id)!).filter(Boolean),
+)
+
+// Warm the card directly behind the top one so its picture (and full body) is
+// ready by the time it's promoted or opened. Follows the top as the deck moves;
+// prefetchArticle is deduped + gated, so this is cheap to fire on every shift.
+watch(
+  () => deckIds.value[1],
+  (nextId) => {
+    if (nextId) prefetchArticle(Number(nextId))
+  },
+  { immediate: true },
 )
 
 /* ── Drag physics ──────────────────────────────────────────────────── */

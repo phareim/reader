@@ -31,6 +31,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     status: result.status,
+    imageUrl: result.imageUrl ?? null,
     error: result.error
   }
 })

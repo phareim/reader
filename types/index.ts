@@ -26,6 +26,7 @@ export interface Article {
   content?: string | null
   summary?: string | null
   imageUrl?: string | null
+  fullTextStatus?: string | null
   publishedAt?: string | null
   isRead: boolean
   isStarred: boolean

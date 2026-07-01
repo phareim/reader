@@ -1,7 +1,11 @@
 import type { Article, ArticlesResponse } from '~/types'
+import { cardImageUrl } from '~/utils/cardData'
 
 export const useArticles = () => {
   const articles = useState<Article[]>('articles', () => [])
+  // Ids we've already fired a background prefetch for this session — a full-text
+  // fetch is one external round-trip + R2 write, so never repeat one.
+  const prefetched = useState<Set<number>>('articlesPrefetched', () => new Set())
   const selectedArticleId = useState<number | null>('selectedArticleId', () => null)
   const showUnreadOnly = useState<boolean>('showUnreadOnly', () => true)
   const loading = useState<boolean>('articlesLoading', () => false)
@@ -151,6 +155,41 @@ export const useArticles = () => {
     }
   }
 
+  /**
+   * Warm the card *behind* the top of the deck: run its full-text fetch so the
+   * source page's og:image backfills `imageUrl` (an imageless card gains a
+   * picture in the peek) and its body lands in R2 (opening it is then instant).
+   * Fire-and-forget, deduped, and only for cards that would actually gain from
+   * it — a card that already has a usable image, or was already fetched/failed,
+   * is left alone so we never spend a round-trip for nothing.
+   */
+  const prefetchArticle = async (id: number) => {
+    if (prefetched.value.has(id)) return
+    const article = articles.value.find(a => a.id === id)
+    if (!article) return
+    const status = article.fullTextStatus
+    if (status === 'fetched' || status === 'failed') return
+    if (cardImageUrl(article.imageUrl)) return // already shows a picture
+    prefetched.value.add(id)
+
+    try {
+      const res = await $fetch<{ status: string; imageUrl: string | null }>(
+        `/api/articles/${id}/fetch-fulltext`,
+        { method: 'POST' }
+      )
+      // Mutating the object in place is reactive (Vue tracks the array element),
+      // and the deck's card snapshot shares these same object references.
+      const target = articles.value.find(a => a.id === id)
+      if (target) {
+        if (res.imageUrl) target.imageUrl = res.imageUrl
+        target.fullTextStatus = res.status
+      }
+    } catch {
+      // Best-effort — the reader still fetches on open. Leave it in the deduped
+      // set so a flaky page isn't hammered on every deck shuffle.
+    }
+  }
+
   // Clear articles immediately (for navigation transitions)
   const clearArticles = () => {
     articles.value = []
@@ -169,6 +208,7 @@ export const useArticles = () => {
     fetchArticles,
     markAsRead,
     markAllAsRead,
+    prefetchArticle,
     clearArticles
   }
 }
