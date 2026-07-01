@@ -13,20 +13,22 @@ network, we keep it **source-agnostic** and push normalized items into it from
 Sleeper-side collectors.
 
 ```
-X bookmarks ──┐
-Bluesky ──────┤
-Mastodon ─────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
-Reddit ───────┤   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
-Instapaper ───┤
-AI digest ────┘   (synthesizes many → one)
+X bookmarks ──────┐
+Bluesky ──────────┤
+Mastodon ─────────┤
+Reddit ───────────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
+Instapaper ───────┤   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
+AI digest ────────┤   (synthesizes many → one)
+Sleeper Articles ─┘   (extracted articles → one card each)
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Six collectors ship today (`source=x-bookmark`, `bluesky`,
-`mastodon`, `reddit`, `instapaper`, `ai-digest`); each is a standalone
-`scripts/*-sync.mjs` + a systemd user timer. The first five normalize *one social
-item → one card*; the sixth (the AI digest) is the odd one out — it reads *many*
-items and synthesizes *one* card (see "AI digest collector" below).
+changes.** Seven collectors ship today (`source=x-bookmark`, `bluesky`,
+`mastodon`, `reddit`, `instapaper`, `ai-digest`, `sleeper-articles`); each is a
+standalone `scripts/*-sync.mjs` + a systemd user timer. Five normalize *one social
+item → one card*; the AI digest is the odd one out — it reads *many* items and
+synthesizes *one* card; the Sleeper Articles collector mirrors *one
+already-extracted article → one card* (see the sections below).
 
 ## Data model (migration `006-found.sql`)
 
@@ -301,6 +303,51 @@ fallback still lands. Full design + open questions:
 Flags: `--dry-run` (synthesize + print the HTML, don't POST), `--verbose`,
 `--window-hours N`, `--date YYYY-MM-DD` (rebuild a specific day).
 
+## Sleeper Articles collector (Sleeper-side)
+
+`scripts/sleeper-articles-sync.mjs` — mirrors the **Sleeper Articles service**
+(`~/chat/articles`, the SFL-bookmark extraction pipeline on `127.0.0.1:3003`,
+public at `sleeper.phareim.no/articles/`) into Found. Where the social collectors
+fetch a bookmark and extract it themselves, this one reads content the Articles
+service has **already** extracted (full Markdown bodies, summaries, key points).
+Each run:
+
+1. pages the articles list newest-first (`GET /?status=ready&cursor=…` — cursor
+   pagination via `next_cursor` / `has_more`), stopping once a page isn't entirely
+   new (bounded by `--page-size` / `--max-pages` / `--max-items`);
+2. fetches each new item's full doc (`GET /:id` — the list view strips
+   `content_md`) and renders **by kind**: `article`/`digest` bodies via a vendored
+   dependency-free Markdown→HTML converter (`mdToHtml` — `marked` isn't a Reader
+   dep), `video` as a thumbnail + link card, `post` as an X-style card from
+   `doc.post_data`. Lead image is recovered from the markdown; summary from
+   `doc.summary` / `doc.sfl_summary`;
+3. POSTs each via `/api/ingest` as `source=sleeper-articles`,
+   `externalId=<article id>` → guid `sleeper-articles:<id>`, **idempotent**.
+
+The list/read endpoints are public today, so `ARTICLES_API_KEY` is optional.
+**First run:** the service already holds hundreds of ready items, so run once with
+`--seed` to mark the current backlog seen *without* ingesting (baseline; done
+2026-07-01 — 500 seeded, 3 kept as a live test). Normal runs then pull only new
+articles.
+
+**Overlap caveat:** these articles originate from SFL bookmarks, and Reader's
+swipe-up elevate writes *back* to SFL — so the loop is real, though guid-dedup
+keeps it safe. The same X post can appear both as an `x-bookmark` card and a
+`sleeper-articles` `post` card; drop `kind=post` in the collector if that
+redundancy is unwanted.
+
+### Auth / config
+
+| File | Holds |
+|---|---|
+| `~/.config/sleeper-articles/env` | `ARTICLES_API_URL` (default `http://127.0.0.1:3003`), optional `ARTICLES_API_KEY` (Bearer) |
+| `~/.config/sleeper-articles/state.json` | `seen_ids[]` (article ids), `last_run`, `total_ingested` |
+| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+
+Flags: `--dry-run` (fetch + render + print, don't POST), `--verbose`, `--seed`
+(baseline the backlog), `--page-size N` (default 50), `--max-pages N` (default 8),
+`--max-items N` (default 60).
+
 ## Schedules (all collectors)
 
 systemd **user** timers, vendored under `scripts/systemd/`, staggered so they
@@ -314,6 +361,7 @@ don't fire on the same second:
 | `instapaper-sync.timer` | `07,19:50` |
 | `mastodon-bookmark-sync.timer` | `08,20:00` |
 | `reddit-saved-sync.timer` | `08,20:10` |
+| `sleeper-articles-sync.timer` | `08,20:20` |
 
 All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
 ```
