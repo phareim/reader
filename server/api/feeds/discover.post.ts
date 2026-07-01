@@ -1,6 +1,11 @@
 import { discoverFeeds } from '~/server/utils/feedDiscovery'
+import { getAuthenticatedUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
+  // Require auth: this performs a server-side fetch of an arbitrary
+  // client-supplied URL from the Worker's egress, so it must not be open.
+  await getAuthenticatedUser(event)
+
   const body = await readBody(event)
   const { url } = body
 

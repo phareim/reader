@@ -36,11 +36,14 @@ export default defineEventHandler(async (event) => {
     title: article.title,
   })
 
-  // Mirrors read.patch.ts: is_read flag + ISO read_at timestamp.
+  // Mirrors read.patch.ts: is_read flag + ISO read_at timestamp. Also record
+  // the idea id, but only when we created it (!existing) — undo reads it back
+  // from here instead of trusting a client-supplied id. A pre-existing idea is
+  // not ours to delete, so we store NULL for it.
   try {
     await db.prepare(
-      `UPDATE "Article" SET is_read = 1, read_at = ? WHERE id = ?`
-    ).bind(new Date().toISOString(), articleId).run()
+      `UPDATE "Article" SET is_read = 1, read_at = ?, sfl_idea_id = ? WHERE id = ?`
+    ).bind(new Date().toISOString(), existing ? null : ideaId, articleId).run()
   } catch (err) {
     // Compensate: undo the SFL idea we just created, but only when we created
     // it (!existing). The !existing guard prevents deleting a pre-existing idea;

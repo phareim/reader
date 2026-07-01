@@ -1,10 +1,10 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { fetchArticleContent, fetchSavedArticleNote } from '~/server/utils/article-content'
-import { getOptionalUser } from '~/server/utils/auth'
+import { getAuthenticatedUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const db = getD1(event)
-  const user = await getOptionalUser(event)
+  const user = await getAuthenticatedUser(event)
 
   const articleId = parseInt(event.context.params?.id || '')
 
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     `
   ).bind(articleId).first()
 
-  if (!article || (user && article.feed_user_id !== user.id)) {
+  if (!article || article.feed_user_id !== user.id) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Article not found'

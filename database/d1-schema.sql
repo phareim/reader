@@ -70,6 +70,10 @@ CREATE TABLE IF NOT EXISTS "Article" (
   full_text_error TEXT,
   -- per-item origin for Found articles ('x-bookmark', …); NULL for RSS
   source TEXT,
+  -- SFL idea created by an elevate; set only when the elevate created it
+  -- (SFL !existing), so undo can delete the right idea without trusting the
+  -- client. NULL otherwise.
+  sfl_idea_id TEXT,
   UNIQUE(feed_id, guid)
 );
 

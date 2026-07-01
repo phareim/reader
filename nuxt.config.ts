@@ -11,7 +11,11 @@ export default defineNuxtConfig({
     head: {
       title: 'The Reader',
       meta: [
-        { name: 'description', content: 'A calm reading room' }
+        { name: 'description', content: 'A calm reading room' },
+        // viewport-fit=cover is required for env(safe-area-inset-*) to resolve
+        // to non-zero on notched iPhones — the BottomBar relies on it.
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'theme-color', content: '#fbf9f4' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
@@ -42,7 +46,7 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
-    disable: true,
+    disable: false,
     manifest: {
       name: 'The Reader',
       short_name: 'Reader',

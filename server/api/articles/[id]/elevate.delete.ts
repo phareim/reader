@@ -15,39 +15,31 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid article ID' })
   }
 
-  // Query params, not readBody: Nitro's cloudflare-module entry never buffers
-  // DELETE bodies (its method regex is /post|put|patch/i), so reading one on
-  // the deployed Worker throws an unhandled exception (Cloudflare 1101).
-  const query = getQuery(event)
-  const body = {
-    ideaId: typeof query.ideaId === 'string' ? query.ideaId : undefined,
-    existing: query.existing === 'true',
-  }
-
   const db = getD1(event)
   const article = await db.prepare(
     `
-    SELECT a.id
+    SELECT a.id, a.sfl_idea_id
     FROM "Article" a
     JOIN "Feed" f ON f.id = a.feed_id
     WHERE a.id = ? AND f.user_id = ?
     `
-  ).bind(articleId, user.id).first()
+  ).bind(articleId, user.id).first<{ id: number; sfl_idea_id: string | null }>()
 
   if (!article) {
     throw createError({ statusCode: 404, statusMessage: 'Article not found' })
   }
 
-  if (body?.ideaId && !body.existing) {
-    // The client-supplied ideaId is trusted because this is a single-user stack
-    // behind reader auth; if multi-user ever lands, verify the idea's URL
-    // matches the article before deleting.
-    await deleteIdea(getSflConfig(event), body.ideaId)
+  // Delete the idea recorded server-side by the elevate, never a client-supplied
+  // id. It is only ever set when the elevate created the idea (SFL !existing), so
+  // its mere presence means it is ours to delete — no trust of the caller needed.
+  if (article.sfl_idea_id) {
+    await deleteIdea(getSflConfig(event), article.sfl_idea_id)
   }
 
-  // Mirrors read.patch.ts: clear the flag and the read_at timestamp.
+  // Mirrors read.patch.ts: clear the flag and the read_at timestamp, and drop
+  // the idea link now that it is gone.
   await db.prepare(
-    `UPDATE "Article" SET is_read = 0, read_at = NULL WHERE id = ?`
+    `UPDATE "Article" SET is_read = 0, read_at = NULL, sfl_idea_id = NULL WHERE id = ?`
   ).bind(articleId).run()
 
   return { success: true }

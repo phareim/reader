@@ -1,9 +1,9 @@
 import { getD1 } from '~/server/utils/cloudflare'
-import { getOptionalUser } from '~/server/utils/auth'
+import { getAuthenticatedUser } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const db = getD1(event)
-  const user = await getOptionalUser(event)
+  const user = await getAuthenticatedUser(event)
 
   const feedId = parseInt(event.context.params?.id || '')
 
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     'SELECT * FROM "Feed" WHERE id = ?'
   ).bind(feedId).first()
 
-  if (!feed || (user && feed.user_id !== user.id)) {
+  if (!feed || feed.user_id !== user.id) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Feed not found'

@@ -2,7 +2,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
-  // Optional authentication - public read access allowed for specific feeds
+  // Auth required — results are always scoped to the caller's own feeds.
   const user = await getAuthenticatedUser(event)
 
   const query = getQuery(event)
