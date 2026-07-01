@@ -1,0 +1,14 @@
+[Unit]
+Description=Reader — run the Sleeper Articles sync twice a day
+
+[Timer]
+# Twice daily (08:20 and 20:20 local), offset from the X / Bluesky / Mastodon /
+# Reddit / Instapaper syncs so the collectors don't all fire on the same second.
+# The Articles service polls SFL every 5 min, so twice a day is ample. Persistent
+# catches up a run missed while the host was off.
+OnCalendar=*-*-* 08,20:20:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
