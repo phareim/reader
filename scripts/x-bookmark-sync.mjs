@@ -99,8 +99,14 @@ async function xget(url) {
 
 const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const paras = t => esc(t).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('\n');
-// Native X Article bodies (`article.plain_text`) separate paragraphs with a single \n.
-const lineParas = t => esc(t).split(/\n+/).map(p => p.trim()).filter(Boolean).map(p => `<p>${p}</p>`).join('\n');
+// Native X Article bodies (`article.plain_text`) separate blocks with a single \n
+// and carry no structure. Detect headings heuristically: a short, few-word line
+// that doesn't end in sentence/clause punctuation (body paragraphs run long and
+// end in '.' or a closing quote). The reader's DOMPurify allowlist passes <h2>.
+const TERMINAL = new Set(['.', ',', ':', ';', '!', '?', ')', '”', '"', '’', "'"]);
+const looksHeading = s => s.length <= 70 && s.split(/\s+/).length <= 10 && !TERMINAL.has(s.slice(-1));
+const articleBody = t => String(t || '').split(/\n+/).map(l => l.trim()).filter(Boolean)
+  .map(l => looksHeading(l) ? `<h2>${esc(l)}</h2>` : `<p>${esc(l)}</p>`).join('\n');
 const mediaUrl = m => m ? (m.url || m.preview_image_url) : null;
 
 // Render a native X Article bookmark (long-form) to HTML from the `article` field.
@@ -121,7 +127,7 @@ function renderArticle(t, usersById, mediaByKey) {
   const html = [
     `<p><strong>${esc(handle)}</strong>${author.name ? ` · ${esc(author.name)}` : ''}${date ? ` · ${date}` : ''}</p>`,
     coverUrl ? `<p><img src="${esc(coverUrl)}" alt="${esc(a.title || '')}"></p>` : '',
-    lineParas(a.plain_text || ''),
+    articleBody(a.plain_text || ''),
     inline,
     `<p><a href="${esc(statusUrl)}">View on X →</a></p>`,
   ].filter(Boolean).join('\n');
