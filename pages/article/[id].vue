@@ -84,11 +84,12 @@
     <p v-else-if="error" class="mt-10 italic text-mute">{{ error }}</p>
     <p v-else class="mt-10 italic text-mute">Loading…</p>
 
-    <!-- Floating affordance shown while a passage is selected. mousedown.prevent
+    <!-- Floating affordance shown while a passage is selected, below the
+         selection (above it, iOS's native callout covers it). mousedown.prevent
          keeps the native selection from collapsing before the click lands. -->
     <div
       v-if="pill"
-      class="fixed z-40 -translate-x-1/2 -translate-y-full pb-2"
+      class="fixed z-40 -translate-x-1/2 pt-2"
       :style="{ left: pill.x + 'px', top: pill.y + 'px' }"
       @mousedown.prevent
     >
@@ -174,7 +175,15 @@ function onSelect() {
   if (!offsets) { pill.value = null; pendingSel.value = null; return }
   pendingSel.value = offsets
   const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect()
-  if (rect && rect.width) pill.value = { x: rect.left + rect.width / 2, y: rect.top }
+  // Anchor BELOW the selection — iOS's native text-selection callout sits
+  // above it and would cover the pill. Clamp so a selection ending at the
+  // bottom of the viewport keeps the pill on-screen.
+  if (rect && rect.width) {
+    pill.value = {
+      x: rect.left + rect.width / 2,
+      y: Math.min(rect.bottom, window.innerHeight - 64),
+    }
+  }
 }
 
 function startHighlight() {
