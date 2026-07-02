@@ -1,3 +1,10 @@
+// Stamped into the service worker's precache entry for '/' so the app shell
+// refreshes on every deploy. With `revision: null`, Workbox pins the
+// first-ever cached shell forever while each deploy purges the hashed chunks
+// it references — the app then boots a stale shell pointing at 404'd JS and
+// goes dead (this happened 2026-07-02).
+const buildRevision = Date.now().toString(36)
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -45,7 +52,11 @@ export default defineNuxtConfig({
 
 
   pwa: {
-    registerType: 'autoUpdate',
+    // 'prompt': the new service worker waits until the user taps Reload in
+    // PwaUpdatePrompt (which is built for exactly this mode). 'autoUpdate'
+    // skipWaiting()s mid-session, purging the running build's chunks out of
+    // the precache under the open app.
+    registerType: 'prompt',
     disable: false,
     manifest: {
       name: 'The Reader',
@@ -75,16 +86,20 @@ export default defineNuxtConfig({
     workbox: {
       navigateFallback: '/',
       navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
+      // The SSR'd shell changes every deploy — see buildRevision above.
       additionalManifestEntries: [
-        { url: '/', revision: null }
+        { url: '/', revision: buildRevision }
       ],
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+      // Workbox tests urlPattern regexes against the FULL request URL
+      // (https://…), so path-anchored /^\/api\/…/ patterns never match.
       runtimeCaching: [
         {
-          urlPattern: /^\/api\/articles.*/i,
+          urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/articles'),
           handler: 'NetworkFirst',
           options: {
             cacheName: 'api-articles-cache',
+            networkTimeoutSeconds: 5,
             expiration: {
               maxEntries: 50,
               maxAgeSeconds: 60 * 60 * 24 // 24 hours
@@ -95,10 +110,11 @@ export default defineNuxtConfig({
           }
         },
         {
-          urlPattern: /^\/api\/feeds.*/i,
+          urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/feeds'),
           handler: 'NetworkFirst',
           options: {
             cacheName: 'api-feeds-cache',
+            networkTimeoutSeconds: 5,
             expiration: {
               maxEntries: 20,
               maxAgeSeconds: 60 * 60 * 24 // 24 hours

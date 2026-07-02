@@ -333,6 +333,8 @@ Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `r
 
 One Workers **secret** must exist for the elevate feature: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key; `NUXT_SFL_API_URL` ships in `wrangler.toml` `[vars]`). Without it, elevate returns 503 and everything else works.
 
+**PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`): `registerType: 'prompt'` — a new SW waits until the user taps Reload in `PwaUpdatePrompt.vue` (which is built for prompt mode), so a deploy never yanks the running build's chunks out of the precache mid-session. The precached app shell `'/'` is stamped with a **per-build revision** (`buildRevision` at the top of `nuxt.config.ts`); never set it back to `revision: null` — Workbox then pins the first-ever cached shell forever while each deploy purges the hashed `_nuxt/*` chunks it references, and the app boots a shell pointing at 404'd JS and goes dead (bit us 2026-07-02, felt like "the app is unresponsive"). Workbox tests `runtimeCaching` regexes against the **full URL**, so path-anchored `/^\/api\/…/` patterns silently never match — the API routes use `({ url }) => url.pathname.startsWith(…)` functions instead (NetworkFirst, 5s network timeout, for offline reads). Recovery for a device stuck on a dead shell: open the app once so the fixed SW installs in the background, force-quit, reopen (worst case: Safari → Settings → clear website data for the domain and re-add the PWA).
+
 ### Common Development Patterns
 
 **Adding a new composable**: Create in `composables/` directory. Will be auto-imported. Use `useState` for global reactive state.
