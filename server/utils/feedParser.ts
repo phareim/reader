@@ -160,8 +160,11 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
     )
 
     return {
-      title: feed.title,
-      description: feed.description,
+      // Feed-level fields can also arrive as `{'#text': …}` objects — Atom
+      // `<subtitle type="text">` does (The Verge); feed-extractor normalizes
+      // the title but not the description. D1 rejects object bindings.
+      title: rawEntryText(feed.title) || feed.title,
+      description: rawEntryText(feed.description),
       siteUrl: feed.link,
       faviconUrl,
       items
