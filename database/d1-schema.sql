@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS "Article" (
   is_read INTEGER DEFAULT 0,
   is_starred INTEGER DEFAULT 0,
   read_at TEXT,
+  -- reading position as a fraction of scrollable height (0..1)
+  read_progress REAL NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   full_text_status TEXT DEFAULT 'pending',
   full_text_error TEXT,

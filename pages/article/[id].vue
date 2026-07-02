@@ -122,6 +122,7 @@ import { processArticleContent } from '~/utils/processArticleContent'
 import { looksLikePlainText } from '~/utils/paragraphize'
 import { looksTruncated } from '~/utils/truncation'
 import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights } from '~/utils/highlightDom'
+import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/utils/readingPosition'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import type { Highlight } from '~/composables/useHighlights'
 
@@ -297,7 +298,43 @@ onMounted(async () => {
   }
 
   await loadHighlights()
+  await restoreReadingPosition()
 })
+
+// ── Reading position ────────────────────────────────────────────────────────
+// The place in the article survives leaving it: saved server-side (debounced)
+// as a fraction of the scrollable height, restored when the article reopens.
+let lastSavedProgress = 0
+let progressSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+function persistProgress() {
+  if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null }
+  if (!article.value) return
+  const p = Math.min(1, Math.max(0, scrollPercent.value / 100))
+  if (!progressWorthSaving(p, lastSavedProgress)) return
+  lastSavedProgress = p
+  $fetch(`/api/articles/${id}/progress`, { method: 'PATCH', body: { progress: p } }).catch(() => {})
+}
+
+function scheduleProgressSave() {
+  if (progressSaveTimer) clearTimeout(progressSaveTimer)
+  progressSaveTimer = setTimeout(persistProgress, 1500)
+}
+
+async function restoreReadingPosition() {
+  const stored = Number(article.value?.readProgress) || 0
+  lastSavedProgress = stored
+  if (!shouldRestorePosition(stored)) return
+  await nextTick()
+  const doc = document.documentElement
+  const scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight)
+  window.scrollTo({ top: restoreScrollTop(stored, scrollHeight, window.innerHeight) })
+}
+
+// Backgrounding the (PWA) app may be the last signal we get — flush then.
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') persistProgress()
+}
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -380,10 +417,12 @@ function updateProgress() {
   scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0
 }
 
-// Hide the selection pill once the viewport shifts under it, and advance the rail.
+// Hide the selection pill once the viewport shifts under it, advance the
+// rail, and note the new place for the (debounced) position save.
 function onScroll() {
   pill.value = null
   updateProgress()
+  scheduleProgressSave()
 }
 
 // The body height changes when the full-text upgrade re-renders — re-measure.
@@ -394,6 +433,7 @@ onMounted(() => {
   document.addEventListener('selectionchange', onSelect)
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', updateProgress)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   updateProgress()
 })
 onUnmounted(() => {
@@ -401,5 +441,7 @@ onUnmounted(() => {
   document.removeEventListener('selectionchange', onSelect)
   window.removeEventListener('scroll', onScroll, true)
   window.removeEventListener('resize', updateProgress)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  persistProgress()
 })
 </script>
