@@ -71,5 +71,6 @@ const posStyle = computed(() => {
 .note-body :deep(.note-tag) {
   color: var(--text-accent);
   font-style: italic;
+  font-weight: 700;
 }
 </style>
