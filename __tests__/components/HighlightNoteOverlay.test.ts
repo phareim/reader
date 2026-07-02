@@ -51,6 +51,16 @@ describe('HighlightNoteOverlay', () => {
     expect(wrapper.emitted('save')).toEqual([['great on #programming']])
   })
 
+  it('marks #hashtags in the live mirror as you type', async () => {
+    const wrapper = mountOverlay()
+    await wrapper.find('textarea').setValue('great take on #programming today')
+
+    const mirror = wrapper.find('.note-mirror')
+    expect(mirror.attributes('aria-hidden')).toBe('true')
+    expect(mirror.html()).toContain('<span class="note-tag">#programming</span>')
+    expect(mirror.text()).toContain('great take on #programming today')
+  })
+
   it('emits close on Cancel', async () => {
     const wrapper = mountOverlay()
     await wrapper.find('[data-testid="cancel"]').trigger('click')

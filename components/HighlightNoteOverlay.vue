@@ -12,14 +12,26 @@
           {{ quote }}
         </blockquote>
 
-        <textarea
-          ref="inputEl"
-          v-model="draft"
-          rows="3"
-          placeholder="A note — use #tags to file it in SFL…"
-          class="mt-5 w-full resize-none border-0 border-b border-rule bg-transparent py-1.5 text-ink outline-none focus:border-accent"
-          @keydown="onKey"
-        />
+        <!-- Live-marked note input: the textarea's own text is transparent and a
+             mirror div underneath renders the draft with #hashtags accented, so
+             tags light up as you type while caret/selection stay native. -->
+        <div class="relative mt-5">
+          <div
+            ref="mirrorEl"
+            aria-hidden="true"
+            class="note-mirror pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-1.5 text-ink"
+            v-html="draftHtml"
+          />
+          <textarea
+            ref="inputEl"
+            v-model="draft"
+            rows="3"
+            placeholder="A note — use #tags to file it in SFL…"
+            class="note-input relative w-full resize-none border-0 border-b border-rule bg-transparent py-1.5 text-transparent placeholder:text-mute outline-none focus:border-accent"
+            @keydown="onKey"
+            @scroll="syncScroll"
+          />
+        </div>
 
         <HairlineRule class="mt-8" />
         <div class="mt-4 flex justify-end gap-3">
@@ -32,11 +44,24 @@
 </template>
 
 <script setup lang="ts">
+import { computed, watch, nextTick } from 'vue'
+import { renderNoteHtml } from '~/utils/hashtags'
+
 const props = defineProps<{ quote: string; saving?: boolean }>()
 const emit = defineEmits<{ close: []; save: [note: string] }>()
 
 const draft = ref('')
 const inputEl = ref<HTMLTextAreaElement | null>(null)
+const mirrorEl = ref<HTMLElement | null>(null)
+
+// Trailing zero-width space keeps a trailing newline occupying a line, so the
+// mirror's scroll height stays in step with the textarea's.
+const draftHtml = computed(() => renderNoteHtml(draft.value) + '\u200B')
+
+function syncScroll() {
+  if (mirrorEl.value && inputEl.value) mirrorEl.value.scrollTop = inputEl.value.scrollTop
+}
+watch(draft, () => nextTick(syncScroll))
 
 function save() {
   if (props.saving) return
@@ -67,3 +92,20 @@ onMounted(() => {
 })
 onUnmounted(() => window.removeEventListener('keydown', onWindowKey))
 </script>
+
+<style scoped>
+.note-input {
+  caret-color: var(--text-ink);
+}
+/* The textarea's glyphs are transparent — keep the selection translucent so
+   the mirror's text stays readable underneath it. */
+.note-input::selection {
+  background: color-mix(in srgb, var(--text-accent) 20%, transparent);
+}
+.note-mirror :deep(.note-tag) {
+  color: var(--text-accent);
+  /* Fake bold: a real font-weight change would alter glyph widths and drift
+     the (transparent) textarea's caret out of alignment with the mirror. */
+  text-shadow: 0 0 0.8px currentColor, 0 0 0.8px currentColor;
+}
+</style>
