@@ -22,7 +22,8 @@ export default defineEventHandler(async (event) => {
       f.id AS feed_id,
       f.title AS feed_title,
       f.favicon_url AS feed_favicon_url,
-      f.user_id AS feed_user_id
+      f.user_id AS feed_user_id,
+      f.kind AS feed_kind
     FROM "Article" a
     JOIN "Feed" f ON f.id = a.feed_id
     WHERE a.id = ?
@@ -80,6 +81,7 @@ export default defineEventHandler(async (event) => {
     fullTextStatus: article.full_text_status,
     feedId: article.feed_id,
     feedTitle: article.feed_title,
+    feedKind: article.feed_kind,
     feedFaviconUrl: article.feed_favicon_url,
     savedId: savedArticle?.id,
     note,

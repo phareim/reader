@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { extractReadableContent, extractPlainText, extractLeadImage } from '~/server/utils/extractContent'
+import { extractReadableContent, extractPlainText, extractLeadImage, acceptExtraction } from '~/server/utils/extractContent'
 
 const ARTICLE_URL = 'https://example.com/essays/slow-reading'
 const fixture = fs.readFileSync(
@@ -123,5 +123,46 @@ describe('extractPlainText', () => {
     expect(text).not.toContain('Menu')
     expect(text).not.toContain('evil')
     expect(text).toContain('Kept.')
+  })
+})
+
+describe('acceptExtraction', () => {
+  const longText = (n = 30) => `<p>${'A sentence of decently long article prose. '.repeat(n)}</p>`
+
+  it('accepts a genuine upgrade over a thin excerpt', () => {
+    expect(acceptExtraction(longText(), '<p>Short excerpt…</p>', 'https://example.com/og.jpg')).toBe(true)
+  })
+
+  it('accepts a long extraction even when the lead image is missing from it', () => {
+    // Many sites keep the hero image outside the article body.
+    expect(acceptExtraction(longText(), null, 'https://example.com/hero.jpg')).toBe(true)
+  })
+
+  it('rejects a still-thin extraction that misses the page lead image (xkcd footer)', () => {
+    const footer = '<p><img src="https://xkcd.com/s/banner.jpg">Comics I enjoy: lots of links here.</p>'
+    expect(acceptExtraction(footer, '<img src="https://imgs.xkcd.com/comics/comic.png">',
+      'https://imgs.xkcd.com/comics/comic.png')).toBe(false)
+  })
+
+  it('accepts a thin extraction that carries the lead image (minimal comic pages)', () => {
+    const comic = '<p><img src="https://media.example.com/comic/today.jpg" alt="hover text"></p>'
+    expect(acceptExtraction(comic, null, 'https://media.example.com/comic/today.jpg')).toBe(true)
+  })
+
+  it('accepts a thin extraction when the page has no lead image at all', () => {
+    expect(acceptExtraction('<p>A short but complete note.</p>', null, null)).toBe(true)
+  })
+
+  it('rejects trading an image-bearing body for an imageless one', () => {
+    const existing = `<p><img src="https://pbs.twimg.com/media/pic.jpg"></p>${longText(2)}`
+    expect(acceptExtraction(longText(), existing, null)).toBe(false)
+  })
+
+  it('rejects an extraction with less visible text than the stored body', () => {
+    expect(acceptExtraction('<p>App shell junk.</p>', longText(5), null)).toBe(false)
+  })
+
+  it('ignores an empty/whitespace stored body', () => {
+    expect(acceptExtraction(longText(), '   ', 'https://example.com/og.jpg')).toBe(true)
   })
 })

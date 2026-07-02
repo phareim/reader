@@ -57,6 +57,16 @@ function extractDomain(url: string): string {
 }
 
 /**
+ * A raw (pre-normalization) entry field from fast-xml-parser: usually a string,
+ * but an element with attributes arrives as `{'#text': …, '@_…': …}`.
+ */
+function rawEntryText(value: any): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value['#text'] === 'string') return value['#text']
+  return undefined
+}
+
+/**
  * Note: HTML sanitization is now done client-side in utils/processArticleContent.ts
  * This prevents issues with ESM/CommonJS compatibility in serverless environments
  * and provides defense-in-depth by sanitizing at display time.
@@ -95,6 +105,13 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
         descriptionMaxLen: 500,
         getExtraEntryFields: (entry) => ({
           contentEncoded: entry['content:encoded'],
+          // normalization strips HTML from the entry body — keep the raw markup
+          // (RSS `description`, Atom `content`/`summary`) so image-led feeds
+          // (comics) don't lose their <img> body.
+          descriptionHtml:
+            rawEntryText(entry.description) ||
+            rawEntryText(entry.content) ||
+            rawEntryText(entry.summary),
           mediaContent: entry['media:content'],
           mediaThumbnail: entry['media:thumbnail'],
           mediaGroup: entry['media:group'],
@@ -119,8 +136,14 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
 
     const items: ParsedArticle[] = await Promise.all(
       (feed.entries || []).map(async (item) => {
-        // Extract content (prefer full content over description)
-        const rawContent = (item as any).contentEncoded || item.content || item.description
+        // Extract content: full content, else the raw description HTML —
+        // the normalized item.description is tag-stripped and truncated,
+        // which loses a comic feed's <img> body entirely.
+        const rawContent =
+          (item as any).contentEncoded ||
+          (item as any).descriptionHtml ||
+          item.content ||
+          item.description
         const rawSummary = item.summary || item.description
 
         return {

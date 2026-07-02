@@ -1,6 +1,6 @@
 import { getD1 } from '~/server/utils/cloudflare'
-import { storeArticleContent } from '~/server/utils/article-content'
-import { extractReadableContent, extractLeadImage } from '~/server/utils/extractContent'
+import { storeArticleContent, fetchArticleContent } from '~/server/utils/article-content'
+import { extractReadableContent, extractLeadImage, acceptExtraction } from '~/server/utils/extractContent'
 
 type FullTextResult = {
   status: 'fetched' | 'failed' | 'skipped'
@@ -9,7 +9,10 @@ type FullTextResult = {
   error?: string
 }
 
-export const fetchFullText = async (event: any, article: { id: number; url: string }): Promise<FullTextResult> => {
+export const fetchFullText = async (
+  event: any,
+  article: { id: number; url: string; contentKey?: string | null }
+): Promise<FullTextResult> => {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
@@ -44,17 +47,33 @@ export const fetchFullText = async (event: any, article: { id: number; url: stri
     const html = await response.text()
     const extracted = extractReadableContent(html, article.url)
 
-    if (!extracted) {
-      return { status: 'skipped', error: 'No extractable content' }
-    }
-
     // We already hold the page HTML — backfill the card image when the RSS
     // item carried none (or only legacy Unsplash filler).
-    const leadImage = extractLeadImage(html, article.url, extracted.html)
+    const leadImage = extractLeadImage(html, article.url, extracted?.html)
+
+    const existing = await fetchArticleContent(event, article.contentKey)
+
+    let body: string
+    if (extracted && acceptExtraction(extracted.html, existing, leadImage)) {
+      body = extracted.html
+    } else if (!existing?.trim() && leadImage) {
+      // Image-led pages with no extractable prose (comics like Oglaf) and an
+      // empty stored body: the lead image IS the article.
+      body = `<p><img src="${leadImage.replace(/"/g, '&quot;')}" alt=""></p>`
+    } else {
+      // Keep the stored body — but still backfill the card image; the
+      // page's og:image is worth having even when the body extraction isn't.
+      const imageUrl = leadImage ? await backfillImage(event, article.id, leadImage) : null
+      return {
+        status: 'skipped',
+        imageUrl,
+        error: extracted ? 'Extraction looked worse than the stored body' : 'No extractable content'
+      }
+    }
 
     // Store in R2 and update D1
     const db = getD1(event)
-    const contentKey = await storeArticleContent(event, article.id, extracted.html)
+    const contentKey = await storeArticleContent(event, article.id, body)
     await db.prepare(
       `UPDATE "Article"
        SET full_text_status = 'fetched',
@@ -74,10 +93,27 @@ export const fetchFullText = async (event: any, article: { id: number; url: stri
       'SELECT image_url FROM "Article" WHERE id = ?'
     ).bind(article.id).first<{ image_url: string | null }>()
 
-    return { status: 'fetched', content: extracted.html, imageUrl: row?.image_url ?? null }
+    return { status: 'fetched', content: body, imageUrl: row?.image_url ?? null }
   } catch (err: any) {
     return { status: 'failed', error: err.message || 'Unknown error' }
   }
+}
+
+/**
+ * Backfill image_url from the page's lead image when the row has none (or
+ * only legacy Unsplash filler); returns the effective image_url.
+ */
+const backfillImage = async (event: any, articleId: number, leadImage: string) => {
+  const db = getD1(event)
+  await db.prepare(
+    `UPDATE "Article"
+     SET image_url = ?1
+     WHERE id = ?2 AND (image_url IS NULL OR image_url = '' OR image_url LIKE '%.unsplash.com%')`
+  ).bind(leadImage, articleId).run()
+  const row = await db.prepare(
+    'SELECT image_url FROM "Article" WHERE id = ?'
+  ).bind(articleId).first<{ image_url: string | null }>()
+  return row?.image_url ?? null
 }
 
 export const updateFullTextStatus = async (event: any, articleId: number, status: string, error?: string) => {

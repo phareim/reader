@@ -21,6 +21,45 @@ export function extractReadableContent(html: string, articleUrl: string): Extrac
   return { html: paragraphize(plain), source: 'fallback' }
 }
 
+/**
+ * Decide whether a fetched extraction should replace the stored body.
+ * Guards the failure modes where extraction "succeeds" on the wrong thing:
+ * Readability latching onto page chrome (xkcd's footer instead of the comic)
+ * or the plain-text fallback scraping a JS app shell (x.com). Conservative —
+ * when in doubt the stored body wins, since the original RSS/collector HTML
+ * is destroyed the moment we overwrite it.
+ */
+export function acceptExtraction(
+  extractedHtml: string,
+  existingHtml: string | null | undefined,
+  leadImage: string | null
+): boolean {
+  const extractedVisible = visibleLength(extractedHtml)
+
+  // Still under the reader's thin bar after a "full" fetch, and missing the
+  // page's own lead image — we extracted the wrong part of the page.
+  if (extractedVisible < STILL_THIN_CHARS && leadImage && !extractedHtml.includes(leadImage)) {
+    return false
+  }
+
+  if (existingHtml && existingHtml.trim()) {
+    // Never trade an image-bearing body for an imageless one (comics, posts
+    // with media): the picture IS the content.
+    if (/<img\b/i.test(existingHtml) && !/<img\b/i.test(extractedHtml)) return false
+    // We fetch to get MORE text; ending up with less means extraction failed.
+    if (extractedVisible < visibleLength(existingHtml)) return false
+  }
+
+  return true
+}
+
+// Mirrors the reader's THIN_CHARS gate (pages/article/[id].vue).
+const STILL_THIN_CHARS = 1200
+
+function visibleLength(html: string): number {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length
+}
+
 const LEAD_IMAGE_META_SELECTORS = [
   'meta[property="og:image:secure_url"]',
   'meta[property="og:image"]',

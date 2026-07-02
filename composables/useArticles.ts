@@ -168,7 +168,7 @@ export const useArticles = () => {
     const article = articles.value.find(a => a.id === id)
     if (!article) return
     const status = article.fullTextStatus
-    if (status === 'fetched' || status === 'failed') return
+    if (status === 'fetched' || status === 'failed' || status === 'skipped') return
     if (cardImageUrl(article.imageUrl)) return // already shows a picture
     prefetched.value.add(id)
 

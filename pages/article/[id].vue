@@ -263,12 +263,18 @@ onMounted(async () => {
 
   const content = article.value?.content || ''
   const visible = stripHtml(content)
-  const thin = visible.length < THIN_CHARS
-  // A truncated excerpt that cleared THIN_CHARS — but don't retry a page we
-  // already failed to extract (avoids re-fetching on every open).
-  const truncated =
-    looksTruncated(content, article.value?.url) && article.value?.fullTextStatus !== 'failed'
-  if (thin || truncated) {
+  const status = article.value?.fullTextStatus
+  // Never auto-fetch for Found items (a collector already pushed the full
+  // body — the source URL is a JS shell), nor retry a page we already failed
+  // or declined to extract (avoids re-fetching on every open).
+  const upgradable =
+    article.value?.feedKind !== 'found' && status !== 'failed' && status !== 'skipped'
+  // Thin bodies are excerpts — but a body we already full-text-fetched won't
+  // get any fuller by fetching again.
+  const thin = visible.length < THIN_CHARS && status !== 'fetched'
+  // A truncated excerpt that cleared THIN_CHARS.
+  const truncated = looksTruncated(content, article.value?.url) && status !== 'fetched'
+  if (upgradable && (thin || truncated)) {
     fetchingFullText.value = true
     try {
       await $fetch(`/api/articles/${id}/fetch-fulltext`, { method: 'POST' })
@@ -278,7 +284,7 @@ onMounted(async () => {
     } finally {
       fetchingFullText.value = false
     }
-  } else if (looksLikePlainText(content) && article.value?.fullTextStatus !== 'failed') {
+  } else if (upgradable && looksLikePlainText(content)) {
     // Legacy tag-less full text: silently upgrade the stored copy to rich
     // HTML. The paragraphized version already renders fine meanwhile, and
     // the new pipeline always stores tagged HTML, so this fires once.

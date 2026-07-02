@@ -30,9 +30,11 @@ export default defineEventHandler(async (event) => {
   // Get pending articles under this tag
   const placeholders = feedIds.map(() => '?').join(',')
   const articles = await db.prepare(
-    `SELECT a.id, a.url
+    `SELECT a.id, a.url, a.content_key
      FROM "Article" a
+     JOIN "Feed" f ON f.id = a.feed_id
      WHERE a.feed_id IN (${placeholders})
+       AND f.kind != 'found'
        AND a.full_text_status = 'pending'
      ORDER BY a.published_at DESC
      LIMIT ?`
@@ -43,7 +45,11 @@ export default defineEventHandler(async (event) => {
 
   // Sequential fetching to be polite to source servers
   for (const row of rows) {
-    const result = await fetchFullText(event, { id: row.id as number, url: row.url as string })
+    const result = await fetchFullText(event, {
+      id: row.id as number,
+      url: row.url as string,
+      contentKey: row.content_key as string | null
+    })
     if (result.status !== 'fetched') {
       await updateFullTextStatus(event, row.id as number, result.status, result.error)
     }
