@@ -1,5 +1,10 @@
 <template>
-  <main class="mx-auto flex h-dvh max-w-xl flex-col px-4 pb-16 pt-4">
+  <!--
+    fixed inset-0 (not h-dvh in flow): the deck screen contributes no document
+    height, so the page itself can never scroll — no iOS rubber-band, no
+    URL-bar collapse creep. Grid mode scrolls inside its own scroller.
+  -->
+  <main class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pb-16 pt-4">
     <header class="flex items-baseline justify-between pb-3">
       <MonoLabel dash>{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
       <span class="flex items-baseline gap-3">

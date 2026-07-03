@@ -9,7 +9,8 @@
         recycled row. TransitionGroup's move transition covers the reflow when
         a committed card leaves the live list.
       -->
-      <TransitionGroup tag="div" name="grid-cards" class="grid grid-cols-2 gap-3 pb-6 sm:grid-cols-3">
+      <!-- Single column on phones (wider rows read + sort easier), 3-col ≥sm -->
+      <TransitionGroup tag="div" name="grid-cards" class="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-3">
         <motion.div
           v-for="article in articles"
           :key="article.id"

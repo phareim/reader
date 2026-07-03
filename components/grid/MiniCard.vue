@@ -1,7 +1,8 @@
 <template>
-  <CardFrame class="flex h-full flex-col">
-    <!-- With lead image: thumbnail on top -->
-    <div v-if="image" class="relative aspect-[4/3] shrink-0 overflow-hidden">
+  <!-- Row (thumb left) in the 1-col phone grid, stacked (thumb on top) ≥sm -->
+  <CardFrame class="flex h-full flex-row sm:flex-col">
+    <!-- With lead image: side thumbnail on phones, hero on top ≥sm -->
+    <div v-if="image" class="relative w-28 shrink-0 overflow-hidden sm:w-auto sm:aspect-[4/3]">
       <img
         :src="image"
         alt=""
@@ -12,7 +13,7 @@
       />
     </div>
 
-    <div class="flex min-h-0 flex-1 flex-col px-3 pb-3" :class="image ? 'pt-2.5' : 'pt-3'">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3" :class="image ? 'pt-3 sm:pt-2.5' : 'pt-3'">
       <!-- Without image: typographic head marker, echoing ArticleCard -->
       <HairlineRule v-if="!image" class="mb-2" />
       <h3
