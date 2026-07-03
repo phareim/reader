@@ -1,5 +1,12 @@
 import type { Article, ArticlesResponse } from '~/types'
 import { cardImageUrl } from '~/utils/cardData'
+import { GRID, nextPageOffset, dedupeAppend } from '~/utils/grid'
+
+interface ListQuery {
+  feedId?: number
+  feedIds?: number[]
+  tag?: string
+}
 
 export const useArticles = () => {
   const articles = useState<Article[]>('articles', () => [])
@@ -10,6 +17,16 @@ export const useArticles = () => {
   const showUnreadOnly = useState<boolean>('showUnreadOnly', () => true)
   const loading = useState<boolean>('articlesLoading', () => false)
   const error = useState<string | null>('articlesError', () => null)
+  // Pagination state for the grid's infinite scroll. `lastQuery` remembers the
+  // filter of the last full fetch so loadMoreArticles re-issues the same query;
+  // null means the current list is not pageable (saved-articles mode).
+  const total = useState<number>('articlesTotal', () => 0)
+  const hasMore = useState<boolean>('articlesHasMore', () => false)
+  const loadingMore = useState<boolean>('articlesLoadingMore', () => false)
+  const lastQuery = useState<ListQuery | null>('articlesLastQuery', () => null)
+  // Skips past a stale window stretch after an all-duplicate page (new
+  // arrivals shifted the unread window right under us) — see utils/grid.ts.
+  const extraOffset = useState<number>('articlesExtraOffset', () => 0)
 
   const selectedArticle = computed(() =>
     articles.value.find(a => a.id === selectedArticleId.value)
@@ -27,6 +44,30 @@ export const useArticles = () => {
     articles.value.filter(a => !a.isRead)
   )
 
+  // One param builder shared by the first page and load-more so the two
+  // requests can never drift onto different filters.
+  const buildListParams = (q: ListQuery) => {
+    const params: any = {}
+
+    // If feedIds array is provided (for tag-based fetching), use it
+    if (q.feedIds && q.feedIds.length > 0) {
+      params.feedIds = q.feedIds.join(',')
+    } else if (q.feedId !== undefined) {
+      params.feedId = q.feedId
+    }
+
+    if (q.tag) params.tag = q.tag
+
+    if (showUnreadOnly.value) {
+      params.isRead = 'false'
+    }
+
+    // Exclude saved articles from feed views
+    params.excludeSaved = 'true'
+
+    return params
+  }
+
   const fetchArticles = async (feedId?: number, feedIds?: number[], tag?: string) => {
     // Special case: feedId = -1 means fetch saved articles
     if (feedId === -1) {
@@ -37,29 +78,16 @@ export const useArticles = () => {
     error.value = null
 
     try {
-      const params: any = { limit: 100 }
-
-      // If feedIds array is provided (for tag-based fetching), use it
-      if (feedIds && feedIds.length > 0) {
-        params.feedIds = feedIds.join(',')
-      } else if (feedId !== undefined) {
-        params.feedId = feedId
-      }
-
-      if (tag) params.tag = tag
-
-      if (showUnreadOnly.value) {
-        params.isRead = 'false'
-      }
-
-      // Exclude saved articles from feed views
-      params.excludeSaved = 'true'
-
+      const query: ListQuery = { feedId, feedIds, tag }
       const response = await $fetch<ArticlesResponse>('/api/articles', {
-        params
+        params: { ...buildListParams(query), limit: 100 }
       })
 
       articles.value = response.articles
+      total.value = response.total
+      hasMore.value = response.hasMore
+      lastQuery.value = query
+      extraOffset.value = 0
     } catch (err: any) {
       if (err?.statusCode === 404 && (tag || feedId !== undefined)) throw err
       error.value = err.message || 'Failed to fetch articles'
@@ -83,6 +111,11 @@ export const useArticles = () => {
         params
       })
       articles.value = response.articles
+      // Saved-articles mode is never paginated — keep the grid machinery out.
+      total.value = response.articles.length
+      hasMore.value = false
+      lastQuery.value = null
+      extraOffset.value = 0
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch saved articles'
       console.error('Error fetching saved articles:', err)
@@ -156,6 +189,39 @@ export const useArticles = () => {
   }
 
   /**
+   * Load the next page of the current list query (the grid's infinite
+   * scroll). The offset is the count of already-fetched rows that still match
+   * the unread+unsaved filter — marking read/saving shrinks the server's
+   * window, so that count IS the position of the first unfetched row (see
+   * utils/grid.ts nextPageOffset). Appends with id-dedupe; a page that comes
+   * back all-duplicates bumps extraOffset so the sentinel loop terminates.
+   */
+  const loadMoreArticles = async () => {
+    if (loading.value || loadingMore.value || !hasMore.value || !lastQuery.value) return
+    loadingMore.value = true
+
+    try {
+      const { savedArticleIds } = useSavedArticles()
+      const offset = nextPageOffset(articles.value, savedArticleIds.value, extraOffset.value)
+      const response = await $fetch<ArticlesResponse>('/api/articles', {
+        params: { ...buildListParams(lastQuery.value), limit: GRID.PAGE_SIZE, offset }
+      })
+
+      const { merged, added } = dedupeAppend(articles.value, response.articles)
+      articles.value = merged
+      total.value = response.total
+      hasMore.value = response.hasMore
+      if (added === 0 && response.hasMore && response.articles.length > 0) {
+        extraOffset.value += response.articles.length
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Failed to load more articles'
+    } finally {
+      loadingMore.value = false
+    }
+  }
+
+  /**
    * Warm the card *behind* the top of the deck: run its full-text fetch so the
    * source page's og:image backfills `imageUrl` (an imageless card gains a
    * picture in the peek) and its body lands in R2 (opening it is then instant).
@@ -194,6 +260,10 @@ export const useArticles = () => {
   const clearArticles = () => {
     articles.value = []
     selectedArticleId.value = null
+    total.value = 0
+    hasMore.value = false
+    lastQuery.value = null
+    extraOffset.value = 0
   }
 
   return {
@@ -205,7 +275,11 @@ export const useArticles = () => {
     unreadArticles,
     loading: readonly(loading),
     error: readonly(error),
+    total: readonly(total),
+    hasMore: readonly(hasMore),
+    loadingMore: readonly(loadingMore),
     fetchArticles,
+    loadMoreArticles,
     markAsRead,
     markAllAsRead,
     prefetchArticle,

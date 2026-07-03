@@ -20,10 +20,14 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ open: boolean }>()
+import { computed } from 'vue'
+
+const props = withDefaults(defineProps<{ open: boolean; mode?: 'deck' | 'grid' }>(), {
+  mode: 'deck',
+})
 const emit = defineEmits<{ close: [] }>()
 
-const keys = [
+const deckKeys = [
   ['←', 'Save to the shelf'],
   ['→', 'Mark read'],
   ['↑', 'Elevate to SFL'],
@@ -36,4 +40,20 @@ const keys = [
   ['h (reader)', 'Highlight selection'],
   ['?', 'This card'],
 ]
+
+// Grid mode has no arrow verbs — vertical belongs to scrolling, elevate is
+// deck-only, and swipes are horizontal per card.
+const gridKeys = [
+  ['swipe ←', 'Save to the shelf'],
+  ['swipe →', 'Mark read'],
+  ['tap', 'Open the reader'],
+  ['u', 'Undo the last verb'],
+  ['shift + r', 'Sync all feeds'],
+  ['esc (reader)', 'Back'],
+  ['s / e / v (reader)', 'Save · Elevate · Original'],
+  ['h (reader)', 'Highlight selection'],
+  ['?', 'This card'],
+]
+
+const keys = computed(() => (props.mode === 'grid' ? gridKeys : deckKeys))
 </script>

@@ -33,10 +33,13 @@ npx jest -t "name of test"
 
 Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `undo`)
+- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
-- `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern
+- `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern, deck/grid toggle, grid keyboard branching, re-snapshot on grid→deck return
+- `__tests__/components/MiniCard.test.ts` — grid mini card: image vs typographic variant, Unsplash-filler filtering, footer (feed · age), no excerpt
+- `__tests__/components/ArticleGrid.test.ts` — grid commit wiring (save/read + undo toast), busy guard, LIFO undo, tap→reader, IntersectionObserver sentinel → `loadMore`, empty state
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
 - `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
@@ -68,7 +71,8 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 
 This app uses Nuxt's `useState` for global state management instead of Pinia/Vuex. Current composables:
 
-- **`useArticles()`**: Article list, `unreadArticles` computed, `fetchArticles`, `markAsRead`, `markAllAsRead`
+- **`useArticles()`**: Article list, `unreadArticles` computed, `fetchArticles`, `markAsRead`, `markAllAsRead`; plus grid pagination — `total` / `hasMore` / `loadingMore` state and `loadMoreArticles()` (appends the next page of the last list query with the still-matching-count offset from `utils/grid.ts`; the saved-articles path resets `lastQuery`/`hasMore` so the shelf is never paginated)
+- **`useViewMode()`**: The deck ↔ grid preference for the reading entrance — `viewMode` (`'deck' | 'grid'`, one global choice for all deck contexts) + `setViewMode`. Persisted in `localStorage['reader:viewMode']`; SSR always sees `'deck'`, so mode-dependent UI must render inside `<ClientOnly>` (DeckScreen does)
 - **`useFeeds()`**: Feed list, `feedsByTag` grouping (untagged feeds group under `'__inbox__'`), add/delete/sync/tag operations
 - **`useSavedArticles()`**: Saved article IDs (a `Set` in `useState`), `saveArticle` / `unsaveArticle` / `isSaved`
 - **`useTags()`**: Tag management and counts
@@ -108,8 +112,12 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `DeckEmptyState.vue` - "all caught up" + Sync all
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
+**Grid survey view** (`components/grid/`) — the deck's scrollable alternate, toggled from the deck header (see "Grid view" under the Tufte section below):
+- `ArticleGrid.vue` - vertically scrollable 2-col (3-col ≥sm) grid bound to the **live** unread-and-unsaved list. Owns per-card horizontal swipes (`drag="x"` + `touch-action: pan-y` so vertical pans stay native scroll; one shared `x` MotionValue bound to the active cell via `dragId`), the commit path (← save / → read, optimistic, `resolveGridDirection` from `utils/grid.ts`), a grid-local LIFO undo history + `UndoToast`, tap→reader with the `movedFar` guard, and the IntersectionObserver sentinel that emits `loadMore` (re-observed after each load so a still-visible sentinel fires again). Exposes `undo()` and `commitCard(id, dir)`; **no elevate and no prefetch** (deliberate — see the design notes in the Tufte section)
+- `MiniCard.vue` - compact image-led card: `aspect-[4/3]` thumbnail (via `cardImageUrl`, filler filtered) + 3-line headline + `feed · age` mono footer; typographic hairline-head variant when imageless. No excerpt — density is the point
+
 **Shared chrome** (`components/`):
-- `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay); optional `tag` prop scopes the deck to one tag and optional `feedId` (+ `title` for the header) scopes it to one feed; emits `not-found` when the tag/feed doesn't exist
+- `DeckScreen.vue` - the entire deck screen (snapshot, keyboard handler, sync, help overlay, and the **deck / grid view toggle** — two mono text-buttons in the header, active word hairline-underlined, mode persisted via `useViewMode()`); optional `tag` prop scopes the deck to one tag and optional `feedId` (+ `title` for the header) scopes it to one feed; emits `not-found` when the tag/feed doesn't exist. In grid mode it mounts `ArticleGrid` on the live filtered list instead of CardStack, forwards `u` to the grid's undo, and leaves arrows/`o`/Enter native (no top card to act on)
 - `BottomBar.vue` - fixed bottom room-switcher (Deck / Found / Shelf / Sources); hidden on `/article/*` and `/login`
 - `AppToast.vue` - renders `useToast()` state
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
@@ -257,8 +265,10 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `↓` - Skip (move card to back of deck)
 - `o` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
 - `u` - Undo the last verb
-- `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it)
+- `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it — takes a `mode` prop so the key table matches the active view)
 - `shift+r` - Sync all feeds
+
+**Grid mode** (same handler, branched on `useViewMode()`): only `u` (forwards to `ArticleGrid.undo()`), `?`, and `shift+r` are handled. Arrows and `o`/`Enter` deliberately do nothing and don't `preventDefault` — ArrowUp/Down scroll the grid natively, and there is no top card for verbs to act on. Verbs on grid cards are horizontal swipes (← save / → read) and tap-to-open.
 
 **Reader (`pages/article/[id].vue`)**:
 - `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
@@ -305,9 +315,17 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 
 **Pure logic** (unit-tested, no DOM):
 - `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
+- `utils/grid.ts` — `resolveGridDirection(dx, vx)` (horizontal-only commit resolution), `nextPageOffset(articles, savedIds, extraOffset)` (pagination under a shrinking unread window), `dedupeAppend(existing, page)`, `GRID` constants (page size 24, 72px distance threshold, sentinel margin)
 - `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
 
-**The deck-snapshot pattern** (`components/DeckScreen.vue`): the component passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load and explicit sync; the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
+**The deck-snapshot pattern** (`components/DeckScreen.vue`): the component passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load, explicit sync, and returning from grid mode (all explicit boundaries); the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
+
+**Grid view** (the deck's scrollable alternate, `components/grid/` + `useViewMode()`): a survey mode — 2-col (3-col ≥sm) grid of `MiniCard`s for looking over many articles at once, toggled from the deck header and persisted in localStorage. Deliberate contrasts with the deck:
+- **Binds the live list** (`unreadArticles` filtered by `savedArticleIds`), not a snapshot — a consumed card *should* leave a survey view, and undo re-inserts it automatically at its published-order position. The grid keeps its own LIFO undo history (no deck order to restore).
+- **Verbs**: horizontal swipe ← save / → read (optimistic, same semantics as the deck; `resolveGridDirection` with a shorter 72px threshold), tap opens the reader. **No elevate** (vertical gestures belong to scrolling — elevate stays deck-only) and **no skip** (scrolling past *is* skipping). The gesture split is `drag="x"` + `touch-action: pan-y` per cell, with one shared `x` MotionValue bound to the active cell only.
+- **Paged loading**: first page stays `limit: 100` (shared with deck mode — toggling must not hand the deck a thin stack); past that, an IntersectionObserver sentinel loads pages of `GRID.PAGE_SIZE` (24) via `useArticles().loadMoreArticles()`. Because the list is fetched `isRead=false&excludeSaved=true`, marking cards read shifts the server window — the next offset is the **count of fetched rows still matching** (`nextPageOffset`), appended pages are deduped by id, and an all-duplicate page bumps `extraOffset` so the loop terminates. The saved-articles path (`fetchArticles(-1)`) resets `lastQuery`/`hasMore` so the shelf is never paginated.
+- **No prefetch** (deliberate): the deck warms exactly one card; a grid shows 6–12 and scrolls, so visibility-driven full-text prefetch would burn external fetches + R2 writes (~3 subrequests each against the Worker's 1000 cap) on cards never opened. Imageless cards degrade to the typographic variant; the reader still fetches on open.
+- **Header count** in grid mode: `max(gridArticles.length, total − consumed)` — honest about unfetched pages, live as cards leave.
 
 **Race guards** in `CardStack`: `commit` no-ops while `busy` (an in-flight commit) or `dragging`; `performUndo` no-ops while `busy`; `applyAdvance` verifies the expected top id before mutating. `settleWithin()` races every awaited animation against a 1.2s timeout because motion-dom's `JSAnimation.finished` never resolves when an animation is stopped (e.g. a pointer re-grab) — without it `busy` could wedge forever.
 

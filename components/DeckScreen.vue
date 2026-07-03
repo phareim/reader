@@ -2,27 +2,56 @@
   <main class="mx-auto flex h-dvh max-w-xl flex-col px-4 pb-16 pt-4">
     <header class="flex items-baseline justify-between pb-3">
       <MonoLabel dash>{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
-      <MonoLabel>{{ unreadCount }} unread</MonoLabel>
+      <span class="flex items-baseline gap-3">
+        <ClientOnly>
+          <span class="flex items-baseline gap-1.5" role="group" aria-label="View mode">
+            <button
+              class="view-toggle font-mono uppercase"
+              :class="viewMode === 'deck' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
+              @click="setViewMode('deck')"
+            >Deck</button>
+            <span class="view-toggle text-mute">/</span>
+            <button
+              class="view-toggle font-mono uppercase"
+              :class="viewMode === 'grid' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
+              @click="setViewMode('grid')"
+            >Grid</button>
+          </span>
+        </ClientOnly>
+        <MonoLabel>{{ headerCount }} unread</MonoLabel>
+      </span>
     </header>
     <HairlineRule />
 
     <div class="relative min-h-0 flex-1 py-4">
       <ClientOnly>
-        <CardStack
-          v-if="loaded"
-          ref="stack"
-          :articles="deckArticles"
-          :syncing="syncing"
-          @sync="syncAll"
-          @count="unreadCount = $event"
-        />
+        <template v-if="loaded">
+          <CardStack
+            v-if="viewMode === 'deck'"
+            ref="stack"
+            :articles="deckArticles"
+            :syncing="syncing"
+            @sync="syncAll"
+            @count="unreadCount = $event"
+          />
+          <ArticleGrid
+            v-else
+            ref="grid"
+            :articles="gridArticles"
+            :has-more="hasMore"
+            :loading-more="loadingMore"
+            :syncing="syncing"
+            @load-more="loadMoreArticles"
+            @sync="syncAll"
+          />
+        </template>
         <div v-else class="flex h-full items-center justify-center">
-          <MonoLabel dash>Loading…</MonoLabel>
+          <MonoLabel dash>Loading&hellip;</MonoLabel>
         </div>
       </ClientOnly>
     </div>
 
-    <HelpOverlay :open="helpOpen" @close="helpOpen = false" />
+    <HelpOverlay :open="helpOpen" :mode="viewMode" @close="helpOpen = false" />
   </main>
 </template>
 
@@ -32,26 +61,54 @@ import type { Article } from '~/types'
 const props = defineProps<{ tag?: string; feedId?: number; title?: string }>()
 const emit = defineEmits<{ notFound: [] }>()
 
-const { fetchArticles, unreadArticles } = useArticles()
-const { fetchSavedArticleIds } = useSavedArticles()
+const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore } = useArticles()
+const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { syncAll: syncFeeds } = useFeeds()
+const { viewMode, setViewMode } = useViewMode()
 const { showSuccess, showError } = useToast()
 
 const stack = ref()
+const grid = ref()
 const syncing = ref(false)
 const helpOpen = ref(false)
 
 // SNAPSHOT, deliberately not the live `unreadArticles` computed: markAsRead
 // optimistically flips isRead, which would shrink a computed deck on every
 // right-swipe, retrigger CardStack's refill watcher, and wipe the deck +
-// undo history mid-session. The deck refills only on load and explicit sync.
+// undo history mid-session. The deck refills only on load, explicit sync,
+// and returning from the grid (all explicit boundaries).
 const deckArticles = ref<Article[]>([])
 const unreadCount = ref(0) // kept live by CardStack's @count emit
 const loaded = ref(false) // gate CardStack so its empty state never flashes pre-fetch
 
+// The grid, by contrast, binds the LIVE list: a card marked read or saved
+// SHOULD leave a survey view, and undo re-inserts it automatically. Saved
+// articles are filtered too because the server excludes them (excludeSaved),
+// so a left-swiped card must not linger.
+const gridArticles = computed(() =>
+  unreadArticles.value.filter((a) => !savedArticleIds.value.has(a.id)) as Article[]
+)
+
+// Grid header count: the server total minus everything fetched-then-consumed
+// locally — honest about unfetched pages, live as cards leave. Clamped so a
+// stale total can never undercount what is actually on screen.
+const gridCount = computed(() => {
+  const consumed = articles.value.length - gridArticles.value.length
+  return Math.max(gridArticles.value.length, total.value - consumed)
+})
+const headerCount = computed(() =>
+  viewMode.value === 'deck' ? unreadCount.value : gridCount.value
+)
+
 function refillDeck() {
   deckArticles.value = [...unreadArticles.value] as Article[]
 }
+
+// Re-snapshot when returning from the grid so grid verbs (reads/saves) are
+// reflected in the deck — same explicit-boundary rule as load and sync.
+watch(viewMode, (mode) => {
+  if (mode === 'deck' && loaded.value) refillDeck()
+})
 
 const loadArticles = () => fetchArticles(props.feedId, undefined, props.tag)
 
@@ -92,6 +149,18 @@ function onKey(e: KeyboardEvent) {
     helpOpen.value = false
     return
   }
+  if (viewMode.value === 'grid') {
+    // Grid mode: vertical belongs to scrolling — arrows and o/Enter stay
+    // native (no preventDefault), there is no top card for them to act on.
+    if (e.key === 'u') {
+      grid.value?.undo()
+    } else if (e.key === '?') {
+      helpOpen.value = !helpOpen.value
+    } else if (e.key === 'R' && e.shiftKey) {
+      syncAll()
+    }
+    return
+  }
   const map: Record<string, string> = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   }
@@ -103,7 +172,7 @@ function onKey(e: KeyboardEvent) {
   } else if (e.key === '?') {
     helpOpen.value = !helpOpen.value
   } else if (e.key === 'o' || e.key === 'Enter') {
-    // Ask the stack for its live top card — the local deckArticles snapshot
+    // Ask the stack for its live top card — the page's deck snapshot
     // goes stale as soon as the first commit removes a card.
     stack.value?.openTop()
   } else if (e.key === 'R' && e.shiftKey) {
@@ -113,3 +182,13 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKey))
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 </script>
+
+<style scoped>
+.view-toggle {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+button.view-toggle:focus-visible {
+  outline: 1px solid var(--tufte-accent);
+}
+</style>
