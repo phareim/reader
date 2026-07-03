@@ -102,8 +102,11 @@ function onDragStart(article: Article) {
 function onDrag(article: Article, info: PanInfo) {
   if (dragId.value !== article.id) return
   const dx = info.offset.x
+  const dy = info.offset.y
   if (Math.abs(dx) > 8) movedFar.value = true
-  if (Math.abs(dx) > 4) {
+  // The pending accent mirrors the release rule: a diagonal pointer is a
+  // scroll, not a swipe, so the verb label must not light up for it.
+  if (Math.abs(dx) > 4 && Math.abs(dx) >= Math.abs(dy) * GRID.DOMINANCE_RATIO) {
     pending.value = dx < 0 ? 'left' : 'right'
     pendingProgress.value = Math.min(1, Math.abs(dx) / GRID.DISTANCE_THRESHOLD)
   } else {
@@ -119,7 +122,7 @@ async function onDragEnd(article: Article, info: PanInfo) {
   // Defer the tap-guard reset so the click event (which fires after dragEnd)
   // still sees movedFar=true and ignores the tap.
   setTimeout(() => { movedFar.value = false }, 0)
-  const dir = resolveGridDirection(info.offset.x, info.velocity.x)
+  const dir = resolveGridDirection(info.offset.x, info.offset.y, info.velocity.x)
   if (dir) {
     await commitCard(article.id, dir, info.velocity.x)
   } else {

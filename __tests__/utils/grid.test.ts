@@ -3,32 +3,46 @@ import type { Article } from '~/types'
 
 describe('resolveGridDirection', () => {
   it('commits on sufficient leftward distance', () => {
-    expect(resolveGridDirection(-GRID.DISTANCE_THRESHOLD, 0)).toBe('left')
-    expect(resolveGridDirection(-200, 0)).toBe('left')
+    expect(resolveGridDirection(-GRID.DISTANCE_THRESHOLD, 0, 0)).toBe('left')
+    expect(resolveGridDirection(-200, 0, 0)).toBe('left')
   })
 
   it('commits on sufficient rightward distance', () => {
-    expect(resolveGridDirection(GRID.DISTANCE_THRESHOLD, 0)).toBe('right')
+    expect(resolveGridDirection(GRID.DISTANCE_THRESHOLD, 0, 0)).toBe('right')
   })
 
   it('returns null under the distance threshold with no flick', () => {
-    expect(resolveGridDirection(-(GRID.DISTANCE_THRESHOLD - 1), 0)).toBeNull()
-    expect(resolveGridDirection(30, 100)).toBeNull()
+    expect(resolveGridDirection(-(GRID.DISTANCE_THRESHOLD - 1), 0, 0)).toBeNull()
+    expect(resolveGridDirection(30, 0, 100)).toBeNull()
   })
 
   it('commits on a same-direction flick even under the distance threshold', () => {
-    expect(resolveGridDirection(-20, -GRID.VELOCITY_THRESHOLD)).toBe('left')
-    expect(resolveGridDirection(20, GRID.VELOCITY_THRESHOLD + 50)).toBe('right')
+    expect(resolveGridDirection(-20, 0, -GRID.VELOCITY_THRESHOLD)).toBe('left')
+    expect(resolveGridDirection(20, 0, GRID.VELOCITY_THRESHOLD + 50)).toBe('right')
   })
 
   it('rejects a flick pointing back toward origin', () => {
     // Dragged right, flicked hard left — must not commit.
-    expect(resolveGridDirection(40, -900)).toBeNull()
-    expect(resolveGridDirection(-40, 900)).toBeNull()
+    expect(resolveGridDirection(40, 0, -900)).toBeNull()
+    expect(resolveGridDirection(-40, 0, 900)).toBeNull()
+  })
+
+  it('rejects a diagonal release — vertical too big for the dominance ratio', () => {
+    // 200px left but 150px down: a scroll that drifted, not a swipe.
+    expect(resolveGridDirection(-200, 150, 0)).toBeNull()
+    expect(resolveGridDirection(200, -150, 0)).toBeNull()
+  })
+
+  it('rejects a flick when the pointer moved mostly vertically', () => {
+    expect(resolveGridDirection(-40, 60, -900)).toBeNull()
+  })
+
+  it('commits when horizontal beats vertical by the dominance ratio', () => {
+    expect(resolveGridDirection(-GRID.DISTANCE_THRESHOLD * 2, GRID.DISTANCE_THRESHOLD, 0)).toBe('left')
   })
 
   it('zero movement resolves to null', () => {
-    expect(resolveGridDirection(0, 0)).toBeNull()
+    expect(resolveGridDirection(0, 0, 0)).toBeNull()
   })
 })
 

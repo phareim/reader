@@ -16,12 +16,16 @@ import type { Article } from '~/types'
 export const GRID = {
   /** Page size for infinite-scroll loads (server max is 200). */
   PAGE_SIZE: 24,
-  /** Min horizontal distance (px) for a slow-drag commit — mini cards are
-      ~170px wide on a phone, so the deck's 110px would mean dragging the
-      card almost fully off itself. */
-  DISTANCE_THRESHOLD: 72,
+  /** Min horizontal distance (px) for a slow-drag commit — same as the deck
+      now that phone cards are full-width rows. */
+  DISTANCE_THRESHOLD: 110,
   /** Min horizontal velocity (px/s) for a flick commit (same as the deck). */
   VELOCITY_THRESHOLD: 600,
+  /** Horizontal offset must beat vertical by this ratio or the release is a
+      scroll, not a swipe. Stricter than the deck's 1.4 — the deck owns the
+      whole gesture surface, while a grid cell shares it with the scroller,
+      so anything steeper than ~27° off horizontal must never commit. */
+  DOMINANCE_RATIO: 2,
   /** Load-ahead margin for the infinite-scroll sentinel observer. */
   SENTINEL_MARGIN: '600px 0px',
   /** Spring for the off-grid fling (same feel as the deck's fling). */
@@ -31,13 +35,15 @@ export const GRID = {
 export type GridDirection = 'left' | 'right'
 
 /**
- * Resolve a horizontal release (offset + velocity) into a commit direction,
- * or null for a spring-back. Mirrors utils/deck.ts resolveDirection with no
- * vertical branch — vertical movement is native scrolling, and the drag is
- * axis-locked to x anyway. A flick only counts when its velocity points the
- * same way as the offset.
+ * Resolve a release (offset + velocity) into a commit direction, or null for
+ * a spring-back. Mirrors utils/deck.ts resolveDirection with no vertical
+ * verbs — but dy still matters: the drag is axis-locked to x visually, while
+ * the POINTER may have moved diagonally, and a mostly-vertical gesture is a
+ * scroll the cell should never steal (DOMINANCE_RATIO). A flick only counts
+ * when its velocity points the same way as the offset.
  */
-export function resolveGridDirection(dx: number, vx: number): GridDirection | null {
+export function resolveGridDirection(dx: number, dy: number, vx: number): GridDirection | null {
+  if (Math.abs(dx) < Math.abs(dy) * GRID.DOMINANCE_RATIO) return null
   const flick = Math.abs(vx) >= GRID.VELOCITY_THRESHOLD && Math.sign(vx) === Math.sign(dx)
   if (Math.abs(dx) >= GRID.DISTANCE_THRESHOLD || flick) return dx < 0 ? 'left' : 'right'
   return null
