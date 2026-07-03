@@ -113,7 +113,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
 **Grid survey view** (`components/grid/`) — the deck's scrollable alternate, toggled from the deck header (see "Grid view" under the Tufte section below):
-- `ArticleGrid.vue` - vertically scrollable 2-col (3-col ≥sm) grid bound to the **live** unread-and-unsaved list. Owns per-card horizontal swipes (`drag="x"` + `touch-action: pan-y` so vertical pans stay native scroll; one shared `x` MotionValue bound to the active cell via `dragId`), the commit path (← save / → read, optimistic, `resolveGridDirection` from `utils/grid.ts`), a grid-local LIFO undo history + `UndoToast`, tap→reader with the `movedFar` guard, and the IntersectionObserver sentinel that emits `loadMore` (re-observed after each load so a still-visible sentinel fires again). Exposes `undo()` and `commitCard(id, dir)`; **no elevate and no prefetch** (deliberate — see the design notes in the Tufte section)
+- `ArticleGrid.vue` - vertically scrollable 2-col (3-col ≥sm) grid bound to the **live** unread-and-unsaved list. Owns per-card horizontal swipes (`drag="x"` + `touch-action: pan-y` so vertical pans stay native scroll; one shared `x` MotionValue bound to the active cell via `dragId`), the commit path (← read / → save, optimistic, `resolveGridDirection` from `utils/grid.ts`), a grid-local LIFO undo history + `UndoToast`, tap→reader with the `movedFar` guard, and the IntersectionObserver sentinel that emits `loadMore` (re-observed after each load so a still-visible sentinel fires again). Exposes `undo()` and `commitCard(id, dir)`; **no elevate and no prefetch** (deliberate — see the design notes in the Tufte section)
 - `MiniCard.vue` - compact image-led card: `aspect-[4/3]` thumbnail (via `cardImageUrl`, filler filtered) + 3-line headline + `feed · age` mono footer; typographic hairline-head variant when imageless. No excerpt — density is the point
 
 **Shared chrome** (`components/`):
@@ -259,8 +259,8 @@ The yellow-pen verb saves a *specific passage* (not the whole article) to SFL as
 There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable).
 
 **Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes:
-- `←` - Save (shelf) the top card
-- `→` - Mark the top card read
+- `←` - Mark the top card read
+- `→` - Save (shelf) the top card
 - `↑` - Elevate to SFL
 - `↓` - Skip (move card to back of deck)
 - `o` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
@@ -268,7 +268,7 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it — takes a `mode` prop so the key table matches the active view)
 - `shift+r` - Sync all feeds
 
-**Grid mode** (same handler, branched on `useViewMode()`): only `u` (forwards to `ArticleGrid.undo()`), `?`, and `shift+r` are handled. Arrows and `o`/`Enter` deliberately do nothing and don't `preventDefault` — ArrowUp/Down scroll the grid natively, and there is no top card for verbs to act on. Verbs on grid cards are horizontal swipes (← save / → read) and tap-to-open.
+**Grid mode** (same handler, branched on `useViewMode()`): only `u` (forwards to `ArticleGrid.undo()`), `?`, and `shift+r` are handled. Arrows and `o`/`Enter` deliberately do nothing and don't `preventDefault` — ArrowUp/Down scroll the grid natively, and there is no top card for verbs to act on. Verbs on grid cards are horizontal swipes (← read / → save) and tap-to-open.
 
 **Reader (`pages/article/[id].vue`)**:
 - `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
@@ -303,8 +303,8 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 
 | Gesture / key | Verb | Implementation |
 |---|---|---|
-| swipe ← / `←` | **Save** (shelf) | optimistic: fling, advance, `saveArticle().catch(toast)` |
-| swipe → / `→` | **Mark read** | optimistic: fling, advance, `markAsRead(id, true).catch(toast)` |
+| swipe ← / `←` | **Mark read** | optimistic: fling, advance, `markAsRead(id, true).catch(toast)` |
+| swipe → / `→` | **Save** (shelf) | optimistic: fling, advance, `saveArticle().catch(toast)` |
 | swipe ↑ / `↑` | **Elevate** to SFL | **non-optimistic**: card holds mid-air awaiting SFL, springs back on failure; on success also marks read |
 | swipe ↓ / `↓` | **Skip** | `advance` rotates the id to the back of the deck (no API call) |
 | tap / `o` / `Enter` | **Open** the reader | navigate `/article/:id` (non-destructive, card stays) |
@@ -322,7 +322,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 
 **Grid view** (the deck's scrollable alternate, `components/grid/` + `useViewMode()`): a survey mode — 2-col (3-col ≥sm) grid of `MiniCard`s for looking over many articles at once, toggled from the deck header and persisted in localStorage. Deliberate contrasts with the deck:
 - **Binds the live list** (`unreadArticles` filtered by `savedArticleIds`), not a snapshot — a consumed card *should* leave a survey view, and undo re-inserts it automatically at its published-order position. The grid keeps its own LIFO undo history (no deck order to restore).
-- **Verbs**: horizontal swipe ← save / → read (optimistic, same semantics as the deck; `resolveGridDirection` with a shorter 72px threshold), tap opens the reader. **No elevate** (vertical gestures belong to scrolling — elevate stays deck-only) and **no skip** (scrolling past *is* skipping). The gesture split is `drag="x"` + `touch-action: pan-y` per cell, with one shared `x` MotionValue bound to the active cell only.
+- **Verbs**: horizontal swipe ← read / → save (optimistic, same semantics as the deck; `resolveGridDirection` with a shorter 72px threshold), tap opens the reader. **No elevate** (vertical gestures belong to scrolling — elevate stays deck-only) and **no skip** (scrolling past *is* skipping). The gesture split is `drag="x"` + `touch-action: pan-y` per cell, with one shared `x` MotionValue bound to the active cell only.
 - **Paged loading**: first page stays `limit: 100` (shared with deck mode — toggling must not hand the deck a thin stack); past that, an IntersectionObserver sentinel loads pages of `GRID.PAGE_SIZE` (24) via `useArticles().loadMoreArticles()`. Because the list is fetched `isRead=false&excludeSaved=true`, marking cards read shifts the server window — the next offset is the **count of fetched rows still matching** (`nextPageOffset`), appended pages are deduped by id, and an all-duplicate page bumps `extraOffset` so the loop terminates. The saved-articles path (`fetchArticles(-1)`) resets `lastQuery`/`hasMore` so the shelf is never paginated.
 - **No prefetch** (deliberate): the deck warms exactly one card; a grid shows 6–12 and scrolls, so visibility-driven full-text prefetch would burn external fetches + R2 writes (~3 subrequests each against the Worker's 1000 cap) on cards never opened. Imageless cards degrade to the typographic variant; the reader still fetches on open.
 - **Header count** in grid mode: `max(gridArticles.length, total − consumed)` — honest about unfetched pages, live as cards leave.

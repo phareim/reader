@@ -44,19 +44,19 @@ beforeEach(() => {
 })
 
 describe('CardStack commit wiring', () => {
-  it('left commit saves the top card and advances', async () => {
+  it('left commit marks the top card read and advances', async () => {
     const w = mountStack()
     await (w.vm as any).commit('left')
     await flushPromises()
-    expect(saveArticle).toHaveBeenCalledWith(1)
+    expect(markAsRead).toHaveBeenCalledWith(1, true)
     expect(w.text()).toContain('card-2')
   })
 
-  it('right commit marks read', async () => {
+  it('right commit saves to the shelf', async () => {
     const w = mountStack()
     await (w.vm as any).commit('right')
     await flushPromises()
-    expect(markAsRead).toHaveBeenCalledWith(1, true)
+    expect(saveArticle).toHaveBeenCalledWith(1)
   })
 
   it('down commit skips with no API call', async () => {
@@ -86,9 +86,9 @@ describe('CardStack commit wiring', () => {
     expect(w.text()).toContain('card-1') // still on top
   })
 
-  it('undo after save unsaves and restores the card', async () => {
+  it('undo after save (right) unsaves and restores the card', async () => {
     const w = mountStack()
-    await (w.vm as any).commit('left')
+    await (w.vm as any).commit('right')
     await flushPromises()
     await (w.vm as any).undo()
     await flushPromises()
@@ -114,28 +114,29 @@ describe('CardStack commit wiring', () => {
     await first
     await second
     await flushPromises()
-    expect(saveArticle).toHaveBeenCalledTimes(1)
-    expect(saveArticle).toHaveBeenCalledWith(1)
-    expect(markAsRead).not.toHaveBeenCalled()
+    expect(markAsRead).toHaveBeenCalledTimes(1)
+    expect(markAsRead).toHaveBeenCalledWith(1, true)
+    expect(saveArticle).not.toHaveBeenCalled()
     expect(w.text()).toContain('card-2') // exactly one card left the deck
   })
 
   it('undo during an in-flight commit is a no-op (busy-guard with history populated)', async () => {
-    // Step 1: commit card 1 in auto mode so history has one entry.
+    // Step 1: commit card 1 (left = mark read) in auto mode so history has one entry.
     __setManualAnimations(false)
     const w = mountStack()
     await (w.vm as any).commit('left')
     await flushPromises()
-    expect(saveArticle).toHaveBeenCalledWith(1)
+    expect(markAsRead).toHaveBeenCalledWith(1, true)
     expect(w.text()).toContain('card-2')
 
     // Step 2: suspend card 2's fling — busy=true, animation pending.
     __setManualAnimations(true)
-    const inflight = (w.vm as any).commit('right') // card 2, mark-read, NOT awaited
+    const inflight = (w.vm as any).commit('right') // card 2, save, NOT awaited
 
-    // Step 3: undo while busy → busy-guard must block it entirely.
+    // Step 3: undo while busy → busy-guard must block it entirely
+    // (an unblocked undo would reverse the read: markAsRead(1, false)).
     await (w.vm as any).undo()
-    expect(unsaveArticle).not.toHaveBeenCalled() // blocked by busy guard
+    expect(markAsRead).not.toHaveBeenCalledWith(1, false)
 
     // Step 4: let the suspended animation complete.
     __resolveAnimations()
@@ -143,8 +144,8 @@ describe('CardStack commit wiring', () => {
     await flushPromises()
 
     // Step 5: assert the in-flight commit landed, undo never fired, deck is clean.
-    expect(unsaveArticle).not.toHaveBeenCalled()
-    expect(markAsRead).toHaveBeenCalledWith(2, true)
+    expect(markAsRead).not.toHaveBeenCalledWith(1, false)
+    expect(saveArticle).toHaveBeenCalledWith(2)
     expect(w.text()).toContain('card-3') // cards 1 + 2 gone, 3 on top
   })
 })

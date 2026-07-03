@@ -8,7 +8,7 @@
 
     <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
     <p v-else-if="articles.length === 0" class="mt-8 italic text-mute">
-      Nothing on the shelf yet — swipe a card left when something touches you.
+      Nothing on the shelf yet — swipe a card right when something touches you.
     </p>
 
     <ul v-else>

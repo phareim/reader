@@ -4,9 +4,9 @@
  * No DOM, no Vue, no side effects. ArticleGrid drives the gesture resolution;
  * useArticles drives the pagination helpers.
  *
- * Verb semantics (grid view):
- *   left  → save  — card leaves the grid
- *   right → read  — card leaves the grid
+ * Verb semantics (grid view, matching the deck):
+ *   left  → read  — card leaves the grid
+ *   right → save  — card leaves the grid
  *   Vertical belongs to scrolling; elevate is deliberately deck-only.
  */
 

@@ -28,8 +28,8 @@ const props = withDefaults(defineProps<{ open: boolean; mode?: 'deck' | 'grid' }
 const emit = defineEmits<{ close: [] }>()
 
 const deckKeys = [
-  ['←', 'Save to the shelf'],
-  ['→', 'Mark read'],
+  ['←', 'Mark read'],
+  ['→', 'Save to the shelf'],
   ['↑', 'Elevate to SFL'],
   ['↓', 'Skip — back of the deck'],
   ['o / Enter / tap', 'Open the reader'],
@@ -44,8 +44,8 @@ const deckKeys = [
 // Grid mode has no arrow verbs — vertical belongs to scrolling, elevate is
 // deck-only, and swipes are horizontal per card.
 const gridKeys = [
-  ['swipe ←', 'Save to the shelf'],
-  ['swipe →', 'Mark read'],
+  ['swipe ←', 'Mark read'],
+  ['swipe →', 'Save to the shelf'],
   ['tap', 'Open the reader'],
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],

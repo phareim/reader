@@ -33,7 +33,7 @@
             class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
             :style="{ opacity: pendingProgress }"
           >
-            <ActionLabel accent>{{ pending === 'left' ? 'Save' : 'Read' }}</ActionLabel>
+            <ActionLabel accent>{{ pending === 'left' ? 'Read' : 'Save' }}</ActionLabel>
           </div>
         </motion.div>
       </TransitionGroup>
@@ -161,11 +161,11 @@ async function commitCard(id: number, dir: GridDirection, vx = 0) {
     const w = typeof window === 'undefined' ? 800 : window.innerWidth
     await settleWithin(animate(x, dir === 'left' ? -w : w, { ...GRID.FLING, velocity: vx }))
     if (dir === 'left') {
-      saveArticle(id).catch(() => showError('Save failed'))
-      showUndo('Save')
-    } else {
       markAsRead(id, true).catch(() => showError('Mark-read failed'))
       showUndo('Read')
+    } else {
+      saveArticle(id).catch(() => showError('Save failed'))
+      showUndo('Save')
     }
     history.value = [...history.value, { id, action: dir }]
   } finally {
@@ -198,8 +198,8 @@ async function performUndo() {
   if (!entry) return
   history.value = history.value.slice(0, -1)
   try {
-    if (entry.action === 'left') await unsaveArticle(entry.id)
-    else await markAsRead(entry.id, false)
+    if (entry.action === 'left') await markAsRead(entry.id, false)
+    else await unsaveArticle(entry.id)
   } catch {
     showError('Undo could not reach the server')
   }

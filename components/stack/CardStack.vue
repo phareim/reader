@@ -39,10 +39,10 @@
     <!-- Pending-verb labels: the one accent, fading in toward commit -->
     <div v-if="dragging" class="pointer-events-none absolute inset-0 z-40">
       <div class="absolute left-4 top-1/2 -translate-y-1/2" :style="{ opacity: pending === 'left' ? pendingProgress : 0 }">
-        <ActionLabel accent>Save</ActionLabel>
+        <ActionLabel accent>Read</ActionLabel>
       </div>
       <div class="absolute right-4 top-1/2 -translate-y-1/2" :style="{ opacity: pending === 'right' ? pendingProgress : 0 }">
-        <ActionLabel accent>Read</ActionLabel>
+        <ActionLabel accent>Save</ActionLabel>
       </div>
       <div class="absolute left-1/2 top-4 -translate-x-1/2" :style="{ opacity: pending === 'up' ? pendingProgress : 0 }">
         <ActionLabel accent>Elevate</ActionLabel>
@@ -235,14 +235,14 @@ async function commit(dir: DeckDirection, v: { vx: number; vy: number } = { vx: 
       await flingOff('left', v.vx)
       resetCard()
       applyAdvance('left', topId)
-      saveArticle(Number(topId)).catch(() => showError('Save failed'))
-      showUndo('Save')
+      markAsRead(Number(topId), true).catch(() => showError('Mark-read failed'))
+      showUndo('Read')
     } else if (dir === 'right') {
       await flingOff('right', v.vx)
       resetCard()
       applyAdvance('right', topId)
-      markAsRead(Number(topId), true).catch(() => showError('Mark-read failed'))
-      showUndo('Read')
+      saveArticle(Number(topId)).catch(() => showError('Save failed'))
+      showUndo('Save')
     } else {
       await flingOff('down', 0, v.vy)
       resetCard()
@@ -291,8 +291,8 @@ async function performUndo() {
   const { entry } = result
   const id = Number(entry.id)
   try {
-    if (entry.action === 'left') await unsaveArticle(id)
-    else if (entry.action === 'right') await markAsRead(id, false)
+    if (entry.action === 'left') await markAsRead(id, false)
+    else if (entry.action === 'right') await unsaveArticle(id)
     else if (entry.action === 'up') {
       await unElevate(id, entry.ideaId, entry.ideaExisting)
       await markAsRead(id, false)

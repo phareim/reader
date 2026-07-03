@@ -74,7 +74,7 @@ const helpOpen = ref(false)
 
 // SNAPSHOT, deliberately not the live `unreadArticles` computed: markAsRead
 // optimistically flips isRead, which would shrink a computed deck on every
-// right-swipe, retrigger CardStack's refill watcher, and wipe the deck +
+// read-swipe, retrigger CardStack's refill watcher, and wipe the deck +
 // undo history mid-session. The deck refills only on load, explicit sync,
 // and returning from the grid (all explicit boundaries).
 const deckArticles = ref<Article[]>([])
@@ -84,7 +84,7 @@ const loaded = ref(false) // gate CardStack so its empty state never flashes pre
 // The grid, by contrast, binds the LIVE list: a card marked read or saved
 // SHOULD leave a survey view, and undo re-inserts it automatically. Saved
 // articles are filtered too because the server excludes them (excludeSaved),
-// so a left-swiped card must not linger.
+// so a saved (right-swiped) card must not linger.
 const gridArticles = computed(() =>
   unreadArticles.value.filter((a) => !savedArticleIds.value.has(a.id)) as Article[]
 )

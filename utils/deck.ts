@@ -4,9 +4,9 @@
  * No DOM, no Vue, no side effects. The CardStack component drives these
  * reducers; motion-v owns the rendering physics.
  *
- * Direction semantics (spec §3):
- *   left  → save     — removes the top card
- *   right → read     — removes the top card
+ * Direction semantics (spec §3, left/right swapped 2026-07-03):
+ *   left  → read     — removes the top card
+ *   right → save     — removes the top card
  *   up    → elevate  — removes the top card (SFL promotion)
  *   down  → skip     — rotates the top card to the back
  */

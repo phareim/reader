@@ -71,23 +71,23 @@ beforeEach(() => {
 })
 
 describe('ArticleGrid commit wiring', () => {
-  it('left commit saves the card', async () => {
+  it('left commit marks read', async () => {
     const w = mountGrid()
     await (w.vm as any).commitCard(1, 'left')
     await flushPromises()
-    expect(saveArticle).toHaveBeenCalledWith(1)
-    expect(markAsRead).not.toHaveBeenCalled()
+    expect(markAsRead).toHaveBeenCalledWith(1, true)
+    expect(saveArticle).not.toHaveBeenCalled()
     expect(w.find('[data-testid="undo-toast"]').attributes('data-visible')).toBe('true')
-    expect(w.find('[data-testid="undo-toast"]').attributes('data-label')).toBe('Save')
+    expect(w.find('[data-testid="undo-toast"]').attributes('data-label')).toBe('Read')
   })
 
-  it('right commit marks read', async () => {
+  it('right commit saves the card', async () => {
     const w = mountGrid()
     await (w.vm as any).commitCard(2, 'right')
     await flushPromises()
-    expect(markAsRead).toHaveBeenCalledWith(2, true)
-    expect(saveArticle).not.toHaveBeenCalled()
-    expect(w.find('[data-testid="undo-toast"]').attributes('data-label')).toBe('Read')
+    expect(saveArticle).toHaveBeenCalledWith(2)
+    expect(markAsRead).not.toHaveBeenCalled()
+    expect(w.find('[data-testid="undo-toast"]').attributes('data-label')).toBe('Save')
   })
 
   it('a second commit during an in-flight commit is ignored', async () => {
@@ -99,21 +99,21 @@ describe('ArticleGrid commit wiring', () => {
     await first
     await second
     await flushPromises()
-    expect(saveArticle).toHaveBeenCalledTimes(1)
-    expect(markAsRead).not.toHaveBeenCalled()
+    expect(markAsRead).toHaveBeenCalledTimes(1)
+    expect(saveArticle).not.toHaveBeenCalled()
   })
 
-  it('undo after save unsaves; undo after read marks unread (LIFO)', async () => {
+  it('undo after read marks unread; undo after save unsaves (LIFO)', async () => {
     const w = mountGrid()
-    await (w.vm as any).commitCard(1, 'left')
-    await (w.vm as any).commitCard(2, 'right')
+    await (w.vm as any).commitCard(1, 'left')  // read
+    await (w.vm as any).commitCard(2, 'right') // save
     await flushPromises()
 
     await (w.vm as any).undo()
-    expect(markAsRead).toHaveBeenLastCalledWith(2, false)
+    expect(unsaveArticle).toHaveBeenCalledWith(2)
 
     await (w.vm as any).undo()
-    expect(unsaveArticle).toHaveBeenCalledWith(1)
+    expect(markAsRead).toHaveBeenLastCalledWith(1, false)
 
     // History drained — a third undo is a no-op.
     unsaveArticle.mockClear()
