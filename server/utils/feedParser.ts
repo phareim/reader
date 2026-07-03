@@ -126,12 +126,17 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
       }
     )
 
-    if (!feed.title) {
+    // Feed-level fields can also arrive as `{'#text': …}` objects — Atom
+    // `<subtitle type="text">` does (The Verge); feed-extractor normalizes
+    // the title but not the description. D1 rejects object bindings.
+    const title = rawEntryText(feed.title)
+    if (!title) {
       throw new Error('Feed has no title')
     }
+    const siteUrl = rawEntryText(feed.link)
 
     // Extract domain for favicon
-    const domain = extractDomain(feed.link || url)
+    const domain = extractDomain(siteUrl || url)
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
 
     const items: ParsedArticle[] = await Promise.all(
@@ -160,12 +165,9 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
     )
 
     return {
-      // Feed-level fields can also arrive as `{'#text': …}` objects — Atom
-      // `<subtitle type="text">` does (The Verge); feed-extractor normalizes
-      // the title but not the description. D1 rejects object bindings.
-      title: rawEntryText(feed.title) || feed.title,
+      title,
       description: rawEntryText(feed.description),
-      siteUrl: feed.link,
+      siteUrl,
       faviconUrl,
       items
     }
