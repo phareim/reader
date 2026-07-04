@@ -84,13 +84,19 @@
     <p v-else-if="error" class="mt-10 italic text-mute">{{ error }}</p>
     <p v-else class="mt-10 italic text-mute">Loading…</p>
 
-    <!-- Floating affordance shown while a passage is selected, below the
-         selection (above it, iOS's native callout covers it). mousedown.prevent
-         keeps the native selection from collapsing before the click lands. -->
+    <!-- Floating affordance shown while a passage is selected. On touch it
+         floats in the right gutter, vertically centered on the selection —
+         iOS's native callout hugs the selection's horizontal center (above or
+         below it), so the right edge is the one spot it never occupies. With
+         a mouse it sits below the selection center. mousedown.prevent keeps
+         the native selection from collapsing before the click lands. -->
     <div
       v-if="pill"
-      class="fixed z-40 -translate-x-1/2 pt-2"
-      :style="{ left: pill.x + 'px', top: pill.y + 'px' }"
+      class="fixed z-40"
+      :class="pill.side === 'right' ? '-translate-y-1/2' : '-translate-x-1/2 pt-2'"
+      :style="pill.side === 'right'
+        ? { right: '10px', top: pill.y + 'px' }
+        : { left: pill.x + 'px', top: pill.y + 'px' }"
       @mousedown.prevent
     >
       <ActionLabel accent @click="startHighlight">Highlight</ActionLabel>
@@ -147,7 +153,7 @@ const markingRead = ref(false)
 const articleEl = ref<HTMLElement | null>(null)
 const highlights = ref<Highlight[]>([])
 const pendingSel = ref<{ startOffset: number; endOffset: number; quote: string } | null>(null)
-const pill = ref<{ x: number; y: number } | null>(null)
+const pill = ref<{ side: 'right' | 'below'; x: number; y: number } | null>(null)
 const noteOverlay = ref<{ quote: string } | null>(null)
 const savingNote = ref(false)
 const popover = ref<{ highlight: Highlight; x: number; y: number } | null>(null)
@@ -175,13 +181,24 @@ function onSelect() {
   if (!offsets) { pill.value = null; pendingSel.value = null; return }
   pendingSel.value = offsets
   const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect()
-  // Anchor BELOW the selection — iOS's native text-selection callout sits
-  // above it and would cover the pill. Clamp so a selection ending at the
-  // bottom of the viewport keeps the pill on-screen.
   if (rect && rect.width) {
-    pill.value = {
-      x: rect.left + rect.width / 2,
-      y: Math.min(rect.bottom, window.innerHeight - 64),
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      // Touch: right gutter, vertically centered on the selection — clear of
+      // the native callout, which tracks the selection's horizontal center.
+      // Clamp so tall selections near an edge keep the pill on-screen.
+      pill.value = {
+        side: 'right',
+        x: 0,
+        y: Math.min(Math.max(rect.top + rect.height / 2, 48), window.innerHeight - 48),
+      }
+    } else {
+      // Mouse: below the selection center. Clamp so a selection ending at
+      // the bottom of the viewport keeps the pill on-screen.
+      pill.value = {
+        side: 'below',
+        x: rect.left + rect.width / 2,
+        y: Math.min(rect.bottom, window.innerHeight - 64),
+      }
     }
   }
 }
