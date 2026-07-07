@@ -297,6 +297,8 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `config/tufte.preset.cjs` — the Tailwind preset (added to `tailwind.config.js` `presets`) exposing the token utilities (`paper`, `ink`, `body`, `mute`, `accent`, `rule`, `measure`, …)
 - `app.vue` sets `bg-paper text-ink font-serif` and mounts `BottomBar` + `AppToast` + `PwaUpdatePrompt`
 
+**App icon** (`scripts/gen_icon.py`): the Do/Write/Sleep family mark — an ET Book "R" in ink above the rust rule on aged paper. Forked from `~/github/write/Write/scripts/gen_icon.py`, with the family's American Typewriter swapped for the vendored ET Book bold (converted woff→ttf via fontTools at run time). Regenerating writes `public/{pwa-192x192,pwa-512x512,apple-touch-icon,favicon}.png` — full-bleed opaque squares (platforms mask their own corners); needs a venv with `pillow` + `fonttools` (instructions in the script header). The old blue-book `favicon.svg` / `apple-touch-icon.svg` and their `sharp`-based generator are gone.
+
 **Four rooms**, switched by `BottomBar.vue`: the **Deck** (`/`, the card stack of unread articles), the **Found** room (`/found`, social bookmarks — a `DeckScreen` scoped to the Found feed; see "Found feed (social bookmarks)"), the **Shelf** (`/shelf`, saved articles), and **Sources** (`/sources`, feed management + account). The reader (`/article/:id`) and login sit outside the bar. Tag group headers on the Sources page link to `/TAG-NAME`; tag routes show the Deck room active in `BottomBar`.
 
 **The five verbs** — one interaction model on touch and keys, all routed through `CardStack.commit(direction)`:
