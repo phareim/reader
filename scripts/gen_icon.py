@@ -3,24 +3,29 @@
 
 Forked from the Write/Do family (write/Write/scripts/gen_icon.py) so the
 Reader icon sits in the same set as Do (D), Write (W), and Sleep (moon).
-Differences: glyph "R", the family's American Typewriter is replaced by the
-Reader's own vendored ET Book bold (public/tufte/fonts/), and the outputs are
-the web/PWA icon files under public/ instead of an Xcode appiconset.
+Differences: glyph "R" and the outputs are the web/PWA icon files under
+public/ instead of an Xcode appiconset.
 
-Requires Pillow + fontTools (PIL can't read woff, so the vendored font is
-converted to a temp ttf first):
+Font: the family glyph is American Typewriter Light (a macOS system font).
+On a Mac this script uses it directly. On Linux (Sleeper) it falls back to
+the vendored Josefin Slab variable font at wght=330 — chosen by measuring
+stroke width against the Do icon's D (min stem 1.56% of the canvas; Josefin
+330 lands at ~1.55%) and eyeballing the thin monoline slab-serif look.
+
+Requires Pillow + fontTools:
 
     python3 -m venv /tmp/reader-icon-venv
     /tmp/reader-icon-venv/bin/pip install pillow fonttools
     /tmp/reader-icon-venv/bin/python scripts/gen_icon.py
 """
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-from fontTools.ttLib import TTFont
-import random, os, math, tempfile
+import random, os, math
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.normpath(os.path.join(HERE, "..", "public"))
-FONT_WOFF = os.path.join(PUBLIC, "tufte", "fonts", "et-book-bold.woff")
+FONT_MAC_TTC = "/System/Library/Fonts/Supplemental/AmericanTypewriter.ttc"
+FONT_FALLBACK = os.path.join(HERE, "fonts", "JosefinSlab[wght].ttf")
+FALLBACK_WGHT = 330  # matches American Typewriter Light's stroke weight
 S = 1024  # master size
 
 # Family palette (identical to Write/Do)
@@ -30,11 +35,17 @@ RUST  = (193, 74, 42)
 
 
 def load_font(target_h):
-    woff = TTFont(FONT_WOFF)
-    woff.flavor = None  # decompress to plain sfnt/ttf
-    tmp = tempfile.NamedTemporaryFile(suffix=".ttf", delete=False)
-    woff.save(tmp.name)
-    return ImageFont.truetype(tmp.name, target_h)
+    # The exact family font, when on a Mac (same TTC index order the
+    # Write/Do scripts use).
+    if os.path.exists(FONT_MAC_TTC):
+        for idx in (1, 2, 0):
+            try:
+                return ImageFont.truetype(FONT_MAC_TTC, target_h, index=idx)
+            except Exception:
+                continue
+    font = ImageFont.truetype(FONT_FALLBACK, target_h)
+    font.set_variation_by_axes([FALLBACK_WGHT])
+    return font
 
 
 def make_paper(size):
