@@ -17,6 +17,12 @@
         Back
       </ActionLabel>
       <div class="flex gap-1.5 sm:gap-2">
+        <ActionLabel aria-label="Speed read" @click="openRsvp">
+          <template #icon>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h9" /><path d="M3 12h6" /><path d="M3 18h9" /><path d="M15 8.5l6 3.5-6 3.5z" /></svg>
+          </template>
+          RSVP
+        </ActionLabel>
         <ActionLabel :accent="saved" :aria-label="saved ? 'Saved' : 'Save'" @click="toggleSaveAction">
           <template #icon>
             <svg width="14" height="14" viewBox="0 0 24 24" :fill="saved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16l-6-4-6 4z" /></svg>
@@ -110,6 +116,8 @@
       @close="noteOverlay = null"
     />
 
+    <RsvpOverlay v-if="rsvpOpen" :words="rsvpWords" @close="rsvpOpen = false" />
+
     <HighlightPopover
       v-if="popover"
       :highlight="popover.highlight"
@@ -131,6 +139,7 @@ import { looksTruncated } from '~/utils/truncation'
 import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights } from '~/utils/highlightDom'
 import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/utils/readingPosition'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
+import { tokenizeWords } from '~/utils/rsvp'
 import type { Highlight } from '~/composables/useHighlights'
 
 const route = useRoute()
@@ -268,6 +277,15 @@ const relativeDate = computed(() =>
 const sanitizedContent = computed(() =>
   processArticleContent(article.value?.content) ?? ''
 )
+
+// ── RSVP (speed read) ───────────────────────────────────────────────────────
+const rsvpOpen = ref(false)
+const rsvpWords = computed(() => tokenizeWords(stripHtml(sanitizedContent.value)))
+
+function openRsvp() {
+  if (!rsvpWords.value.length) return
+  rsvpOpen.value = true
+}
 
 // The body can re-render once (thin-RSS full-text upgrade); re-anchor after.
 watch(sanitizedContent, () => nextTick().then(repaintHighlights))
@@ -416,8 +434,8 @@ function onKey(e: KeyboardEvent) {
   if (e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
   if (e.target instanceof HTMLElement && e.target.isContentEditable) return
-  // The note overlay owns its own keys while open.
-  if (noteOverlay.value) return
+  // The note and RSVP overlays own their own keys while open.
+  if (noteOverlay.value || rsvpOpen.value) return
   if (popover.value) {
     if (e.key === 'Escape') { e.preventDefault(); popover.value = null }
     return
@@ -428,6 +446,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'e') elevateAction()
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'h') startHighlight()
+  else if (e.key === 'w') openRsvp()
 }
 
 // Reading progress (0–100), driven by how far the page has scrolled.

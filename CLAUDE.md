@@ -42,6 +42,8 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/components/ArticleGrid.test.ts` — grid commit wiring (save/read + undo toast), busy guard, LIFO undo, tap→reader, IntersectionObserver sentinel → `loadMore`, empty state
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
+- `__tests__/components/RsvpOverlay.test.ts` — ORP split rendering, play/pause + done→restart (fake timers), wpm keys with clamping + localStorage persistence, word skips, Esc/Close emits
+- `__tests__/utils/rsvp.test.ts` — `tokenizeWords`, `orpIndex` (length convention, punctuation skipping), `wordDelayMs` (sentence/clause/long-word dwell)
 - `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
 - `__tests__/utils/highlightDom.test.ts` — `paintHighlight` (exact + indexOf fallback, cross-element spans), `unpaint`/`clearHighlights` round-trips
 - `__tests__/utils/truncation.test.ts` — `looksTruncated` (Ars "Read full article" footer, "Continue reading", `[…]` brackets, canonical-URL anchor; negatives for full bodies + inline read-more links)
@@ -123,6 +125,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `HelpOverlay.vue` - the `?` keyboard-shortcuts card (Teleport + `CardFrame`)
 - `TagEditorOverlay.vue` - full-screen tag editor for a feed (Teleport paper sheet — `bg-paper`, no backdrop, no tap-to-dismiss): removable chips + input with autocomplete on existing tags (Enter/comma commit, arrows navigate suggestions, Backspace on empty input removes last chip, Esc cancels via its own window listener). Dumb overlay — takes `feed` + `allTags` props, emits `save(tags)` / `close`; the page owns the API call. Mount with `v-if` so draft state resets per open
 - `HighlightNoteOverlay.vue` - full-screen note sheet for a fresh highlight (Teleport paper sheet, mirrors `TagEditorOverlay`): shows the quoted passage + a `<textarea>` for the optional note (`#tags` hint). `#hashtags` light up live as you type — the textarea's text is transparent over a `.note-mirror` div rendering `renderNoteHtml(draft)` (accent + text-shadow fake-bold, since a real weight change would drift the native caret; scroll kept in sync). Takes `quote` + `saving` props, emits `save(note)` / `close`; Cmd/Ctrl+Enter commits, Esc cancels. Mount with `v-if` so the draft resets per open
+- `RsvpOverlay.vue` - full-screen RSVP speed-read sheet (Teleport paper sheet, opened from the reader's top action row or `w`): one word at a time with the ORP letter pinned to a fixed x (1fr|auto|1fr grid) as the screen's one accent, hairline progress rail, Slower/Faster/Play–Pause(/Restart)/Close `ActionLabel`s. Takes `words: string[]`, emits `close`; owns its keys while open (space play/pause, ←/→ skip ±10 words, ↑/↓ wpm ±25, Esc close) and tapping the word toggles play. Pure timing/ORP math in `utils/rsvp.ts`; wpm persisted in `localStorage['reader:rsvpWpm']`. Mount with `v-if` so it reopens at word 0
 - `HighlightPopover.vue` - small Teleported `CardFrame` near a tapped mark: renders the note via `renderNoteHtml` (hashtags accent-styled) or "No note", a `— IN SFL` `MonoLabel` when synced, **X / Threads share buttons** (brand glyphs; share the marked passage in curly quotes + the article link via `xQuoteShareUrl` / `threadsQuoteShareUrl`, shown only when `sourceUrl` is set), and a **Remove** `ActionLabel`. Takes `highlight` + `x`/`y` (clamped into the viewport) + optional `sourceUrl`, emits `remove` / `close`
 - `PwaUpdatePrompt.vue` - service-worker update prompt
 
@@ -277,6 +280,9 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `e` - Elevate to SFL
 - `v` - Open the original in a new tab
 - `h` - Highlight the current selection (opens the note overlay; no-op without a selection)
+- `w` - Speed-read the article (opens `RsvpOverlay`; no-op on an empty body)
+
+While the RSVP overlay is open it owns its own keys (space play/pause, ←/→ skip, ↑/↓ speed, Esc closes); the page handler defers to it.
 
 While the note overlay is open it owns its own keys (Cmd/Ctrl+Enter saves, Esc cancels); the page handler defers to it.
 
@@ -319,6 +325,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
 - `utils/grid.ts` — `resolveGridDirection(dx, dy, vx)` (horizontal commit resolution gated on horizontal-over-vertical dominance — a diagonal release is a scroll, never a commit), `nextPageOffset(articles, savedIds, extraOffset)` (pagination under a shrinking unread window), `dedupeAppend(existing, page)`, `GRID` constants (page size 24, 110px distance threshold, 2.0 dominance ratio, sentinel margin)
 - `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
+- `utils/rsvp.ts` — RSVP speed-reading math: `tokenizeWords`, `orpIndex` (Spritz-style optimal-recognition-point, leading/trailing punctuation aware), `wordDelayMs` (base beat from wpm; sentence ×2.2, clause ×1.5, long-word ×1.3 dwell), `RSVP` constants (wpm 100–800 step 25, default 300)
 
 **The deck-snapshot pattern** (`components/DeckScreen.vue`): the component passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load, explicit sync, and returning from grid mode (all explicit boundaries); the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
 
