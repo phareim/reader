@@ -1,10 +1,10 @@
 import { H3Event } from 'h3'
 
 /**
- * Personal-integration gate. SFL elevate, the highlight→SFL mirror, and
- * read-aloud all ride on Petter's own external accounts (SFL API key,
- * NVIDIA/OpenAI TTS) — other Reader users get the core reading experience
- * but must not write into his knowledge pipeline or spend his TTS quota.
+ * Personal-integration gate. SFL elevate and the highlight→SFL mirror
+ * write into Petter's own knowledge pipeline — other Reader users get the
+ * core reading experience without them. (Read-aloud is deliberately NOT
+ * gated: Petter foots the TTS bill for guests.)
  * NUXT_PERSONAL_EMAILS is a comma-separated allowlist.
  */
 export function isPersonalUser(event: H3Event, user: { email?: string } | null): boolean {

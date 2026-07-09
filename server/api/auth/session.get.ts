@@ -9,8 +9,8 @@ export default defineEventHandler(async (event) => {
     return { user: null }
   }
 
-  // `personal` drives which verbs the UI offers: SFL elevate, the
-  // highlight→SFL mirror, and read-aloud are allowlisted (they run on
-  // Petter's external accounts); everything else is for every user.
+  // `personal` drives which verbs the UI offers: SFL elevate and the
+  // highlight→SFL mirror are allowlisted (they write into Petter's
+  // knowledge pipeline); everything else is for every user.
   return { user: toPublicUser(user), features: { personal: isPersonalUser(event, user) } }
 })

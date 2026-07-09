@@ -18,7 +18,6 @@
       </ActionLabel>
       <div class="flex gap-1.5 sm:gap-2">
         <ActionLabel
-          v-if="personal"
           :aria-label="readAloud === 'idle' ? 'Read aloud' : 'Stop reading aloud'"
           @click="toggleReadAloud"
         >
@@ -526,7 +525,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'h') startHighlight()
   else if (e.key === 'w') openRsvp()
-  else if (e.key === 'l' && personal.value) toggleReadAloud()
+  else if (e.key === 'l') toggleReadAloud()
 }
 
 // Reading progress (0–100), driven by how far the page has scrolled.
