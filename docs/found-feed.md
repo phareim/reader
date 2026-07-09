@@ -95,9 +95,9 @@ port was taken from.)
 
 ### Link flow (OAuth2 PKCE)
 
-- `GET /api/auth/x/start` — session-authed + **personal-gated**
-  (`NUXT_PERSONAL_EMAILS` — every linked account's reads bill the app owner's
-  X account). Stashes verifier+state in a 10-min `x_oauth` cookie and
+- `GET /api/auth/x/start` — session-authed, open to every signed-in user
+  (every linked account's reads bill the app owner's X account — accepted,
+  like the TTS bill). Stashes verifier+state in a 10-min `x_oauth` cookie and
   redirects to X's authorize page (scopes
   `bookmark.read tweet.read users.read offline.access` — app-only Bearer
   **cannot** read bookmarks).
@@ -141,10 +141,11 @@ never blocks other accounts.
 ### Cost
 
 X v2 is pay-per-usage at **$0.005 per post returned**, billed to the app
-owner regardless of which linked account is being read — that's why linking is
-personal-gated. Twice-daily polling of a 25-post first page bounds idle cost to
-≈ $0.25/day per account worst case; you only ever pay for posts actually
-returned.
+owner regardless of which linked account is being read. Linking is open to
+every signed-in user (accepted cost, like TTS); re-gate with `isPersonalUser`
+in `start.get.ts` + `link.get.ts` if guest volume ever hurts. Twice-daily
+polling of a 25-post first page bounds idle cost to ≈ $0.25/day per account
+worst case; you only ever pay for posts actually returned.
 
 ## Bluesky bookmark collector (Sleeper-side)
 

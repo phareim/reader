@@ -1,6 +1,5 @@
 import { setCookie } from 'h3'
 import { getSessionUser } from '~/server/utils/session'
-import { isPersonalUser } from '~/server/utils/personal'
 import { getXOauthConfig, pkceChallenge, randomToken, xRedirectUri, X_SCOPES } from '~/server/utils/xOauth'
 
 /**
@@ -9,17 +8,14 @@ import { getXOauthConfig, pkceChallenge, randomToken, xRedirectUri, X_SCOPES } f
  * lived cookie and redirects to X's authorize page; X sends the user back
  * to /api/auth/x/callback.
  *
- * Gated to NUXT_PERSONAL_EMAILS: every linked account's bookmark reads
- * bill the app owner's X API account (~$0.005/post), so guests don't get
- * the button. Widen the allowlist to open it up.
+ * Open to every signed-in user (like read-aloud): each linked account's
+ * bookmark reads bill the app owner's X API account (~$0.005/post) —
+ * Petter foots the bill for guests.
  */
 export default defineEventHandler(async (event) => {
   const user = await getSessionUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Authentication required' })
-  }
-  if (!isPersonalUser(event, user)) {
-    throw createError({ statusCode: 403, statusMessage: 'X linking is not enabled for this account' })
   }
 
   const { clientId } = getXOauthConfig(event)

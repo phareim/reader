@@ -1,12 +1,11 @@
 import { getSessionUser } from '~/server/utils/session'
-import { isPersonalUser } from '~/server/utils/personal'
 import { getD1 } from '~/server/utils/cloudflare'
 
 /**
  * GET /api/auth/x/link — the Sources page's status probe for the
- * link-your-X-account block. `available` is false for guests (the button
- * is personal-gated — see start.get.ts) and when the OAuth client isn't
- * configured, so the UI can hide the whole section.
+ * link-your-X-account block. `available` is false only while the OAuth
+ * client isn't configured, so the UI can hide the whole section; linking
+ * itself is open to every signed-in user (see start.get.ts).
  */
 export default defineEventHandler(async (event) => {
   const user = await getSessionUser(event)
@@ -15,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig(event)
-  const available = isPersonalUser(event, user) && !!config.xClientId && !!config.xClientSecret
+  const available = !!config.xClientId && !!config.xClientSecret
   if (!available) {
     return { available: false, linked: false }
   }
