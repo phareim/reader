@@ -11,7 +11,8 @@
       <div class="flex-1">
         <MonoLabel>Add a feed</MonoLabel>
         <input
-          v-model="newUrl" type="url" placeholder="https://…"
+          v-model="newUrl" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"
+          placeholder="vg.no or https://…/feed.xml"
           class="w-full border-0 border-b border-rule bg-transparent py-1.5 text-ink outline-none focus:border-accent"
         />
       </div>
@@ -67,15 +68,25 @@
       @close="tagEditorFeed = null"
       @save="saveTags"
     />
+
+    <FeedPickerOverlay
+      v-if="discovered"
+      :feeds="discovered"
+      :added-urls="addedUrls"
+      :busy-url="busyUrl"
+      @add="addDiscovered"
+      @close="closePicker"
+    />
   </main>
 </template>
 
 <script setup lang="ts">
 import type { Feed } from '~/types'
+import type { DiscoveredFeedOption } from '~/composables/useFeeds'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found'])
 
-const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
+const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()
 const { user, signOut } = useAuth()
 const { showSuccess, showError } = useToast()
@@ -85,20 +96,58 @@ const adding = ref(false)
 const syncing = ref(false)
 const tagEditorFeed = ref<Feed | null>(null)
 
+// Feed-picker state for when a site exposes several feeds
+const discovered = ref<DiscoveredFeedOption[] | null>(null)
+const addedUrls = ref<string[]>([])
+const busyUrl = ref<string | null>(null)
+
 onMounted(() => fetchFeeds())
 
 async function add() {
   if (!newUrl.value || adding.value) return
   adding.value = true
   try {
-    const res = await addFeed(newUrl.value)
-    showSuccess(`Added — ${res.articlesAdded} articles`)
-    newUrl.value = ''
+    const res = await smartAddFeed(newUrl.value)
+    if (res.type === 'feed_added') {
+      showSuccess(`Added ${res.feed.title} — ${res.articlesAdded} articles`)
+      newUrl.value = ''
+    } else if (res.type === 'feed_exists') {
+      showError(`Already subscribed to ${res.feed.title}`)
+    } else if (res.type === 'feeds_discovered') {
+      addedUrls.value = []
+      discovered.value = res.feeds
+    } else {
+      showError('No feed found at that URL')
+    }
   } catch (err: any) {
-    showError(err.data?.message || 'Could not add that feed')
+    showError(err.data?.message || 'Could not find a feed at that URL')
   } finally {
     adding.value = false
   }
+}
+
+async function addDiscovered(feed: DiscoveredFeedOption) {
+  if (busyUrl.value) return
+  busyUrl.value = feed.url
+  try {
+    const res = await addFeed(feed.url)
+    addedUrls.value = [...addedUrls.value, feed.url]
+    showSuccess(`Added — ${res.articlesAdded} articles`)
+  } catch (err: any) {
+    if (err.statusCode === 409 || err.status === 409) {
+      addedUrls.value = [...addedUrls.value, feed.url]
+      showError('Already subscribed to that feed')
+    } else {
+      showError(err.data?.message || 'Could not add that feed')
+    }
+  } finally {
+    busyUrl.value = null
+  }
+}
+
+function closePicker() {
+  if (addedUrls.value.length) newUrl.value = ''
+  discovered.value = null
 }
 
 async function markRead(feedId: number) {

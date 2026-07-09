@@ -1,23 +1,36 @@
 /**
  * POST /api/feeds/add-smart
  * Smart endpoint that detects URL type and handles accordingly:
- * 1. Direct RSS/Atom feed -> Add feed
- * 2. Website with discoverable feeds -> Return feed options
- * 3. Article page -> Return article metadata for manual addition
- * 4. Unknown -> Return suggestions
+ * 1. Direct RSS/Atom feed -> Add feed (`feed_added` / `feed_exists`)
+ * 2. Website with exactly one discoverable feed -> Add it (`feed_added` / `feed_exists`)
+ * 3. Website with several feeds -> Return options (`feeds_discovered`)
+ * 4. Article page -> Return metadata for manual addition (`article_detected`)
+ * 5. Unknown -> Return suggestions (`unknown`)
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
-import { getD1 } from '~/server/utils/cloudflare'
-import { parseFeed } from '~/server/utils/feedParser'
+import { addFeedForUser } from '~/server/utils/addFeed'
 import { discoverFeeds } from '~/server/utils/feedDiscovery'
 import { extractArticleMetadata } from '~/server/utils/articleExtractor'
-import { insertArticleWithContent } from '~/server/utils/article-store'
-import { lastRowId } from '~/server/utils/d1Result'
+
+function feedResponse(result: Awaited<ReturnType<typeof addFeedForUser>>) {
+  if (result.existing) {
+    return {
+      type: 'feed_exists' as const,
+      message: 'This feed is already in your subscription list',
+      feed: result.feed
+    }
+  }
+  return {
+    type: 'feed_added' as const,
+    message: `Feed added successfully with ${result.articlesAdded} articles`,
+    feed: result.feed,
+    articlesAdded: result.articlesAdded
+  }
+}
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
-  const db = getD1(event)
 
   const body = await readBody(event)
   const { url } = body
@@ -30,247 +43,60 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Normalize URL
+  // Normalize URL — a bare domain ("vg.no") becomes https://vg.no
   const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
 
   try {
     // ====================================
-    // STEP 1: Try parsing as direct feed
+    // STEP 1: Try the URL as a direct feed
     // ====================================
     try {
-      const parsedFeed = await parseFeed(normalizedUrl)
-
-      const existingFeed = await db.prepare(
-        'SELECT id, title, url FROM "Feed" WHERE user_id = ? AND url = ?'
-      ).bind(user.id, normalizedUrl).first()
-
-      if (existingFeed) {
-        return {
-          type: 'feed_exists',
-          message: 'This feed is already in your subscription list',
-          feed: {
-            id: existingFeed.id,
-            title: existingFeed.title,
-            url: existingFeed.url
-          }
-        }
-      }
-
-      const insertFeed = await db.prepare(
-        `
-        INSERT INTO "Feed" (
-          user_id,
-          url,
-          title,
-          description,
-          site_url,
-          favicon_url,
-          last_fetched_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `
-      ).bind(
-        user.id,
-        normalizedUrl,
-        parsedFeed.title,
-        parsedFeed.description || null,
-        parsedFeed.siteUrl || null,
-        parsedFeed.faviconUrl || null,
-        new Date().toISOString()
-      ).run()
-
-      const feedId = lastRowId(insertFeed)
-      if (!feedId) {
-        throw new Error('Failed to create feed')
-      }
-
-      const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 50
-      const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
-      let articlesAdded = 0
-      for (const item of articlesToAdd) {
-        const result = await insertArticleWithContent(event, Number(feedId), {
-          guid: item.guid,
-          title: item.title,
-          url: item.url,
-          author: item.author,
-          content: item.content,
-          summary: item.summary,
-          imageUrl: item.imageUrl,
-          publishedAt: item.publishedAt
-        })
-        if (result.inserted) {
-          articlesAdded += 1
-        }
-      }
-
-      return {
-        type: 'feed_added',
-        message: `Feed added successfully with ${articlesAdded} articles`,
-        feed: {
-          id: feedId,
-          title: parsedFeed.title,
-          url: normalizedUrl,
-          siteUrl: parsedFeed.siteUrl,
-          faviconUrl: parsedFeed.faviconUrl
-        },
-        articlesAdded
-      }
-    } catch (feedError: any) {
-      // Not a direct feed, continue to step 2
-      console.log('Not a direct feed, trying discovery...', feedError.message)
+      return feedResponse(await addFeedForUser(event, user.id, normalizedUrl))
+    } catch {
+      // Not a direct feed — fall through to discovery
     }
 
     // ====================================
-    // STEP 2: Fetch URL and analyze
+    // STEP 2: Discover feeds on the page
+    // ====================================
+    const discoveredFeeds = await discoverFeeds(normalizedUrl)
+
+    if (discoveredFeeds.length === 1) {
+      // One feed — no choice to present, just subscribe
+      return feedResponse(await addFeedForUser(event, user.id, discoveredFeeds[0].url))
+    }
+
+    if (discoveredFeeds.length > 1) {
+      return {
+        type: 'feeds_discovered' as const,
+        message: `Found ${discoveredFeeds.length} feeds`,
+        feeds: discoveredFeeds.map(f => ({
+          url: f.url,
+          title: f.title,
+          type: f.type
+        }))
+      }
+    }
+
+    // ====================================
+    // STEP 3: No feeds — is it an article?
     // ====================================
     const timeout = Number(process.env.FETCH_TIMEOUT) || 30000
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-    let response
-    try {
-      response = await fetch(normalizedUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader/1.0)',
-          'Accept': 'text/html,application/xhtml+xml,application/xml,application/rss+xml,application/atom+xml'
-        }
-      })
-      clearTimeout(timeoutId)
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId)
-      throw createError({
-        statusCode: 500,
-        statusMessage: 'Failed to fetch URL',
-        message: `Could not fetch URL: ${fetchError.message}`
-      })
-    }
-
-    if (!response.ok) {
-      throw createError({
-        statusCode: response.status,
-        statusMessage: 'Failed to fetch URL',
-        message: `HTTP ${response.status}: ${response.statusText}`
-      })
-    }
-
-    const contentType = response.headers.get('content-type') || ''
-
-    // Check if response is a feed by content-type
-    if (contentType.includes('rss') || contentType.includes('atom') || contentType.includes('xml')) {
-      try {
-        const parsedFeed = await parseFeed(normalizedUrl)
-
-        const existingFeed = await db.prepare(
-          'SELECT id, title, url FROM "Feed" WHERE user_id = ? AND url = ?'
-        ).bind(user.id, normalizedUrl).first()
-
-        if (existingFeed) {
-          return {
-            type: 'feed_exists',
-            message: 'This feed is already in your subscription list',
-            feed: {
-              id: existingFeed.id,
-              title: existingFeed.title,
-              url: existingFeed.url
-            }
-          }
-        }
-
-        const insertFeed = await db.prepare(
-          `
-          INSERT INTO "Feed" (
-            user_id,
-            url,
-            title,
-            description,
-            site_url,
-            favicon_url,
-            last_fetched_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `
-        ).bind(
-          user.id,
-          normalizedUrl,
-          parsedFeed.title,
-          parsedFeed.description || null,
-          parsedFeed.siteUrl || null,
-          parsedFeed.faviconUrl || null,
-          new Date().toISOString()
-        ).run()
-
-        const feedId = lastRowId(insertFeed)
-        if (!feedId) {
-          throw new Error('Failed to create feed')
-        }
-
-        const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 100
-        const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
-        let articlesAdded = 0
-        for (const item of articlesToAdd) {
-          const result = await insertArticleWithContent(event, Number(feedId), {
-            guid: item.guid,
-            title: item.title,
-            url: item.url,
-            author: item.author,
-            content: item.content,
-            summary: item.summary,
-            imageUrl: item.imageUrl,
-            publishedAt: item.publishedAt
-          })
-          if (result.inserted) {
-            articlesAdded += 1
-          }
-        }
-
-        return {
-          type: 'feed_added',
-          message: `Feed added successfully with ${articlesAdded} articles`,
-          feed: {
-            id: feedId,
-            title: parsedFeed.title,
-            url: normalizedUrl,
-            siteUrl: parsedFeed.siteUrl,
-            faviconUrl: parsedFeed.faviconUrl
-          },
-          articlesAdded
-        }
-      } catch (error) {
-        // Failed to parse as feed, continue
-        console.log('Failed to parse XML as feed, continuing...', error)
+    const response = await fetch(normalizedUrl, {
+      signal: AbortSignal.timeout(timeout),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader/1.0)',
+        'Accept': 'text/html,application/xhtml+xml'
       }
-    }
+    })
 
-    // ====================================
-    // STEP 3: It's HTML - discover or extract
-    // ====================================
-    if (contentType.includes('html')) {
+    if (response.ok && (response.headers.get('content-type') || '').includes('html')) {
       const html = await response.text()
-
-      // Try discovering feeds from HTML
-      try {
-        const discoveredFeeds = await discoverFeeds(normalizedUrl)
-
-        if (discoveredFeeds.length > 0) {
-          return {
-            type: 'feeds_discovered',
-            message: `Found ${discoveredFeeds.length} feed${discoveredFeeds.length > 1 ? 's' : ''}`,
-            feeds: discoveredFeeds.map(f => ({
-              url: f.url,
-              title: f.title,
-              type: f.type
-            }))
-          }
-        }
-      } catch (error) {
-        console.log('Feed discovery failed, trying article extraction...', error)
-      }
-
-      // No feeds found - try extracting article metadata
       const articleMeta = extractArticleMetadata(html, normalizedUrl)
 
       if (articleMeta.isArticle) {
         return {
-          type: 'article_detected',
+          type: 'article_detected' as const,
           message: 'This appears to be an article. Would you like to save it?',
           article: {
             title: articleMeta.title,
@@ -284,9 +110,8 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // Neither feed nor clear article
       return {
-        type: 'unknown',
+        type: 'unknown' as const,
         message: 'No feeds found on this page. You can save it as a manual article if you like.',
         suggestion: {
           title: articleMeta.title || 'Untitled',
@@ -295,13 +120,11 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Unsupported content type
     throw createError({
-      statusCode: 400,
-      statusMessage: 'Unsupported content type',
-      message: `Cannot handle content type: ${contentType}`
+      statusCode: 404,
+      statusMessage: 'No feeds found',
+      message: 'Could not find an RSS or Atom feed at this URL'
     })
-
   } catch (error: any) {
     // If it's already a createError, rethrow it
     if (error.statusCode) {

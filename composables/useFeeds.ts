@@ -1,5 +1,18 @@
 import type { Feed } from '~/types'
 
+export interface DiscoveredFeedOption {
+  url: string
+  title: string
+  type: 'rss' | 'atom'
+}
+
+export type SmartAddResult =
+  | { type: 'feed_added'; message: string; feed: { id: number; title: string; url: string }; articlesAdded: number }
+  | { type: 'feed_exists'; message: string; feed: { id: number; title: string; url: string } }
+  | { type: 'feeds_discovered'; message: string; feeds: DiscoveredFeedOption[] }
+  | { type: 'article_detected'; message: string; article: { title: string; url: string } }
+  | { type: 'unknown'; message: string; suggestion: { title: string; url: string } }
+
 export const useFeeds = () => {
   const feeds = useState<Feed[]>('feeds', () => [])
   const selectedFeedId = useState<number | null>('selectedFeedId', () => null)
@@ -88,6 +101,33 @@ export const useFeeds = () => {
 
       // Refresh feeds to get updated unread counts
       await fetchFeeds()
+
+      return response
+    } catch (err: any) {
+      error.value = err.data?.message || err.message || 'Failed to add feed'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Best-effort add: accepts a bare site URL ("vg.no"), discovers its feeds,
+  // subscribes directly when the answer is unambiguous, and returns the
+  // options list when the site exposes several feeds.
+  const smartAddFeed = async (url: string): Promise<SmartAddResult> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await $fetch<SmartAddResult>('/api/feeds/add-smart', {
+        method: 'POST',
+        body: { url }
+      })
+
+      if (response.type === 'feed_added') {
+        // Refresh feeds to get updated unread counts
+        await fetchFeeds()
+      }
 
       return response
     } catch (err: any) {
@@ -205,6 +245,7 @@ export const useFeeds = () => {
     error: readonly(error),
     fetchFeeds,
     addFeed,
+    smartAddFeed,
     deleteFeed,
     refreshFeed,
     syncAll,

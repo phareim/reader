@@ -4,38 +4,78 @@ interface DiscoveredFeed {
   type: 'rss' | 'atom'
 }
 
+/** Decode the HTML entities that show up in href/title attributes. */
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  nbsp: ' ', raquo: '»', laquo: '«',
+  mdash: '—', ndash: '–', hellip: '…'
+}
+
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z]+);/gi, (m, name) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
+}
+
+const FEED_CONTENT_TYPE = /(application|text)\/(rss|atom|xml)|xml/i
+
+/**
+ * Probe a candidate feed URL: HEAD first (cheap), falling back to GET when the
+ * server rejects HEAD (405/403/501 are common). Returns true when the response
+ * looks like a feed by content type.
+ */
+async function probeFeedUrl(url: string): Promise<boolean> {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader/1.0)' }
+  for (const method of ['HEAD', 'GET'] as const) {
+    try {
+      const response = await fetch(url, { method, headers, signal: AbortSignal.timeout(5000) })
+      if (method === 'GET') {
+        // We only need the headers — don't download the body
+        await response.body?.cancel()
+      }
+      if (!response.ok) {
+        if (method === 'HEAD') continue // some servers reject HEAD; retry as GET
+        return false
+      }
+      return FEED_CONTENT_TYPE.test(response.headers.get('content-type') || '')
+    } catch {
+      if (method === 'GET') return false
+    }
+  }
+  return false
+}
+
 /**
  * Discovers RSS/Atom feeds from a given URL
  * 1. Fetches the page HTML
- * 2. Parses <link> tags for feed URLs
- * 3. Falls back to common feed URL patterns
+ * 2. Parses <link rel="alternate"> tags for feed URLs
+ * 3. Falls back to probing common feed URL patterns
  */
 export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
   const feeds: DiscoveredFeed[] = []
+  const seen = new Set<string>()
 
   try {
     // Normalize URL
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
-    const parsedUrl = new URL(normalizedUrl)
 
     // Fetch the page HTML
     const timeout = Number(process.env.FETCH_TIMEOUT) || 30000
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
-
     const response = await fetch(normalizedUrl, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(timeout),
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader/1.0)',
         'Accept': 'text/html,application/xhtml+xml'
       }
     })
-    clearTimeout(timeoutId)
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
+    // Resolve relative hrefs against where we actually landed (redirects)
+    const pageUrl = response.url || normalizedUrl
     const html = await response.text()
 
     // Parse HTML for feed links
@@ -50,25 +90,22 @@ export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
       if (!isRss && !isAtom) continue
 
       // Extract href
-      const hrefMatch = match.match(/href=["']([^"']+)["']/)
+      const hrefMatch = match.match(/href=["']([^"']+)["']/i)
       if (!hrefMatch) continue
 
-      let feedUrl = hrefMatch[1]
-
-      // Make URL absolute if relative
-      if (!feedUrl.startsWith('http')) {
-        if (feedUrl.startsWith('//')) {
-          feedUrl = parsedUrl.protocol + feedUrl
-        } else if (feedUrl.startsWith('/')) {
-          feedUrl = `${parsedUrl.protocol}//${parsedUrl.host}${feedUrl}`
-        } else {
-          feedUrl = `${parsedUrl.protocol}//${parsedUrl.host}/${feedUrl}`
-        }
+      let feedUrl: string
+      try {
+        feedUrl = new URL(decodeEntities(hrefMatch[1]), pageUrl).toString()
+      } catch {
+        continue
       }
 
+      if (seen.has(feedUrl)) continue
+      seen.add(feedUrl)
+
       // Extract title
-      const titleMatch = match.match(/title=["']([^"']+)["']/)
-      const title = titleMatch ? titleMatch[1] : (isRss ? 'RSS Feed' : 'Atom Feed')
+      const titleMatch = match.match(/title=["']([^"']+)["']/i)
+      const title = titleMatch ? decodeEntities(titleMatch[1]) : (isRss ? 'RSS Feed' : 'Atom Feed')
 
       feeds.push({
         url: feedUrl,
@@ -79,7 +116,8 @@ export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
 
     // If no feeds found in HTML, try common patterns
     if (feeds.length === 0) {
-      const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`
+      const base = new URL(pageUrl)
+      const baseUrl = `${base.protocol}//${base.host}`
       const commonPatterns = [
         '/feed/',
         '/rss/',
@@ -87,32 +125,24 @@ export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
         '/feed.xml',
         '/rss.xml',
         '/atom.xml',
+        '/index.xml', // Hugo
         '/feeds/posts/default', // Blogger
         '/blog/feed/',
         '/news/feed/'
       ]
 
+      // The patterns are all guesses at the same main feed (and often
+      // redirect to each other), so the first hit is enough — pushing every
+      // working alias would present the user with a list of duplicates.
       for (const pattern of commonPatterns) {
         const testUrl = baseUrl + pattern
-        try {
-          const testResponse = await fetch(testUrl, {
-            method: 'HEAD',
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader/1.0)' },
-            signal: AbortSignal.timeout(5000)
+        if (await probeFeedUrl(testUrl)) {
+          feeds.push({
+            url: testUrl,
+            title: `Feed (${pattern})`,
+            type: pattern.includes('atom') ? 'atom' : 'rss'
           })
-
-          if (testResponse.ok) {
-            const contentType = testResponse.headers.get('content-type') || ''
-            if (contentType.includes('xml') || contentType.includes('rss') || contentType.includes('atom')) {
-              feeds.push({
-                url: testUrl,
-                title: `Feed (${pattern})`,
-                type: pattern.includes('atom') ? 'atom' : 'rss'
-              })
-            }
-          }
-        } catch {
-          // Ignore errors for pattern checking
+          break
         }
       }
     }
