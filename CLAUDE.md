@@ -44,6 +44,7 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
 - `__tests__/components/RsvpOverlay.test.ts` — ORP split rendering, play/pause + done→restart (fake timers), wpm keys with clamping + localStorage persistence, word skips, Esc/Close emits
 - `__tests__/utils/rsvp.test.ts` — `tokenizeWords`, `orpIndex` (length convention, punctuation skipping), `wordDelayMs` (sentence/clause/long-word dwell)
+- `__tests__/utils/tts.test.ts` — `chunkTextForTts` (sentence-boundary packing, whitespace normalization, over-long sentence/word hard-splits, no-word-loss round-trip)
 - `__tests__/utils/hashtags.test.ts` — `extractHashtags` (dedupe, unicode, punctuation/url boundaries), `renderNoteHtml` (escape + accent-span wrap)
 - `__tests__/utils/highlightDom.test.ts` — `paintHighlight` (exact + indexOf fallback, cross-element spans), `unpaint`/`clearHighlights` round-trips
 - `__tests__/utils/truncation.test.ts` — `looksTruncated` (Ars "Read full article" footer, "Continue reading", `[…]` brackets, canonical-URL anchor; negatives for full bodies + inline read-more links)
@@ -186,6 +187,9 @@ Routes follow REST conventions:
 **Sync**:
 - `POST /api/sync` - Sync all active feeds for the user
 
+**Read aloud** (see "Read aloud (TTS)"):
+- `POST /api/tts` - Synthesize speech for one text chunk `{ text ≤3000 chars }` → `audio/wav`. Session/MCP-authed proxy to the `reader-tts` service on Sleeper; 503 when `NUXT_TTS_API_URL`/`NUXT_TTS_API_KEY` are unset (fails soft, mirrors SFL)
+
 **Ingest** (the "Found" feed — see "Found feed (social bookmarks)"):
 - `POST /api/ingest` - Generic, source-agnostic seam. MCP-authed. Body `{ source, externalId, url, title, author?, content?, summary?, imageUrl?, publishedAt? }` → resolves/creates the user's `kind='found'` feed and inserts an unread article (guid = `${source}:${externalId}`, idempotent). Does **not** save or mark read.
 
@@ -226,6 +230,15 @@ The yellow-pen verb saves a *specific passage* (not the whole article) to SFL as
 - **Server client** (`server/utils/sfl.ts`, alongside the elevate helpers): `createQuoteIdea` posts `{ type:'quote', title:<quote≤120>, summary:note, data:{ text, note, source_url, source_title } }` with **no `url`** (quote dedup is url-scoped; we want many quotes per article). `findOrCreateTag` (GET `/api/tags` match-by-title, else POST a `type:'tag'` idea) + `tagIdea` (POST `/api/connections` `label:'tagged_with'`, swallows the 400 "already exists") mirror the canonical `~/sfl-hook` convention. Both are **best-effort** — a tag failure never fails the highlight.
 - **Route contract**: `POST /api/articles/:id/highlights` creates the quote idea, promotes hashtags to tags, then inserts the local `Highlight` row. **Fails soft**: if `getSflConfig` 503s (SFL unconfigured) the mark is still stored locally with `sfl_idea_id = NULL`; any *other* SFL error (network/timeout) is surfaced. `DELETE /api/highlights/:id` (id in path — no DELETE body, per the Workers entry) deletes the local row and the SFL idea when one exists.
 - **Client semantics**: **non-optimistic** — the page awaits the server id before painting the mark (`saveHighlight` in `pages/article/[id].vue`). Independent of the shelf and does **not** mark the article read.
+
+### Read aloud (TTS)
+
+The "Listen" button at the top of the reader (`pages/article/[id].vue`, key `l`) speaks the article with NVIDIA's hosted **Magpie TTS Multilingual** voice.
+
+- **Chain**: browser → `POST /api/tts` (Worker, session/MCP auth) → `reader-tts` on Sleeper (Bearer `NUXT_TTS_API_KEY`) → NVIDIA gRPC (`grpc.nvcf.nvidia.com:443`, free-tier NIM) → `audio/wav` back down. The Worker can't speak gRPC, hence the Sleeper hop.
+- **`reader-tts` service** (`tts/` in this repo, Sleeper-only like the collectors): Python/Flask + `nvidia-riva-client`, PM2 name `reader-tts`, port 3015, proxied at `sleeper.phareim.no/reader-tts/`. Env at `~/.config/reader-tts/env` (`NVIDIA_API_KEY`, `READER_TTS_KEY`, loaded with override semantics). `GET /health` is open; `POST /synthesize` needs the Bearer. See `tts/README.md`.
+- **Client semantics**: the body is spoken in sentence-boundary chunks (`chunkTextForTts`, ≤1100 chars) — chunk 0 plays as soon as it lands while chunk 1 prefetches, so time-to-first-word stays a second or two. One reused `<audio>` element keeps iOS's gesture unlock valid across chunks; a `ttsToken` counter invalidates the in-flight session on stop/unmount so a stale `onended` can't restart playback. The button cycles Listen → Voice… → Stop; failures toast and reset ("Could not reach the reading voice").
+- **Config**: `NUXT_TTS_API_URL` (wrangler `[vars]`, `https://sleeper.phareim.no/reader-tts`) + `NUXT_TTS_API_KEY` (Worker secret = `READER_TTS_KEY` on Sleeper). Unset ⇒ `/api/tts` 503s and the button fails soft; everything else works.
 
 ### Feed-candidate report (Sleeper only)
 
@@ -281,6 +294,7 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `v` - Open the original in a new tab
 - `h` - Highlight the current selection (opens the note overlay; no-op without a selection)
 - `w` - Speed-read the article (opens `RsvpOverlay`; no-op on an empty body)
+- `l` - Listen: read the article aloud (toggles — a second press stops; no-op on an empty body)
 
 While the RSVP overlay is open it owns its own keys (space play/pause, ←/→ skip, ↑/↓ speed, Esc closes); the page handler defers to it.
 
@@ -326,6 +340,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 - `utils/grid.ts` — `resolveGridDirection(dx, dy, vx)` (horizontal commit resolution gated on horizontal-over-vertical dominance — a diagonal release is a scroll, never a commit), `nextPageOffset(articles, savedIds, extraOffset)` (pagination under a shrinking unread window), `dedupeAppend(existing, page)`, `GRID` constants (page size 24, 110px distance threshold, 2.0 dominance ratio, sentinel margin)
 - `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
 - `utils/rsvp.ts` — RSVP speed-reading math: `tokenizeWords`, `orpIndex` (Spritz-style optimal-recognition-point, leading/trailing punctuation aware), `wordDelayMs` (base beat from wpm; sentence ×2.2, clause ×1.5, long-word ×1.3 dwell), `RSVP` constants (wpm 100–800 step 25, default 300)
+- `utils/tts.ts` — read-aloud chunking: `chunkTextForTts` (sentence-boundary chunks ≤ `TTS.MAX_CHUNK_CHARS` = 1100; over-long sentences hard-split on word boundaries, mid-word only for unbreakable tokens like URLs), `TTS` constants
 
 **The deck-snapshot pattern** (`components/DeckScreen.vue`): the component passes CardStack a **snapshot** (`deckArticles = [...unreadArticles.value]`), deliberately not the live computed — `markAsRead` optimistically flips `isRead`, which would shrink a computed deck on every right-swipe, retrigger CardStack's refill watcher, and wipe the deck + undo history mid-session. The deck refills only on load, explicit sync, and returning from grid mode (all explicit boundaries); the header's unread count stays live via CardStack's `@count` emit. Anything needing the *current* top card must ask CardStack (e.g. `openTop()`), not the snapshot.
 
@@ -350,6 +365,10 @@ MAX_ARTICLES_PER_FEED=200
 # SFL elevate (swipe-up). Fails soft (503 + toast) if unset.
 NUXT_SFL_API_URL="https://sfl-api.aiwdm.workers.dev"
 NUXT_SFL_API_KEY="..."
+
+# Read aloud (the "Listen" button). Fails soft (503 + toast) if unset.
+NUXT_TTS_API_URL="https://sleeper.phareim.no/reader-tts"
+NUXT_TTS_API_KEY="..."
 ```
 
 In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY` is a Worker secret (`wrangler secret put NUXT_SFL_API_KEY`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
@@ -358,7 +377,7 @@ In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_
 
 Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `008-read-progress.sql` (adds `Article.read_progress` for the keep-my-place reading position; applied to remote 2026-07-02).
 
-One Workers **secret** must exist for the elevate feature: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key; `NUXT_SFL_API_URL` ships in `wrangler.toml` `[vars]`). Without it, elevate returns 503 and everything else works.
+Two Workers **secrets** must exist: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key, for elevate) and `npx wrangler secret put NUXT_TTS_API_KEY` (the `READER_TTS_KEY` from `~/.config/reader-tts/env` on Sleeper, for read-aloud). The matching URLs (`NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`) ship in `wrangler.toml` `[vars]`. Without a secret, that feature returns 503 and everything else works.
 
 **PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`): `registerType: 'prompt'` — a new SW waits until the user taps Reload in `PwaUpdatePrompt.vue` (which is built for prompt mode), so a deploy never yanks the running build's chunks out of the precache mid-session. The precached app shell `'/'` is stamped with a **per-build revision** (`buildRevision` at the top of `nuxt.config.ts`); never set it back to `revision: null` — Workbox then pins the first-ever cached shell forever while each deploy purges the hashed `_nuxt/*` chunks it references, and the app boots a shell pointing at 404'd JS and goes dead (bit us 2026-07-02, felt like "the app is unresponsive"). Workbox tests `runtimeCaching` regexes against the **full URL**, so path-anchored `/^\/api\/…/` patterns silently never match — the API routes use `({ url }) => url.pathname.startsWith(…)` functions instead (NetworkFirst, 5s network timeout, for offline reads). Recovery for a device stuck on a dead shell: open the app once so the fixed SW installs in the background, force-quit, reopen (worst case: Safari → Settings → clear website data for the domain and re-add the PWA).
 

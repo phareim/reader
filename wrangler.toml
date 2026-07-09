@@ -22,4 +22,5 @@ bucket_name = "reader-articles"
 
 [vars]
 NUXT_SFL_API_URL = "https://sfl-api.aiwdm.workers.dev"
+NUXT_TTS_API_URL = "https://sleeper.phareim.no/reader-tts"
 

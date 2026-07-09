@@ -17,6 +17,16 @@
         Back
       </ActionLabel>
       <div class="flex gap-1.5 sm:gap-2">
+        <ActionLabel
+          :aria-label="readAloud === 'idle' ? 'Read aloud' : 'Stop reading aloud'"
+          @click="toggleReadAloud"
+        >
+          <template #icon>
+            <svg v-if="readAloud === 'playing'" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" /></svg>
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
+          </template>
+          {{ readAloud === 'idle' ? 'Listen' : readAloud === 'loading' ? 'Voice…' : 'Stop' }}
+        </ActionLabel>
         <ActionLabel aria-label="Speed read" @click="openRsvp">
           <template #icon>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h9" /><path d="M3 12h6" /><path d="M3 18h9" /><path d="M15 8.5l6 3.5-6 3.5z" /></svg>
@@ -140,6 +150,7 @@ import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights } from '~
 import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/utils/readingPosition'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import { tokenizeWords } from '~/utils/rsvp'
+import { chunkTextForTts } from '~/utils/tts'
 import type { Highlight } from '~/composables/useHighlights'
 
 const route = useRoute()
@@ -285,6 +296,72 @@ const rsvpWords = computed(() => tokenizeWords(stripHtml(sanitizedContent.value)
 function openRsvp() {
   if (!rsvpWords.value.length) return
   rsvpOpen.value = true
+}
+
+// ── Read aloud ──────────────────────────────────────────────────────────────
+// The body is spoken in sentence-boundary chunks via `POST /api/tts` (NVIDIA
+// Magpie on Sleeper): chunk 0 plays as soon as it lands while chunk 1 warms
+// in the background. One reused <audio> element keeps iOS's gesture unlock
+// valid across chunk transitions. `ttsToken` invalidates the whole in-flight
+// session on stop/unmount so a stale onended can't restart playback.
+const readAloud = ref<'idle' | 'loading' | 'playing'>('idle')
+let ttsAudio: HTMLAudioElement | null = null
+let ttsChunks: string[] = []
+let ttsFetches: (Promise<Blob> | null)[] = []
+let ttsToken = 0
+
+function ttsFetch(i: number): Promise<Blob> {
+  if (!ttsFetches[i]) {
+    ttsFetches[i] = $fetch<Blob>('/api/tts', {
+      method: 'POST',
+      body: { text: ttsChunks[i] },
+      responseType: 'blob',
+    })
+  }
+  return ttsFetches[i]!
+}
+
+async function playTtsChunk(i: number, token: number) {
+  const blob = await ttsFetch(i)
+  if (token !== ttsToken) return
+  if (i + 1 < ttsChunks.length) ttsFetch(i + 1).catch(() => {})
+  const url = URL.createObjectURL(blob)
+  if (!ttsAudio) ttsAudio = new Audio()
+  ttsAudio.src = url
+  ttsAudio.onended = () => {
+    URL.revokeObjectURL(url)
+    if (token !== ttsToken) return
+    if (i + 1 < ttsChunks.length) {
+      playTtsChunk(i + 1, token).catch(() => {
+        if (token === ttsToken) { stopReadAloud(); showError('The reading voice dropped out') }
+      })
+    } else {
+      stopReadAloud()
+    }
+  }
+  await ttsAudio.play()
+  if (token === ttsToken) readAloud.value = 'playing'
+}
+
+async function toggleReadAloud() {
+  if (readAloud.value !== 'idle') { stopReadAloud(); return }
+  const chunks = chunkTextForTts(stripHtml(sanitizedContent.value))
+  if (!chunks.length) return
+  const token = ++ttsToken
+  ttsChunks = chunks
+  ttsFetches = chunks.map(() => null)
+  readAloud.value = 'loading'
+  try {
+    await playTtsChunk(0, token)
+  } catch {
+    if (token === ttsToken) { stopReadAloud(); showError('Could not reach the reading voice') }
+  }
+}
+
+function stopReadAloud() {
+  ttsToken++
+  if (ttsAudio) { ttsAudio.pause(); ttsAudio.removeAttribute('src') }
+  readAloud.value = 'idle'
 }
 
 // The body can re-render once (thin-RSS full-text upgrade); re-anchor after.
@@ -447,6 +524,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'h') startHighlight()
   else if (e.key === 'w') openRsvp()
+  else if (e.key === 'l') toggleReadAloud()
 }
 
 // Reading progress (0–100), driven by how far the page has scrolled.
@@ -488,5 +566,6 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateProgress)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   persistProgress()
+  stopReadAloud()
 })
 </script>
