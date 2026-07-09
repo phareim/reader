@@ -18,6 +18,7 @@
       </ActionLabel>
       <div class="flex gap-1.5 sm:gap-2">
         <ActionLabel
+          v-if="personal"
           :aria-label="readAloud === 'idle' ? 'Read aloud' : 'Stop reading aloud'"
           @click="toggleReadAloud"
         >
@@ -39,7 +40,7 @@
           </template>
           {{ saved ? 'Saved' : 'Save' }}
         </ActionLabel>
-        <ActionLabel aria-label="Elevate" :disabled="elevating" @click="elevateAction">
+        <ActionLabel v-if="personal" aria-label="Elevate" :disabled="elevating" @click="elevateAction">
           <template #icon>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5" /><path d="M6 11l6-6 6 6" /></svg>
           </template>
@@ -159,6 +160,7 @@ const id = Number(route.params.id)
 
 const { isSaved, saveArticle, unsaveArticle, fetchSavedArticleIds } = useSavedArticles()
 const { elevate } = useElevate()
+const { personal } = useAuth()
 const { markAsRead } = useArticles()
 const { fetchHighlights, createHighlight, deleteHighlight } = useHighlights()
 const { showSuccess, showError } = useToast()
@@ -470,7 +472,7 @@ async function toggleSaveAction() {
 }
 
 async function elevateAction() {
-  if (elevating.value) return
+  if (!personal.value || elevating.value) return
   elevating.value = true
   try {
     await elevate(id)
@@ -524,7 +526,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'h') startHighlight()
   else if (e.key === 'w') openRsvp()
-  else if (e.key === 'l') toggleReadAloud()
+  else if (e.key === 'l' && personal.value) toggleReadAloud()
 }
 
 // Reading progress (0–100), driven by how far the page has scrolled.

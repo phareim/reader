@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { getSflConfig, createPageIdea, deleteIdea } from '~/server/utils/sfl'
+import { isPersonalUser } from '~/server/utils/personal'
 
 /**
  * Elevate an article into the SFL knowledge pipeline: create a page idea in
@@ -10,6 +11,11 @@ import { getSflConfig, createPageIdea, deleteIdea } from '~/server/utils/sfl'
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  if (!isPersonalUser(event, user)) {
+    // SFL is Petter's personal knowledge pipeline — other accounts must not
+    // write into it. The UI hides the verb; this is the backstop.
+    throw createError({ statusCode: 403, statusMessage: 'Elevate is not available on this account' })
+  }
 
   const articleId = parseInt(getRouterParam(event, 'id') || '')
   if (isNaN(articleId)) {

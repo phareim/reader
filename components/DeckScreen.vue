@@ -36,6 +36,8 @@
             ref="stack"
             :articles="deckArticles"
             :syncing="syncing"
+            :can-elevate="personal"
+            :no-feeds="!props.tag && !props.feedId && feedsLoaded && feeds.length === 0"
             @sync="syncAll"
             @count="unreadCount = $event"
           />
@@ -68,8 +70,9 @@ const emit = defineEmits<{ notFound: [] }>()
 
 const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore } = useArticles()
 const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
-const { syncAll: syncFeeds } = useFeeds()
+const { syncAll: syncFeeds, feeds, fetchFeeds } = useFeeds()
 const { viewMode, setViewMode } = useViewMode()
+const { personal } = useAuth()
 const { showSuccess, showError } = useToast()
 
 const stack = ref()
@@ -85,6 +88,7 @@ const helpOpen = ref(false)
 const deckArticles = ref<Article[]>([])
 const unreadCount = ref(0) // kept live by CardStack's @count emit
 const loaded = ref(false) // gate CardStack so its empty state never flashes pre-fetch
+const feedsLoaded = ref(false) // gate the zero-feeds empty state the same way
 
 // The grid, by contrast, binds the LIVE list: a card marked read or saved
 // SHOULD leave a survey view, and undo re-inserts it automatically. Saved
@@ -127,6 +131,9 @@ onMounted(async () => {
   } finally {
     if (!is404) loaded.value = true
   }
+  // Best-effort, after the deck: only needed to tell "no sources yet"
+  // apart from "all caught up" in the empty state.
+  fetchFeeds().catch(() => {}).finally(() => { feedsLoaded.value = true })
 })
 
 async function syncAll() {

@@ -20,13 +20,22 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { feeds } = useFeeds()
 
-const rooms = [
+// Found is a push-only feed populated by Petter's collectors — an account
+// without a kind='found' feed would only ever see an empty room, so the
+// tab appears only when the feed exists (or while standing in the room,
+// so the bar never yanks the active tab away mid-visit).
+const hasFoundFeed = computed(
+  () => feeds.value.some((f: any) => f.kind === 'found') || route.name === 'found'
+)
+
+const rooms = computed(() => [
   { path: '/', label: 'Deck' },
-  { path: '/found', label: 'Found' },
+  ...(hasFoundFeed.value ? [{ path: '/found', label: 'Found' }] : []),
   { path: '/shelf', label: 'Shelf' },
   { path: '/sources', label: 'Sources' },
-]
+])
 
 const visible = computed(() => route.name !== 'article-id' && route.name !== 'login')
 

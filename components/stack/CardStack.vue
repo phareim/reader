@@ -54,7 +54,7 @@
 
     <!-- Empty -->
     <div v-if="deckIds.length === 0" class="absolute inset-0 z-0 flex items-center justify-center">
-      <DeckEmptyState :syncing="syncing" @sync="emit('sync')" />
+      <DeckEmptyState :syncing="syncing" :no-feeds="noFeeds" @sync="emit('sync')" />
     </div>
 
     <UndoToast :visible="undoVisible" :label="undoLabel" @undo="performUndo" />
@@ -77,7 +77,12 @@ import {
   type DeckHistoryEntry,
 } from '~/utils/deck'
 
-const props = defineProps<{ articles: Article[]; syncing?: boolean }>()
+// Vue casts absent boolean props to false — canElevate must default TRUE
+// or the verb dies everywhere the prop isn't threaded through.
+const props = withDefaults(
+  defineProps<{ articles: Article[]; syncing?: boolean; canElevate?: boolean; noFeeds?: boolean }>(),
+  { canElevate: true }
+)
 const emit = defineEmits<{ sync: []; count: [n: number] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
@@ -216,6 +221,12 @@ async function commit(dir: DeckDirection, v: { vx: number; vy: number } = { vx: 
 
   try {
     if (dir === 'up') {
+      if (props.canElevate === false) {
+        // Guest accounts have no SFL pipeline — keep the card, say why.
+        showError('Elevate is not available on this account')
+        await springBack()
+        return
+      }
       // Non-optimistic: hold the card up while SFL answers.
       await settleWithin(animate(y, -140, DECK.SPRING))
       let result

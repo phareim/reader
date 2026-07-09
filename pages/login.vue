@@ -17,9 +17,16 @@
         <div>
           <label for="password"><MonoLabel>Password</MonoLabel></label>
           <input
-            id="password" v-model="password" type="password" required minlength="8"
+            id="password" v-model="password" type="password" required :minlength="isSignUp ? 12 : undefined"
             :autocomplete="isSignUp ? 'new-password' : 'current-password'" class="tufte-input"
           />
+          <p v-if="isSignUp" class="mt-1 text-mute" style="font-size: 12px;">
+            At least 12 characters, with a letter and a digit.
+          </p>
+        </div>
+        <div v-if="isSignUp">
+          <label for="invite"><MonoLabel>Invite code</MonoLabel></label>
+          <input id="invite" v-model="inviteCode" type="text" required autocomplete="off" class="tufte-input" />
         </div>
 
         <p v-if="error" class="text-sm text-accent-ink">{{ error }}</p>
@@ -48,6 +55,7 @@ const isSignUp = ref(false)
 const email = ref('')
 const password = ref('')
 const name = ref('')
+const inviteCode = ref('')
 
 // Reader is the identity provider for sibling apps on *.phareim.no —
 // they bounce here with ?redirect=<url back>. Only phareim.no targets
@@ -88,7 +96,7 @@ const handleSubmit = async () => {
 
   try {
     if (isSignUp.value) {
-      await signUp(email.value, password.value, name.value || undefined)
+      await signUp(email.value, password.value, name.value || undefined, inviteCode.value)
     } else {
       await signIn(email.value, password.value)
     }

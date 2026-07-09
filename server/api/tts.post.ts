@@ -8,7 +8,12 @@
 const MAX_CHARS = 3000
 
 export default defineEventHandler(async (event) => {
-  await getAuthenticatedUser(event)
+  const user = await getAuthenticatedUser(event)
+  if (!isPersonalUser(event, user)) {
+    // Synthesis spends Petter's NVIDIA/OpenAI quota — allowlisted accounts
+    // only. The UI hides the Listen button; this is the backstop.
+    throw createError({ statusCode: 403, statusMessage: 'Read-aloud is not available on this account' })
+  }
 
   const config = useRuntimeConfig(event)
   if (!config.ttsApiUrl || !config.ttsApiKey) {

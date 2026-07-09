@@ -45,6 +45,9 @@ export default defineNuxtConfig({
     sflApiKey: '',  // NUXT_SFL_API_KEY
     ttsApiUrl: '',  // NUXT_TTS_API_URL (reader-tts on Sleeper)
     ttsApiKey: '',  // NUXT_TTS_API_KEY
+    inviteCode: '', // NUXT_INVITE_CODE (Worker secret) — sign-up is closed while unset
+    personalEmails: '', // NUXT_PERSONAL_EMAILS — accounts with SFL elevate/highlight-mirror/TTS
+    cronKey: '', // NUXT_CRON_KEY (Worker secret) — auth for /api/internal/sync-stale
   },
 
   typescript: {

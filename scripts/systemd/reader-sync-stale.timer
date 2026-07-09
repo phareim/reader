@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — background feed sync every 10 minutes
+
+[Timer]
+# Every 10 minutes: each run syncs up to 5 feeds that haven't been fetched
+# in the last hour, so a corpus of ~30 feeds cycles fully within the hour
+# while any single Worker invocation stays far from the subrequest cap.
+OnCalendar=*:00/10
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

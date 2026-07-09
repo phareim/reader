@@ -1,11 +1,12 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, computed } from 'vue'
+import { defineComponent, h, computed, ref } from 'vue'
 import BottomBar from '~/components/BottomBar.vue'
 
 ;(globalThis as any).computed = computed
 
-function mountWith(routeName: string, routePath = '/') {
+function mountWith(routeName: string, routePath = '/', feeds: any[] = [{ id: 1, kind: 'found' }]) {
   ;(globalThis as any).useRoute = () => ({ name: routeName, path: routePath })
+  ;(globalThis as any).useFeeds = () => ({ feeds: ref(feeds) })
   return mount(BottomBar, {
     global: {
       stubs: {
@@ -24,6 +25,18 @@ afterEach(() => jest.clearAllMocks())
 describe('BottomBar', () => {
   it('renders all four rooms including Found, in order', () => {
     const w = mountWith('index', '/')
+    const labels = w.findAll('a').map(a => a.text())
+    expect(labels).toEqual(['Deck', 'Found', 'Shelf', 'Sources'])
+  })
+
+  it('hides Found for an account without a found feed', () => {
+    const w = mountWith('index', '/', [{ id: 1, kind: 'rss' }])
+    const labels = w.findAll('a').map(a => a.text())
+    expect(labels).toEqual(['Deck', 'Shelf', 'Sources'])
+  })
+
+  it('keeps Found visible while standing in the room, even without the feed', () => {
+    const w = mountWith('found', '/found', [])
     const labels = w.findAll('a').map(a => a.text())
     expect(labels).toEqual(['Deck', 'Found', 'Shelf', 'Sources'])
   })

@@ -3,6 +3,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { getSflConfig, createQuoteIdea, findOrCreateTag, tagIdea } from '~/server/utils/sfl'
 import { lastRowId } from '~/server/utils/d1Result'
 import { extractHashtags } from '~/utils/hashtags'
+import { isPersonalUser } from '~/server/utils/personal'
 
 /**
  * Create a highlight: push the marked passage to SFL as a self-contained
@@ -42,26 +43,30 @@ export default defineEventHandler(async (event) => {
   }
 
   // Push to SFL. Fail soft when unconfigured so highlighting works offline.
+  // Non-personal accounts skip the mirror entirely — their highlights are
+  // local-only (SFL is Petter's personal knowledge pipeline).
   let sflIdeaId: string | null = null
-  try {
-    const cfg = getSflConfig(event)
-    const { ideaId } = await createQuoteIdea(cfg, {
-      text: quote,
-      note: note || undefined,
-      sourceUrl: article.url,
-      sourceTitle: article.title,
-    })
-    sflIdeaId = ideaId
+  if (isPersonalUser(event, user)) {
+    try {
+      const cfg = getSflConfig(event)
+      const { ideaId } = await createQuoteIdea(cfg, {
+        text: quote,
+        note: note || undefined,
+        sourceUrl: article.url,
+        sourceTitle: article.title,
+      })
+      sflIdeaId = ideaId
 
-    // Best-effort: promote inline #hashtags to real SFL tags on the quote.
-    for (const name of extractHashtags(note)) {
-      const tagId = await findOrCreateTag(cfg, name)
-      if (tagId) await tagIdea(cfg, ideaId, tagId)
+      // Best-effort: promote inline #hashtags to real SFL tags on the quote.
+      for (const name of extractHashtags(note)) {
+        const tagId = await findOrCreateTag(cfg, name)
+        if (tagId) await tagIdea(cfg, ideaId, tagId)
+      }
+    } catch (err: any) {
+      // 503 = SFL not configured: keep the local highlight. Any other SFL error
+      // (network/timeout/malformed) is a real failure the user should see.
+      if (err?.statusCode !== 503) throw err
     }
-  } catch (err: any) {
-    // 503 = SFL not configured: keep the local highlight. Any other SFL error
-    // (network/timeout/malformed) is a real failure the user should see.
-    if (err?.statusCode !== 503) throw err
   }
 
   const now = new Date().toISOString()

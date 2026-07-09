@@ -45,9 +45,14 @@ beforeEach(() => {
     fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore,
   })
   ;(globalThis as any).useSavedArticles = () => ({ fetchSavedArticleIds, savedArticleIds })
-  ;(globalThis as any).useFeeds = () => ({ syncAll: jest.fn() })
+  ;(globalThis as any).useFeeds = () => ({
+    syncAll: jest.fn(),
+    feeds: ref([] as any[]),
+    fetchFeeds: jest.fn().mockResolvedValue(undefined),
+  })
   ;(globalThis as any).useToast = () => ({ showSuccess: jest.fn(), showError: jest.fn() })
   ;(globalThis as any).useViewMode = () => ({ viewMode, setViewMode })
+  ;(globalThis as any).useAuth = () => ({ personal: ref(true) })
 })
 
 // Every test's component registers a window keydown listener — unmount them

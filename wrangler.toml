@@ -23,4 +23,11 @@ bucket_name = "reader-articles"
 [vars]
 NUXT_SFL_API_URL = "https://sfl-api.aiwdm.workers.dev"
 NUXT_TTS_API_URL = "https://sleeper.phareim.no/reader-tts"
+# Accounts with the personal integrations (SFL elevate, highlight→SFL
+# mirror, read-aloud). Everyone else gets the core reading experience.
+NUXT_PERSONAL_EMAILS = "phareim@gmail.com,petter.hareim@miles.no"
+
+# Secrets (wrangler secret put): NUXT_SFL_API_KEY, NUXT_TTS_API_KEY,
+# NUXT_INVITE_CODE (sign-up is closed while unset),
+# NUXT_CRON_KEY (auth for POST /api/internal/sync-stale).
 

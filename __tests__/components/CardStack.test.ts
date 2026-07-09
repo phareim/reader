@@ -34,8 +34,8 @@ const articles = [
   { id: 3, title: 'Three', feedTitle: 'Feed', isRead: false },
 ] as any[]
 
-function mountStack() {
-  return mount(CardStack, { props: { articles }, global: { stubs } })
+function mountStack(props: Record<string, unknown> = {}) {
+  return mount(CardStack, { props: { articles, ...props }, global: { stubs } })
 }
 
 beforeEach(() => {
@@ -74,6 +74,15 @@ describe('CardStack commit wiring', () => {
     await flushPromises()
     expect(elevate).toHaveBeenCalledWith(1)
     expect(markAsRead).toHaveBeenCalledWith(1, true)
+  })
+
+  it('canElevate=false keeps the card and never calls SFL (guest accounts)', async () => {
+    const w = mountStack({ canElevate: false })
+    await (w.vm as any).commit('up')
+    await flushPromises()
+    expect(elevate).not.toHaveBeenCalled()
+    expect(markAsRead).not.toHaveBeenCalled()
+    expect(w.text()).toContain('card-1')
   })
 
   it('failed elevate keeps the card and shows an error', async () => {

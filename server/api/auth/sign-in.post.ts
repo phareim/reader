@@ -2,6 +2,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { verifyPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
 import { toPublicUser } from '~/server/utils/auth'
+import { assertNotRateLimited, recordFailedAttempt, clearAttempts } from '~/server/utils/authRateLimit'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -12,17 +13,22 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = getD1(event)
+  await assertNotRateLimited(event, db, String(email))
+
   const user = await db.prepare('SELECT * FROM "User" WHERE email = ?').bind(email).first() as any
 
   if (!user || !user.password_hash) {
+    await recordFailedAttempt(event, db, String(email))
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
   const valid = await verifyPassword(password, user.password_hash)
   if (!valid) {
+    await recordFailedAttempt(event, db, String(email))
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
+  await clearAttempts(db, String(email))
   await createSession(event, user.id)
 
   return { user: toPublicUser(user) }

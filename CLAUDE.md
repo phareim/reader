@@ -251,6 +251,14 @@ The "Listen" button at the top of the reader (`pages/article/[id].vue`, key `l`)
 
 **Reader as identity provider**: in production the `session_token` cookie is set with `domain: .phareim.no` (`cookieOptions()` in `server/utils/session.ts`; dev stays host-only) so the sibling webapps **do.phareim.no** (`~/github/do-web`) and **write.phareim.no** (`~/github/write-web`) receive it. Those Workers bind the same `reader-service` D1 database and validate the session **read-only** (they never write `session`/`User`; Reader owns the schema and expiry cleanup). Unauthenticated visits there bounce to `reader.phareim.no/login?redirect=<url back>`; `pages/login.vue` validates `?redirect=` (`safeRedirect`: https + `phareim.no`/`*.phareim.no` hostnames, or local `/` paths — anything else falls back to `/`). `destroySession` deletes both the domain-wide and the legacy host-only cookie variants.
 
+**Multi-user hardening (2026-07-09, for sharing with friends):**
+- **Sign-up is invite-only**: `POST /api/auth/sign-up` requires `inviteCode` matching the `NUXT_INVITE_CODE` secret (unset ⇒ sign-ups closed, 403). The invite also guards the legacy claim branch (an existing `User` row without `password_hash` gets its password set by the first sign-up with that email — this doubles as the **password-reset flow**: to reset someone, `UPDATE "User" SET password_hash = NULL WHERE email = ?` in D1 and have them "sign up" again with the invite code).
+- **Password policy**: `server/utils/passwordPolicy.ts` — ≥12 chars with a letter and a digit, enforced at sign-up only (existing passwords grandfathered).
+- **Auth rate limiting**: `server/utils/authRateLimit.ts` + `auth_attempt` table (migration `009-auth-attempts.sql`) — ≥10 failed attempts against one email in 10 min ⇒ 429; cleared on success, GC'd after a day.
+- **Personal integrations are allowlisted** (`NUXT_PERSONAL_EMAILS`, checked by `server/utils/personal.ts`): SFL elevate (403 from both elevate routes), the highlight→SFL mirror (skipped — guest highlights stay local with `sfl_idea_id = NULL`), and TTS (403). `GET /api/auth/session` returns `features: { personal }`; the UI hides Listen/Elevate in the reader, and `CardStack` takes `canElevate` (**defaults true via `withDefaults` — Vue casts absent boolean props to false**) and springs the card back with a toast for guests.
+- **Background sync**: `POST /api/internal/sync-stale` (Bearer `NUXT_CRON_KEY`) syncs the ≤5 stalest active RSS feeds (>1h old) across ALL users per call; a systemd user timer on Sleeper (`reader-sync-stale.timer`, every 10 min, units in `scripts/systemd/`, trigger script `scripts/sync-stale.mjs`, key in `~/.config/reader/env` `READER_CRON_KEY`) provides the cadence, so nobody needs shift+r.
+- **Cold-start UX**: `DeckEmptyState` shows "add your first feed" (→ /sources) when the account has no feeds; `BottomBar` hides the Found tab for accounts without a `kind='found'` feed.
+
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content (R2). Both read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`. D1's `.run()` reports insert metadata under `meta` — read ids/changes via `lastRowId()` / `rowsChanged()` from `server/utils/d1Result.ts`, never `result.lastRowId` (always undefined on D1). Worker invocations are capped at 1000 subrequests; storing article content costs ~3 per article, which is why per-sync intake defaults to 100 (`MAX_ARTICLES_PER_FEED` overrides).
 
 **Feed Parsing**: Use `parseFeed()` from `server/utils/feedParser.ts` (wraps `@extractus/feed-extractor`). Feed favicons come from Google's S2 favicon service (`https://www.google.com/s2/favicons?domain=…`) derived from the feed's domain — NOT Unsplash (that fallback was removed). Lead images come from `extractImageUrl()` in `server/utils/feedImage.ts` (pure, unit-tested): image enclosure → media:content/media:thumbnail (incl. inside YouTube's media:group) → itunes:image → first `<img>` in the body. feed-extractor parses XML with fast-xml-parser, so element attributes arrive as `@_url`/`@_type`/`@_href` and repeated elements as arrays — never read the xml2js `$.url` shape.
@@ -372,13 +380,22 @@ NUXT_SFL_API_KEY="..."
 # Read aloud (the "Listen" button). Fails soft (503 + toast) if unset.
 NUXT_TTS_API_URL="https://sleeper.phareim.no/reader-tts"
 NUXT_TTS_API_KEY="..."
+
+# Sign-up gate: required invite code (sign-up is closed while unset)
+NUXT_INVITE_CODE="..."
+
+# Personal integrations (SFL elevate, highlight mirror, read-aloud) — comma list
+NUXT_PERSONAL_EMAILS="phareim@gmail.com,petter.hareim@miles.no"
+
+# Background sync: Bearer key for POST /api/internal/sync-stale
+NUXT_CRON_KEY="..."
 ```
 
-In production, `NUXT_SFL_API_URL` is set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY` is a Worker secret (`wrangler secret put NUXT_SFL_API_KEY`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
+In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, and `NUXT_PERSONAL_EMAILS` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, and `NUXT_CRON_KEY` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
 
 ### Deployment
 
-Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `008-read-progress.sql` (adds `Article.read_progress` for the keep-my-place reading position; applied to remote 2026-07-02).
+Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`), `ARTICLE_BUCKET` (R2 `reader-articles`). CI in `.github/workflows/deploy.yml` runs `npm run build` then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). Apply schema changes with `wrangler d1 execute reader-service --file=database/d1-schema.sql` (migrations live in `database/migrations/`). **CI does not run migrations** — apply an incremental file to prod yourself with `--remote` (e.g. `wrangler d1 execute reader-service --remote --file=database/migrations/005-highlights.sql`) before/with the deploy. Latest applied: `009-auth-attempts.sql` (the `auth_attempt` rate-limit table; applied to remote 2026-07-09).
 
 Two Workers **secrets** must exist: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key, for elevate) and `npx wrangler secret put NUXT_TTS_API_KEY` (the `READER_TTS_KEY` from `~/.config/reader-tts/env` on Sleeper, for read-aloud). The matching URLs (`NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`) ship in `wrangler.toml` `[vars]`. Without a secret, that feature returns 503 and everything else works.
 

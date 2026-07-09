@@ -2,17 +2,30 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { hashPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
 import { toPublicUser } from '~/server/utils/auth'
+import { checkPassword } from '~/server/utils/passwordPolicy'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { email, password, name } = body || {}
+  const { email, password, name, inviteCode } = body || {}
+
+  // Sign-up is invite-only: without a configured code it is closed, and the
+  // client must send the matching code. This also guards the claim branch
+  // below (password-less legacy accounts).
+  const config = useRuntimeConfig(event)
+  if (!config.inviteCode) {
+    throw createError({ statusCode: 403, statusMessage: 'Sign-ups are closed' })
+  }
+  if (typeof inviteCode !== 'string' || inviteCode.trim() !== config.inviteCode) {
+    throw createError({ statusCode: 403, statusMessage: 'Invalid invite code' })
+  }
 
   if (!email || !password) {
     throw createError({ statusCode: 400, statusMessage: 'Email and password are required' })
   }
 
-  if (typeof password !== 'string' || password.length < 8) {
-    throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters' })
+  const policy = checkPassword(password)
+  if (!policy.ok) {
+    throw createError({ statusCode: 400, statusMessage: policy.reason })
   }
 
   const db = getD1(event)

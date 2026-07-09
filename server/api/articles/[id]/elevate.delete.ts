@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { getSflConfig, deleteIdea } from '~/server/utils/sfl'
+import { isPersonalUser } from '~/server/utils/personal'
 
 /**
  * Undo an elevate: delete the SFL idea that the elevate created (only when
@@ -9,6 +10,9 @@ import { getSflConfig, deleteIdea } from '~/server/utils/sfl'
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
+  if (!isPersonalUser(event, user)) {
+    throw createError({ statusCode: 403, statusMessage: 'Elevate is not available on this account' })
+  }
 
   const articleId = parseInt(getRouterParam(event, 'id') || '')
   if (isNaN(articleId)) {
