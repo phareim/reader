@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""reader-tts — tiny HTTP wrapper around NVIDIA's hosted Magpie TTS.
+"""reader-tts — tiny HTTP wrapper around hosted TTS for the Reader.
 
 The Reader Worker (reader.phareim.no) can't speak gRPC, so this service sits
 on Sleeper and translates: POST /synthesize {"text": ..., "voice"?: ...,
-"language_code"?: ...} -> audio/wav (LINEAR_PCM mono). GET /health is open.
+"language_code"?: ...} -> audio bytes. GET /health is open.
+
+Two backends, routed per request:
+- NVIDIA Magpie (free-tier NIM, gRPC) -> audio/wav — the default. Speaks 9
+  languages but no Scandinavian ones.
+- OpenAI gpt-4o-mini-tts -> audio/mpeg — used when the text looks Norwegian
+  (or `language_code` says no/nb/nn/da/sv), since Magpie would mangle it.
+  Optional: without OPENAI_API_KEY everything falls back to Magpie.
 
 Auth: `Authorization: Bearer $READER_TTS_KEY`. Env is loaded from
 ~/.config/reader-tts/env with override semantics (the house convention —
@@ -14,9 +21,12 @@ sleeper.phareim.no/reader-tts/. Logs to stdout only.
 """
 import hmac
 import io
+import json
 import os
+import re
 import sys
 import time
+import urllib.request
 import wave
 
 ENV_FILE = os.path.expanduser("~/.config/reader-tts/env")
@@ -38,6 +48,9 @@ load_env()
 
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 READER_TTS_KEY = os.environ.get("READER_TTS_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "nova")
 PORT = int(os.environ.get("PORT", "3015"))
 
 # magpie-tts-multilingual on build.nvidia.com (NVIDIA Cloud Functions id)
@@ -54,6 +67,8 @@ if not NVIDIA_API_KEY or not READER_TTS_KEY:
         file=sys.stderr,
     )
     sys.exit(1)
+if not OPENAI_API_KEY:
+    print("warn: OPENAI_API_KEY not set — Norwegian text will fall back to Magpie")
 
 import riva.client  # noqa: E402
 from flask import Flask, jsonify, request  # noqa: E402
@@ -77,6 +92,61 @@ def get_service(fresh: bool = False) -> "riva.client.SpeechSynthesisService":
         )
         _service = riva.client.SpeechSynthesisService(auth)
     return _service
+
+
+# ── Language routing ─────────────────────────────────────────────────────────
+# Magpie speaks no Scandinavian language, so anything that looks like one goes
+# to OpenAI (whose voices are fully multilingual). æ/ø/å appear in Norwegian
+# and Danish (and å in Swedish), and the stopword list is distinctly
+# Norwegian — English text scores ~0 on both. ä/ö are deliberately NOT
+# triggers: they'd misroute German, which Magpie speaks natively.
+SCANDI_CHARS = set("æøåÆØÅ")
+NORWEGIAN_WORDS = frozenset(
+    """og ikke jeg på til av med som det er en et han hun vi du kan skal å om
+    seg hva når være blir ble hadde etter også fra meg deg noe dette denne
+    eller sier får mellom mot år nå hvor hvis hvordan mange andre bare mer
+    så da vil har man sin sitt sine våre norsk norske""".split()
+)
+
+SCANDI_LANGS = ("no", "nb", "nn", "da", "sv")
+
+
+def looks_norwegian(text: str) -> bool:
+    if any(c in SCANDI_CHARS for c in text):
+        return True
+    words = re.findall(r"[a-zA-ZæøåÆØÅ]+", text.lower())
+    if len(words) < 6:
+        return False
+    hits = sum(1 for w in words if w in NORWEGIAN_WORDS)
+    return hits / len(words) >= 0.15
+
+
+def wants_openai(text: str, language: str | None) -> bool:
+    if language:
+        return language.lower().split("-")[0] in SCANDI_LANGS
+    return looks_norwegian(text)
+
+
+def synthesize_openai(text: str) -> bytes:
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/audio/speech",
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        data=json.dumps(
+            {
+                "model": OPENAI_TTS_MODEL,
+                "voice": OPENAI_TTS_VOICE,
+                "input": text,
+                # Generic on purpose — this path also serves explicit da/sv.
+                "instructions": "Speak naturally, in the language of the text.",
+            }
+        ).encode(),
+    )
+    with urllib.request.urlopen(req, timeout=30) as res:
+        return res.read()
 
 
 def authorized() -> bool:
@@ -104,6 +174,7 @@ def health():
         uptime_ms=int((time.time() - started_at) * 1000),
         synth_count=synth_count,
         default_voice=DEFAULT_VOICE,
+        norwegian_backend=OPENAI_TTS_MODEL if OPENAI_API_KEY else None,
     )
 
 
@@ -119,21 +190,26 @@ def synthesize():
     if len(text) > MAX_CHARS:
         return jsonify(error=f"text exceeds {MAX_CHARS} chars"), 413
     voice = body.get("voice") or DEFAULT_VOICE
-    language = body.get("language_code") or DEFAULT_LANGUAGE
+    language = body.get("language_code")
 
     t0 = time.time()
     try:
-        resp = _synthesize(text, voice, language)
+        if OPENAI_API_KEY and wants_openai(text, language):
+            backend = f"openai/{OPENAI_TTS_MODEL}"
+            audio, mimetype = synthesize_openai(text), "audio/mpeg"
+        else:
+            backend = "magpie"
+            resp = _synthesize(text, voice, language or DEFAULT_LANGUAGE)
+            audio, mimetype = to_wav(resp.audio), "audio/wav"
     except Exception as err:  # noqa: BLE001 — surface every upstream failure as 502
         print(f"synthesize failed: {err}", file=sys.stderr)
         return jsonify(error="synthesis failed"), 502
     synth_count += 1
-    wav = to_wav(resp.audio)
     print(
-        f"synthesized {len(text)} chars -> {len(wav)} bytes "
-        f"in {time.time() - t0:.2f}s (voice={voice})"
+        f"synthesized {len(text)} chars -> {len(audio)} bytes "
+        f"in {time.time() - t0:.2f}s (backend={backend})"
     )
-    return app.response_class(wav, mimetype="audio/wav")
+    return app.response_class(audio, mimetype=mimetype)
 
 
 def _synthesize(text: str, voice: str, language: str):

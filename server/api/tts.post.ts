@@ -47,7 +47,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 502, statusMessage: `TTS failed (${res.status})` })
   }
 
-  setHeader(event, 'Content-Type', 'audio/wav')
+  // Pass the upstream type through: Magpie chunks come back audio/wav,
+  // Norwegian chunks (OpenAI-routed on the Sleeper side) audio/mpeg.
+  setHeader(event, 'Content-Type', res.headers.get('content-type') || 'audio/wav')
   setHeader(event, 'Cache-Control', 'no-store')
   return new Uint8Array(await res.arrayBuffer())
 })
