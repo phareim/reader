@@ -385,7 +385,7 @@ NUXT_TTS_API_KEY="..."
 NUXT_INVITE_CODE="..."
 
 # Personal integrations (SFL elevate, highlight mirror, read-aloud) — comma list
-NUXT_PERSONAL_EMAILS="phareim@gmail.com,petter.hareim@miles.no"
+NUXT_PERSONAL_EMAILS="phareim@gmail.com"
 
 # Background sync: Bearer key for POST /api/internal/sync-stale
 NUXT_CRON_KEY="..."

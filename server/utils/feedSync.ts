@@ -75,13 +75,18 @@ export async function syncSingleFeed(event: any, feed: FeedInfo): Promise<SyncRe
     }
   } catch (error: any) {
     try {
+      // last_fetched_at advances on failure too — it means "last attempted".
+      // Without this, a persistently failing feed stays "stalest" forever and
+      // occupies a slot in every background sync-stale rotation batch
+      // (last_error/error_count still record that the attempt failed).
       await db.prepare(
         `UPDATE "Feed"
-         SET last_error = ?,
+         SET last_fetched_at = ?,
+             last_error = ?,
              error_count = error_count + 1,
              is_active = CASE WHEN error_count + 1 >= 10 THEN 0 ELSE 1 END
          WHERE id = ? AND user_id = ?`
-      ).bind(error.message, feed.id, feed.user_id).run()
+      ).bind(new Date().toISOString(), error.message, feed.id, feed.user_id).run()
     } catch {
       // Ignore errors during error tracking update
     }
