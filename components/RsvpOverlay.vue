@@ -38,12 +38,14 @@
           <div class="h-full bg-mute" :style="{ width: progressPercent + '%' }" />
         </div>
 
-        <div class="mt-4 flex items-center justify-between">
-          <div class="flex gap-1.5 sm:gap-2">
+        <!-- flex-wrap: on narrow phones the two groups break onto separate
+             lines instead of pushing past the screen edge. -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div class="flex flex-wrap gap-1.5 sm:gap-2">
             <ActionLabel aria-label="Slower" @click="adjustWpm(-RSVP.WPM_STEP)">Slower</ActionLabel>
             <ActionLabel aria-label="Faster" @click="adjustWpm(RSVP.WPM_STEP)">Faster</ActionLabel>
           </div>
-          <div class="flex gap-1.5 sm:gap-2">
+          <div class="flex flex-wrap gap-1.5 sm:gap-2">
             <ActionLabel v-if="done" aria-label="Restart" @click="restart">Restart</ActionLabel>
             <ActionLabel v-else :aria-label="playing ? 'Pause' : 'Play'" @click="toggle">
               {{ playing ? 'Pause' : 'Play' }}
