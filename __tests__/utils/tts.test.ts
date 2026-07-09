@@ -1,4 +1,4 @@
-import { chunkTextForTts, TTS } from '../../utils/tts'
+import { chunkTextForTts, locateChunks, TTS } from '../../utils/tts'
 
 describe('chunkTextForTts', () => {
   it('returns no chunks for empty or whitespace-only input', () => {
@@ -58,5 +58,59 @@ describe('chunkTextForTts', () => {
     for (const c of chunkTextForTts(text)) {
       expect(c.length).toBeLessThanOrEqual(TTS.MAX_CHUNK_CHARS)
     }
+  })
+})
+
+describe('locateChunks', () => {
+  it('maps a single chunk of already-clean text to its exact span', () => {
+    const raw = 'Hello world. This is fine.'
+    const chunks = chunkTextForTts(raw)
+    const [span] = locateChunks(raw, chunks)
+    expect(span).toEqual({ start: 0, end: raw.length })
+  })
+
+  it('maps chunks back through whitespace normalization', () => {
+    const raw = '  First   sentence\n\nhere. Second\tsentence here. Third one.  '
+    const chunks = chunkTextForTts(raw, 25)
+    const spans = locateChunks(raw, chunks)
+    expect(spans).toHaveLength(chunks.length)
+    spans.forEach((span, i) => {
+      expect(span).not.toBeNull()
+      // The raw slice re-normalizes to exactly the chunk text.
+      const slice = raw.slice(span!.start, span!.end)
+      expect(slice.replace(/\s+/g, ' ').trim()).toBe(chunks[i])
+      // Spans start and end on non-whitespace characters.
+      expect(/\S/.test(raw[span!.start])).toBe(true)
+      expect(/\S/.test(raw[span!.end - 1])).toBe(true)
+    })
+  })
+
+  it('resolves repeated passages in order via the moving cursor', () => {
+    const raw = 'Again and again. Again and again. Again and again.'
+    const chunks = chunkTextForTts(raw, 20)
+    expect(chunks).toEqual(['Again and again.', 'Again and again.', 'Again and again.'])
+    const spans = locateChunks(raw, chunks)
+    expect(spans.map((s) => s!.start)).toEqual([0, 17, 34])
+  })
+
+  it('covers the raw text contiguously (no gaps beyond whitespace)', () => {
+    const raw = Array.from({ length: 40 }, (_, i) => `Sentence number ${i} ends  here.`).join('\n')
+    const chunks = chunkTextForTts(raw, 120)
+    const spans = locateChunks(raw, chunks)
+    for (let i = 1; i < spans.length; i++) {
+      const between = raw.slice(spans[i - 1]!.end, spans[i]!.start)
+      expect(between.trim()).toBe('')
+    }
+    expect(spans[0]!.start).toBe(0)
+    expect(spans[spans.length - 1]!.end).toBe(raw.length)
+  })
+
+  it('returns null for a chunk that does not occur in the text', () => {
+    expect(locateChunks('Some text here.', ['not present'])).toEqual([null])
+  })
+
+  it('handles empty inputs', () => {
+    expect(locateChunks('', [])).toEqual([])
+    expect(locateChunks('text', [''])).toEqual([null])
   })
 })

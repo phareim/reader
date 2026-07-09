@@ -22,7 +22,7 @@
           @click="toggleReadAloud"
         >
           <template #icon>
-            <svg v-if="readAloud === 'playing'" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" /></svg>
+            <svg v-if="readAloud === 'playing' || readAloud === 'paused'" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" /></svg>
             <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" /></svg>
           </template>
           {{ readAloud === 'idle' ? 'Listen' : readAloud === 'loading' ? 'Voice…' : 'Stop' }}
@@ -137,6 +137,52 @@
       @remove="removeHighlight"
       @close="popover = null"
     />
+
+    <!-- Read-aloud player: a fixed bottom bar while the voice speaks. The
+         hairline rail fills with overall progress (char-weighted across
+         chunks); the crimson wash in the body marks the spoken passage
+         itself. Pause/Resume carries the accent — it is the moment of
+         attention while listening. -->
+    <div v-if="readAloud !== 'idle'" class="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper">
+      <div class="h-[2px] w-full" aria-hidden="true">
+        <div class="h-full bg-accent-ink" :style="{ width: ttsProgress + '%' }" />
+      </div>
+      <div class="mx-auto flex max-w-measure items-center justify-between gap-2 px-5 py-2.5">
+        <MonoLabel dash class="whitespace-nowrap">{{ readAloud === 'loading' ? 'Voice…' : `Reading ${ttsIndex + 1}/${ttsCount}` }}</MonoLabel>
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <ActionLabel aria-label="Previous passage" :disabled="ttsIndex === 0" @click="skipTtsChunk(-1)">
+            <template #icon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8z" /><path d="M5 19V5" /></svg>
+            </template>
+            Back
+          </ActionLabel>
+          <ActionLabel
+            accent
+            :aria-label="readAloud === 'playing' ? 'Pause' : 'Resume'"
+            :disabled="readAloud === 'loading'"
+            @click="pauseResumeReadAloud"
+          >
+            <template #icon>
+              <svg v-if="readAloud === 'playing'" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z" /></svg>
+            </template>
+            {{ readAloud === 'playing' ? 'Pause' : 'Resume' }}
+          </ActionLabel>
+          <ActionLabel aria-label="Next passage" :disabled="ttsIndex >= ttsCount - 1" @click="skipTtsChunk(1)">
+            <template #icon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8z" /><path d="M19 5v14" /></svg>
+            </template>
+            Next
+          </ActionLabel>
+          <ActionLabel aria-label="Stop reading aloud" @click="stopReadAloud">
+            <template #icon>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" /></svg>
+            </template>
+            Stop
+          </ActionLabel>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -146,11 +192,11 @@ import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
 import { looksLikePlainText } from '~/utils/paragraphize'
 import { looksTruncated } from '~/utils/truncation'
-import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights } from '~/utils/highlightDom'
+import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights, rangeForOffsets } from '~/utils/highlightDom'
 import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/utils/readingPosition'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import { tokenizeWords } from '~/utils/rsvp'
-import { chunkTextForTts } from '~/utils/tts'
+import { chunkTextForTts, locateChunks, type ChunkSpan } from '~/utils/tts'
 import type { Highlight } from '~/composables/useHighlights'
 
 const route = useRoute()
@@ -304,12 +350,34 @@ function openRsvp() {
 // Magpie on Sleeper): chunk 0 plays as soon as it lands while chunk 1 warms
 // in the background. One reused <audio> element keeps iOS's gesture unlock
 // valid across chunk transitions. `ttsToken` invalidates the whole in-flight
-// session on stop/unmount so a stale onended can't restart playback.
-const readAloud = ref<'idle' | 'loading' | 'playing'>('idle')
+// session on stop/skip/unmount so a stale onended can't restart playback.
+//
+// The text is taken from the live article element's textContent (not
+// stripHtml) so `locateChunks` can map every chunk back to exact character
+// offsets — the currently-spoken passage is painted with a crimson wash via
+// the CSS Custom Highlight API and gently kept in view. A fixed bottom bar
+// carries the controls: pause/resume, skip a passage back/forward, stop, and
+// a char-weighted progress rail. The Media Session API mirrors the controls
+// onto the lock screen / hardware keys (the iOS PWA case).
+const readAloud = ref<'idle' | 'loading' | 'playing' | 'paused'>('idle')
+const ttsIndex = ref(0)
+const ttsCount = ref(0)
+const ttsChunkFraction = ref(0) // 0..1 through the current chunk's audio
 let ttsAudio: HTMLAudioElement | null = null
 let ttsChunks: string[] = []
+let ttsSpans: (ChunkSpan | null)[] = []
 let ttsFetches: (Promise<Blob> | null)[] = []
 let ttsToken = 0
+let ttsUrl: string | null = null
+let ttsCharsBefore: number[] = []
+let ttsCharsTotal = 0
+
+const ttsProgress = computed(() => {
+  if (!ttsCount.value || !ttsCharsTotal) return 0
+  const len = ttsChunks[ttsIndex.value]?.length ?? 0
+  const done = (ttsCharsBefore[ttsIndex.value] ?? 0) + ttsChunkFraction.value * len
+  return Math.min(100, (done / ttsCharsTotal) * 100)
+})
 
 function ttsFetch(i: number): Promise<Blob> {
   if (!ttsFetches[i]) {
@@ -322,15 +390,40 @@ function ttsFetch(i: number): Promise<Blob> {
   return ttsFetches[i]!
 }
 
+function clearTtsHighlight() {
+  ;(globalThis as any).CSS?.highlights?.delete('tts-reading')
+}
+
+/** Paint the passage the voice is speaking and gently keep it in view. */
+function followTtsChunk(i: number) {
+  const root = articleEl.value
+  const span = ttsSpans[i]
+  if (!root || !span) { clearTtsHighlight(); return }
+  const range = rangeForOffsets(root, span.start, span.end)
+  if (!range) { clearTtsHighlight(); return }
+  const cssAny = (globalThis as any).CSS
+  const HighlightCtor = (globalThis as any).Highlight
+  if (cssAny?.highlights && HighlightCtor) {
+    cssAny.highlights.set('tts-reading', new HighlightCtor(range))
+  }
+  // Follow only when the passage's top has drifted out of the reading band —
+  // bring it back to about a quarter down the viewport.
+  const rect = range.getBoundingClientRect()
+  if (rect.height && (rect.top < 72 || rect.top > window.innerHeight * 0.6)) {
+    window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight * 0.25, behavior: 'smooth' })
+  }
+}
+
 async function playTtsChunk(i: number, token: number) {
   const blob = await ttsFetch(i)
   if (token !== ttsToken) return
   if (i + 1 < ttsChunks.length) ttsFetch(i + 1).catch(() => {})
-  const url = URL.createObjectURL(blob)
+  if (ttsUrl) URL.revokeObjectURL(ttsUrl)
+  ttsUrl = URL.createObjectURL(blob)
   if (!ttsAudio) ttsAudio = new Audio()
-  ttsAudio.src = url
-  ttsAudio.onended = () => {
-    URL.revokeObjectURL(url)
+  const audio = ttsAudio
+  audio.src = ttsUrl
+  audio.onended = () => {
     if (token !== ttsToken) return
     if (i + 1 < ttsChunks.length) {
       playTtsChunk(i + 1, token).catch(() => {
@@ -340,18 +433,43 @@ async function playTtsChunk(i: number, token: number) {
       stopReadAloud()
     }
   }
-  await ttsAudio.play()
+  audio.ontimeupdate = () => {
+    if (token !== ttsToken) return
+    const d = audio.duration
+    ttsChunkFraction.value = Number.isFinite(d) && d > 0 ? audio.currentTime / d : 0
+  }
+  // The lock screen / hardware keys can pause the element directly — keep
+  // the player state honest either way.
+  audio.onpause = () => {
+    if (token === ttsToken && readAloud.value === 'playing' && !audio.ended) readAloud.value = 'paused'
+  }
+  audio.onplay = () => {
+    if (token === ttsToken && readAloud.value === 'paused') readAloud.value = 'playing'
+  }
+  ttsIndex.value = i
+  ttsChunkFraction.value = 0
+  followTtsChunk(i)
+  await audio.play()
   if (token === ttsToken) readAloud.value = 'playing'
 }
 
 async function toggleReadAloud() {
   if (readAloud.value !== 'idle') { stopReadAloud(); return }
-  const chunks = chunkTextForTts(stripHtml(sanitizedContent.value))
+  const raw = articleEl.value?.textContent || ''
+  const chunks = chunkTextForTts(raw)
   if (!chunks.length) return
   const token = ++ttsToken
   ttsChunks = chunks
+  ttsSpans = locateChunks(raw, chunks)
   ttsFetches = chunks.map(() => null)
+  ttsCharsBefore = []
+  ttsCharsTotal = 0
+  for (const c of chunks) { ttsCharsBefore.push(ttsCharsTotal); ttsCharsTotal += c.length }
+  ttsCount.value = chunks.length
+  ttsIndex.value = 0
+  ttsChunkFraction.value = 0
   readAloud.value = 'loading'
+  setupMediaSession()
   try {
     await playTtsChunk(0, token)
   } catch {
@@ -359,10 +477,61 @@ async function toggleReadAloud() {
   }
 }
 
+function pauseResumeReadAloud() {
+  if (!ttsAudio) return
+  if (readAloud.value === 'playing') { ttsAudio.pause(); readAloud.value = 'paused' }
+  else if (readAloud.value === 'paused') { ttsAudio.play().catch(() => {}); readAloud.value = 'playing' }
+}
+
+function skipTtsChunk(delta: number) {
+  if (readAloud.value !== 'playing' && readAloud.value !== 'paused') return
+  const next = ttsIndex.value + delta
+  if (next < 0 || next >= ttsChunks.length) return
+  const token = ++ttsToken
+  ttsAudio?.pause()
+  readAloud.value = 'loading'
+  playTtsChunk(next, token).catch(() => {
+    if (token === ttsToken) { stopReadAloud(); showError('The reading voice dropped out') }
+  })
+}
+
 function stopReadAloud() {
   ttsToken++
   if (ttsAudio) { ttsAudio.pause(); ttsAudio.removeAttribute('src') }
+  if (ttsUrl) { URL.revokeObjectURL(ttsUrl); ttsUrl = null }
+  clearTtsHighlight()
+  teardownMediaSession()
   readAloud.value = 'idle'
+  ttsChunkFraction.value = 0
+}
+
+// Lock-screen / hardware-key control (best-effort — not every browser ships
+// the Media Session API, and metadata assignment can throw on old WebKit).
+function setupMediaSession() {
+  const ms = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined
+  if (!ms) return
+  try {
+    ms.metadata = new MediaMetadata({
+      title: article.value?.title || 'Article',
+      artist: article.value?.feedTitle || 'The Reader',
+    })
+    ms.setActionHandler('play', () => { if (readAloud.value === 'paused') pauseResumeReadAloud() })
+    ms.setActionHandler('pause', () => { if (readAloud.value === 'playing') pauseResumeReadAloud() })
+    ms.setActionHandler('stop', () => stopReadAloud())
+    ms.setActionHandler('previoustrack', () => skipTtsChunk(-1))
+    ms.setActionHandler('nexttrack', () => skipTtsChunk(1))
+  } catch { /* best-effort */ }
+}
+
+function teardownMediaSession() {
+  const ms = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined
+  if (!ms) return
+  try {
+    for (const a of ['play', 'pause', 'stop', 'previoustrack', 'nexttrack'] as const) {
+      ms.setActionHandler(a, null)
+    }
+    ms.metadata = null
+  } catch { /* best-effort */ }
 }
 
 // The body can re-render once (thin-RSS full-text upgrade); re-anchor after.
@@ -517,6 +686,14 @@ function onKey(e: KeyboardEvent) {
   if (popover.value) {
     if (e.key === 'Escape') { e.preventDefault(); popover.value = null }
     return
+  }
+  // While the voice is reading, space and the horizontal arrows drive it,
+  // and Esc stops the voice before it would navigate back.
+  if (readAloud.value !== 'idle') {
+    if (e.key === ' ') { e.preventDefault(); pauseResumeReadAloud(); return }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); skipTtsChunk(-1); return }
+    if (e.key === 'ArrowRight') { e.preventDefault(); skipTtsChunk(1); return }
+    if (e.key === 'Escape') { e.preventDefault(); stopReadAloud(); return }
   }
   if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); goBack() }
   else if (e.key === 's') toggleSaveAction()

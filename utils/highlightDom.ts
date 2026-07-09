@@ -147,6 +147,39 @@ export function paintHighlight(rootEl: HTMLElement, anchor: HighlightAnchor): bo
   return true
 }
 
+/**
+ * Build a DOM Range spanning [startOffset, endOffset) of `rootEl`'s
+ * textContent, or null when the offsets fall outside the text. The read-aloud
+ * follow view paints the returned range via the CSS Custom Highlight API —
+ * no DOM mutation, so it never disturbs the yellow-pen `<mark>`s.
+ */
+export function rangeForOffsets(
+  rootEl: HTMLElement,
+  startOffset: number,
+  endOffset: number,
+): Range | null {
+  if (endOffset <= startOffset || startOffset < 0) return null
+  const range = document.createRange()
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT)
+  let pos = 0
+  let haveStart = false
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    const text = node as Text
+    const nodeStart = pos
+    pos += text.length
+    if (!haveStart && pos > startOffset) {
+      range.setStart(text, startOffset - nodeStart)
+      haveStart = true
+    }
+    if (haveStart && pos >= endOffset) {
+      range.setEnd(text, endOffset - nodeStart)
+      return range
+    }
+  }
+  return null
+}
+
 /** Unwrap every `<mark>` belonging to `id`, merging the freed text back. */
 export function unpaint(rootEl: HTMLElement, id: HighlightAnchor['id']): void {
   const marks = rootEl.querySelectorAll(`mark.hl[data-hl-id="${id}"]`)

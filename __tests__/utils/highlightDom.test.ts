@@ -1,4 +1,4 @@
-import { paintHighlight, unpaint, clearHighlights } from '~/utils/highlightDom'
+import { paintHighlight, unpaint, clearHighlights, rangeForOffsets } from '~/utils/highlightDom'
 
 function makeArticle(html: string): HTMLElement {
   const el = document.createElement('article')
@@ -96,5 +96,44 @@ describe('unpaint / clearHighlights', () => {
     const ok = paintHighlight(el, anchor)
     expect(ok).toBe(true)
     expect(el.querySelector('mark.hl[data-hl-id="9"]')?.textContent).toBe('brown')
+  })
+})
+
+describe('rangeForOffsets', () => {
+  it('builds a range within one text node', () => {
+    const el = makeArticle('<p>The quick brown fox</p>')
+    const { start, end } = offsetsOf(el, 'quick brown')
+    const range = rangeForOffsets(el, start, end)
+    expect(range?.toString()).toBe('quick brown')
+  })
+
+  it('spans element boundaries', () => {
+    const el = makeArticle('<p>foo <strong>bar</strong> baz</p><p>next para</p>')
+    const { start, end } = offsetsOf(el, 'bar baznext')
+    const range = rangeForOffsets(el, start, end)
+    expect(range?.toString()).toBe('bar baznext')
+  })
+
+  it('matches any textContent slice exactly', () => {
+    const el = makeArticle('<p>alpha <em>beta</em></p><ul><li>gamma</li><li>delta</li></ul>')
+    const full = el.textContent || ''
+    for (const [s, e] of [[0, 5], [3, 12], [8, full.length]] as const) {
+      expect(rangeForOffsets(el, s, e)?.toString()).toBe(full.slice(s, e))
+    }
+  })
+
+  it('returns null for empty, inverted, or out-of-bounds spans', () => {
+    const el = makeArticle('<p>short</p>')
+    expect(rangeForOffsets(el, 2, 2)).toBeNull()
+    expect(rangeForOffsets(el, 4, 2)).toBeNull()
+    expect(rangeForOffsets(el, -1, 3)).toBeNull()
+    expect(rangeForOffsets(el, 2, 99)).toBeNull()
+  })
+
+  it('does not mutate the DOM', () => {
+    const el = makeArticle('<p>foo <strong>bar</strong> baz</p>')
+    const before = el.innerHTML
+    rangeForOffsets(el, 2, 9)
+    expect(el.innerHTML).toBe(before)
   })
 })

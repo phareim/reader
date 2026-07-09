@@ -39,3 +39,4 @@ QUALITY_CHECK.md
 
 # reader-tts venv (Sleeper-only service)
 tts/.venv/
+.dev.vars

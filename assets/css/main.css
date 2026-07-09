@@ -40,6 +40,16 @@ html::-webkit-scrollbar {
   overflow-x: auto;
 }
 
+/* The voice's place — the passage read-aloud is currently speaking. Painted
+   via the CSS Custom Highlight API (a Range, no DOM mutation, so it never
+   disturbs the yellow-pen <mark>s below); browsers without the API simply
+   show no wash — the player bar still tracks position. Faint crimson tint,
+   not highlighter yellow: the pen is for passages the reader chose, the wash
+   is for where the voice is now. */
+::highlight(tts-reading) {
+  background-color: var(--accent-wash);
+}
+
 /* The yellow pen — passages the reader marked. Tappable to read the note. */
 mark.hl {
   background-color: var(--highlight);

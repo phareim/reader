@@ -42,6 +42,54 @@ export function chunkTextForTts(text: string, maxChars: number = TTS.MAX_CHUNK_C
   return chunks
 }
 
+export interface ChunkSpan {
+  /** Inclusive character offset into the raw (un-normalized) source text. */
+  start: number
+  /** Exclusive character offset into the raw source text. */
+  end: number
+}
+
+/**
+ * Locate each chunk produced by `chunkTextForTts(raw)` back in the raw text,
+ * as [start, end) character offsets. The chunker normalizes whitespace, so
+ * this rebuilds the same normalization while keeping a map from every
+ * normalized character to its raw index; each chunk is then a contiguous
+ * substring of the normalized text, found with a moving cursor (so repeated
+ * passages resolve in order). A chunk that can't be found maps to null.
+ *
+ * The reader uses the spans to build DOM Ranges over the article body — the
+ * raw text is the article element's `textContent` — so the currently-spoken
+ * passage can be shown and followed while the voice reads.
+ */
+export function locateChunks(raw: string, chunks: string[]): (ChunkSpan | null)[] {
+  const map: number[] = []
+  let normalized = ''
+  let pendingWsIndex = -1
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]
+    if (/\s/.test(ch)) {
+      if (normalized.length > 0 && pendingWsIndex < 0) pendingWsIndex = i
+      continue
+    }
+    if (pendingWsIndex >= 0) {
+      normalized += ' '
+      map.push(pendingWsIndex)
+      pendingWsIndex = -1
+    }
+    normalized += ch
+    map.push(i)
+  }
+
+  let cursor = 0
+  return chunks.map((chunk) => {
+    if (!chunk) return null
+    const idx = normalized.indexOf(chunk, cursor)
+    if (idx < 0) return null
+    cursor = idx + chunk.length
+    return { start: map[idx], end: map[idx + chunk.length - 1] + 1 }
+  })
+}
+
 /** Hard-split an over-long sentence on word boundaries, mid-word if a single
  *  "word" (a URL, say) exceeds the budget on its own. */
 function splitLongSentence(sentence: string, maxChars: number): string[] {
