@@ -10,6 +10,26 @@ import { toHex } from '~/server/utils/password'
 const SESSION_COOKIE = 'session_token'
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
 
+// In production the cookie is domain-wide so sibling apps on *.phareim.no
+// (do.phareim.no, write.phareim.no) can validate the same session against
+// the shared D1 database. Dev stays host-only (localhost has no domain).
+const COOKIE_DOMAIN = '.phareim.no'
+
+function isProd(): boolean {
+  return process.env.NODE_ENV === 'production'
+}
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: isProd(),
+    sameSite: 'lax' as const,
+    maxAge: SESSION_MAX_AGE,
+    path: '/',
+    ...(isProd() ? { domain: COOKIE_DOMAIN } : {}),
+  }
+}
+
 function generateToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
   return toHex(bytes.buffer as ArrayBuffer)
@@ -25,13 +45,7 @@ export async function createSession(event: H3Event, userId: string): Promise<str
     'INSERT INTO "session" (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
   ).bind(id, userId, token, expiresAt).run()
 
-  setCookie(event, SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: SESSION_MAX_AGE,
-    path: '/',
-  })
+  setCookie(event, SESSION_COOKIE, token, cookieOptions())
 
   return token
 }
@@ -60,6 +74,11 @@ export async function destroySession(event: H3Event): Promise<void> {
   if (token) {
     const db = getD1(event)
     await db.prepare('DELETE FROM "session" WHERE token = ?').bind(token).run()
+  }
+  // Delete both variants: the domain-wide cookie and any pre-rollout
+  // host-only cookie a browser may still hold.
+  if (isProd()) {
+    deleteCookie(event, SESSION_COOKIE, { path: '/', domain: COOKIE_DOMAIN })
   }
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }

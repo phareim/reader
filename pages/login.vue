@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 const { loggedIn, signIn, signUp } = useAuth()
+const route = useRoute()
 const loading = ref(false)
 const error = ref<string | null>(null)
 const isSignUp = ref(false)
@@ -48,10 +49,35 @@ const email = ref('')
 const password = ref('')
 const name = ref('')
 
+// Reader is the identity provider for sibling apps on *.phareim.no —
+// they bounce here with ?redirect=<url back>. Only phareim.no targets
+// (or local paths) are honored, so the param can't be an open redirect.
+function safeRedirect(raw: unknown): string {
+  if (typeof raw !== 'string' || raw === '') return '/'
+  try {
+    const url = new URL(raw)
+    if (
+      url.protocol === 'https:' &&
+      (url.hostname === 'phareim.no' || url.hostname.endsWith('.phareim.no'))
+    ) {
+      return url.href
+    }
+    return '/'
+  } catch {
+    // Not an absolute URL — allow app-local paths only.
+    return raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
+  }
+}
+
+function goToTarget() {
+  const target = safeRedirect(route.query.redirect)
+  return navigateTo(target, { external: target.startsWith('https://') })
+}
+
 // Redirect if already authenticated
 watch(loggedIn, (isLoggedIn) => {
   if (isLoggedIn) {
-    navigateTo('/')
+    goToTarget()
   }
 }, { immediate: true })
 
@@ -66,7 +92,7 @@ const handleSubmit = async () => {
     } else {
       await signIn(email.value, password.value)
     }
-    navigateTo('/')
+    await goToTarget()
   } catch (err: any) {
     error.value = err.data?.statusMessage || err.message || 'Authentication failed'
   } finally {
