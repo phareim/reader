@@ -6,11 +6,20 @@ export interface DiscoveredFeedOption {
   type: 'rss' | 'atom'
 }
 
+export interface DetectedArticle {
+  title: string
+  url: string
+  description?: string | null
+  author?: string | null
+  content?: string | null
+  imageUrl?: string | null
+}
+
 export type SmartAddResult =
   | { type: 'feed_added'; message: string; feed: { id: number; title: string; url: string }; articlesAdded: number }
   | { type: 'feed_exists'; message: string; feed: { id: number; title: string; url: string } }
   | { type: 'feeds_discovered'; message: string; feeds: DiscoveredFeedOption[] }
-  | { type: 'article_detected'; message: string; article: { title: string; url: string } }
+  | { type: 'article_detected'; message: string; article: DetectedArticle }
   | { type: 'unknown'; message: string; suggestion: { title: string; url: string } }
 
 export const useFeeds = () => {

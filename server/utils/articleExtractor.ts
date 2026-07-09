@@ -3,6 +3,8 @@
  * Detects if a page is an article and extracts relevant metadata
  */
 
+import { decodeEntities } from '~/server/utils/htmlEntities'
+
 export interface ArticleMetadata {
   isArticle: boolean
   title?: string
@@ -24,7 +26,7 @@ function extractMetaTag(html: string, property: string): string | undefined {
     'i'
   )
   const propertyMatch = html.match(propertyRegex)
-  if (propertyMatch) return propertyMatch[1]
+  if (propertyMatch) return decodeEntities(propertyMatch[1])
 
   // Try name attribute (standard meta tags)
   const nameRegex = new RegExp(
@@ -32,7 +34,7 @@ function extractMetaTag(html: string, property: string): string | undefined {
     'i'
   )
   const nameMatch = html.match(nameRegex)
-  if (nameMatch) return nameMatch[1]
+  if (nameMatch) return decodeEntities(nameMatch[1])
 
   // Try reverse order (content before property/name)
   const reversePropertyRegex = new RegExp(
@@ -40,14 +42,14 @@ function extractMetaTag(html: string, property: string): string | undefined {
     'i'
   )
   const reversePropertyMatch = html.match(reversePropertyRegex)
-  if (reversePropertyMatch) return reversePropertyMatch[1]
+  if (reversePropertyMatch) return decodeEntities(reversePropertyMatch[1])
 
   const reverseNameRegex = new RegExp(
     `<meta\\s+content=["']([^"']+)["']\\s+name=["']${property}["']`,
     'i'
   )
   const reverseNameMatch = html.match(reverseNameRegex)
-  if (reverseNameMatch) return reverseNameMatch[1]
+  if (reverseNameMatch) return decodeEntities(reverseNameMatch[1])
 
   return undefined
 }
@@ -66,11 +68,11 @@ function extractTitle(html: string): string | undefined {
 
   // Try standard title tag
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-  if (titleMatch) return titleMatch[1].trim()
+  if (titleMatch) return decodeEntities(titleMatch[1].trim())
 
   // Try h1 tag
   const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-  if (h1Match) return h1Match[1].trim()
+  if (h1Match) return decodeEntities(h1Match[1].trim())
 
   return undefined
 }
@@ -131,7 +133,7 @@ function extractContent(html: string): string | undefined {
       .replace(/\s+/g, ' ')
       .trim()
 
-    return content.substring(0, 1000) // Limit to 1000 chars for summary
+    return decodeEntities(content).substring(0, 1000) // Limit to 1000 chars for summary
   }
 
   return undefined

@@ -17,6 +17,7 @@ const manualArticleSchema = z.object({
   content: z.string().optional(),
   summary: z.string().optional(),
   author: z.string().optional(),
+  imageUrl: z.string().url().optional(),
   tags: z.array(z.string().min(1).max(50)).optional()
 })
 
@@ -34,7 +35,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { title, url, content, summary, author, tags } = validation.data
+  const { title, url, content, summary, author, imageUrl, tags } = validation.data
 
   try {
     const db = getD1(event)
@@ -82,7 +83,8 @@ export default defineEventHandler(async (event) => {
       url,
       author,
       content,
-      summary
+      summary,
+      imageUrl
     })
 
     let articleId = articleInsert.id

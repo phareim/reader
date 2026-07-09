@@ -77,12 +77,20 @@
       @add="addDiscovered"
       @close="closePicker"
     />
+
+    <SaveArticleOverlay
+      v-if="detectedArticle"
+      :article="detectedArticle"
+      :saving="savingArticle"
+      @save="saveDetectedArticle"
+      @close="detectedArticle = null"
+    />
   </main>
 </template>
 
 <script setup lang="ts">
 import type { Feed } from '~/types'
-import type { DiscoveredFeedOption } from '~/composables/useFeeds'
+import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found'])
 
@@ -101,6 +109,10 @@ const discovered = ref<DiscoveredFeedOption[] | null>(null)
 const addedUrls = ref<string[]>([])
 const busyUrl = ref<string | null>(null)
 
+// Save-as-article state for when the URL is an article page, not a feed
+const detectedArticle = ref<DetectedArticle | null>(null)
+const savingArticle = ref(false)
+
 onMounted(() => fetchFeeds())
 
 async function add() {
@@ -116,6 +128,10 @@ async function add() {
     } else if (res.type === 'feeds_discovered') {
       addedUrls.value = []
       discovered.value = res.feeds
+    } else if (res.type === 'article_detected') {
+      detectedArticle.value = res.article
+    } else if (res.type === 'unknown') {
+      detectedArticle.value = { title: res.suggestion.title, url: res.suggestion.url }
     } else {
       showError('No feed found at that URL')
     }
@@ -148,6 +164,32 @@ async function addDiscovered(feed: DiscoveredFeedOption) {
 function closePicker() {
   if (addedUrls.value.length) newUrl.value = ''
   discovered.value = null
+}
+
+async function saveDetectedArticle() {
+  const article = detectedArticle.value
+  if (!article || savingArticle.value) return
+  savingArticle.value = true
+  try {
+    await $fetch('/api/articles/manual', {
+      method: 'POST',
+      body: {
+        title: article.title,
+        url: article.url,
+        content: article.content || undefined,
+        summary: article.description || undefined,
+        author: article.author || undefined,
+        imageUrl: article.imageUrl || undefined
+      }
+    })
+    detectedArticle.value = null
+    newUrl.value = ''
+    showSuccess('Saved to your shelf')
+  } catch (err: any) {
+    showError(err.data?.message || 'Could not save that article')
+  } finally {
+    savingArticle.value = false
+  }
 }
 
 async function markRead(feedId: number) {
