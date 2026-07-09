@@ -1,5 +1,6 @@
-import { extract } from '@extractus/feed-extractor'
+import { extractFromXml } from '@extractus/feed-extractor'
 import { extractImageUrl } from './feedImage'
+import { decodeFeedBody } from './feedCharset'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
@@ -97,34 +98,44 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
  */
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   try {
-    const feed = await extract(
-      url,
-      {
-        normalization: true,
-        useISODateFormat: false,
-        descriptionMaxLen: 500,
-        getExtraEntryFields: (entry) => ({
-          contentEncoded: entry['content:encoded'],
-          // normalization strips HTML from the entry body — keep the raw markup
-          // (RSS `description`, Atom `content`/`summary`) so image-led feeds
-          // (comics) don't lose their <img> body.
-          descriptionHtml:
-            rawEntryText(entry.description) ||
-            rawEntryText(entry.content) ||
-            rawEntryText(entry.summary),
-          mediaContent: entry['media:content'],
-          mediaThumbnail: entry['media:thumbnail'],
-          mediaGroup: entry['media:group'],
-          enclosure: entry.enclosure,
-          itunesImage: entry['itunes:image'],
-          itunes: entry.itunes,
-          author: entry.author || entry.creator || entry['dc:creator']
-        })
+    // Fetch + decode ourselves instead of letting feed-extractor do it: its
+    // charset parsing chokes on malformed Content-Type headers like The
+    // Oatmeal's `…; charset=ISO-8859-1; filename=feed.xml`.
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+        'User-Agent': 'Mozilla/5.0 (compatible; TheReader/1.0; +https://reader.phareim.no)'
       },
-      {
-        signal: AbortSignal.timeout(fetchTimeout)
-      }
-    )
+      signal: AbortSignal.timeout(fetchTimeout)
+    })
+    if (!res.ok) {
+      // Keep feed-extractor's historical message shape (stored in Feed.last_error).
+      throw new Error(`Request failed with error code ${res.status}`)
+    }
+    const xml = decodeFeedBody(await res.arrayBuffer(), res.headers.get('content-type'))
+
+    const feed = extractFromXml(xml, {
+      normalization: true,
+      useISODateFormat: false,
+      descriptionMaxLen: 500,
+      getExtraEntryFields: (entry) => ({
+        contentEncoded: entry['content:encoded'],
+        // normalization strips HTML from the entry body — keep the raw markup
+        // (RSS `description`, Atom `content`/`summary`) so image-led feeds
+        // (comics) don't lose their <img> body.
+        descriptionHtml:
+          rawEntryText(entry.description) ||
+          rawEntryText(entry.content) ||
+          rawEntryText(entry.summary),
+        mediaContent: entry['media:content'],
+        mediaThumbnail: entry['media:thumbnail'],
+        mediaGroup: entry['media:group'],
+        enclosure: entry.enclosure,
+        itunesImage: entry['itunes:image'],
+        itunes: entry.itunes,
+        author: entry.author || entry.creator || entry['dc:creator']
+      })
+    })
 
     // Feed-level fields can also arrive as `{'#text': …}` objects — Atom
     // `<subtitle type="text">` does (The Verge); feed-extractor normalizes
@@ -172,11 +183,13 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
       items
     }
   } catch (error: any) {
-    // Provide user-friendly error messages
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+    // Provide user-friendly error messages. With our own fetch, network
+    // errors carry the code on error.cause (undici) — check both.
+    const code = error.code || error.cause?.code
+    if (code === 'ENOTFOUND' || code === 'ECONNREFUSED') {
       throw new Error('Unable to reach feed URL. Please check the URL and try again.')
     }
-    if (error.code === 'ETIMEDOUT') {
+    if (code === 'ETIMEDOUT' || error.name === 'TimeoutError') {
       throw new Error('Feed request timed out. The server may be slow or unreachable.')
     }
     if (error.message?.includes('Invalid XML')) {
