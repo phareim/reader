@@ -27,8 +27,12 @@ NUXT_TTS_API_URL = "https://sleeper.phareim.no/reader-tts"
 # mirror). Everyone else gets the core reading experience — including
 # read-aloud, which is deliberately open to all signed-in users.
 NUXT_PERSONAL_EMAILS = "phareim@gmail.com"
+# X OAuth2 app client id (link-your-X-account on /sources). The client id
+# is public by design; the matching secret is a Worker secret below.
+NUXT_X_CLIENT_ID = "VUxRd2UyR19DZmdiNWdlbUxoYks6MTpjaQ"
 
 # Secrets (wrangler secret put): NUXT_SFL_API_KEY, NUXT_TTS_API_KEY,
 # NUXT_INVITE_CODE (sign-up is closed while unset),
-# NUXT_CRON_KEY (auth for POST /api/internal/sync-stale).
+# NUXT_CRON_KEY (auth for POST /api/internal/sync-{stale,x-bookmarks}),
+# NUXT_X_CLIENT_SECRET (X OAuth2 app client secret).
 

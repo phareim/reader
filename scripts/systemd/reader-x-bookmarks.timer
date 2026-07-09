@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — X bookmark sync twice daily
+
+[Timer]
+# Same slots the retired Sleeper-side collector (x-bookmark-sync.timer)
+# used: morning and evening. X bills per post returned, so cadence — not
+# volume — is the cost lever.
+OnCalendar=*-*-* 07,19:30:00
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

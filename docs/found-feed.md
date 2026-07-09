@@ -85,57 +85,66 @@ The one generic seam. MCP-authed (`X-MCP-Token`).
 - `GET /api/feeds` now returns `kind` per feed; the `Feed` type carries
   `kind?: 'rss' | 'found' | 'manual'`.
 
-## X bookmark collector (Sleeper-side)
+## X bookmarks (Worker-side — the odd one out)
 
-`scripts/x-bookmark-sync.mjs` — Sleeper-only, like `feed-candidates.mjs`.
+X is the one source that is **not** a Sleeper-side collector anymore: users link
+their own X account from the Sources page and the Worker syncs bookmarks itself.
+(The old collector `scripts/x-bookmark-sync.mjs` + `x-bookmark-sync.timer` are
+retired; the script stays in-repo as the reference implementation the Worker
+port was taken from.)
 
-Each run:
-1. Refreshes the X OAuth2 **user** token if near expiry (rotates + persists the
-   refresh token).
-2. Pages newest-first through `@phareim`'s bookmarks, stopping once it reaches
-   already-ingested ids (bounded by `FIRST_PAGE=25` / `--max-pages`, default 5).
-3. Renders each new tweet to HTML **with quoted + reply/thread context** — all
-   carried in the one bookmarks call via `expansions=referenced_tweets.id,…`, so the
-   extra depth costs **no extra X requests**.
-4. POSTs each to `/api/ingest` as `source=x-bookmark`.
+### Link flow (OAuth2 PKCE)
 
-Flags: `--dry-run`, `--verbose`, `--max-pages N`.
+- `GET /api/auth/x/start` — session-authed + **personal-gated**
+  (`NUXT_PERSONAL_EMAILS` — every linked account's reads bill the app owner's
+  X account). Stashes verifier+state in a 10-min `x_oauth` cookie and
+  redirects to X's authorize page (scopes
+  `bookmark.read tweet.read users.read offline.access` — app-only Bearer
+  **cannot** read bookmarks).
+- `GET /api/auth/x/callback` — verifies state, exchanges the code, resolves
+  the handle via `users/me`, upserts the per-user `XAccount` row (migration
+  `010-x-accounts.sql`). Always redirects to `/sources?x=linked|error`.
+- `GET /api/auth/x/link` / `DELETE /api/auth/x/link` — status for the Sources
+  block / unlink (best-effort upstream revoke; ingested articles stay).
 
-### Auth / config (files, not env — cron has no shell)
+Config: `NUXT_X_CLIENT_ID` (wrangler `[vars]`) + `NUXT_X_CLIENT_SECRET`
+(Worker secret). The redirect URI
+`https://reader.phareim.no/api/auth/x/callback` must be registered on the X
+app (developer.x.com → app → User authentication settings).
 
-| Path | Holds |
-|---|---|
-| `~/.config/x-bookmarks/env` | `X_CLIENT_ID`, `X_CLIENT_SECRET`, `X_REDIRECT_URI` |
-| `~/.config/x-bookmarks/token.json` | OAuth2 user token (access + rotating refresh) |
-| `~/.config/x-bookmarks/state.json` | `seen_ids[]` high-water set, `last_run`, `total_ingested` |
-| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
+### Sync — `POST /api/internal/sync-x-bookmarks`
 
-The OAuth2 user token was minted once via an Authorization-Code-with-PKCE flow
-(scopes `tweet.read users.read bookmark.read offline.access`) — app-only Bearer
-**cannot** read bookmarks. `state.json` was seeded with the 299 bookmarks that
-predate the pipeline (those went to SFL, not Found) so Found only collects new ones.
+Bearer `NUXT_CRON_KEY`, called by the `reader-x-bookmarks.timer` systemd user
+timer (07/19:30, units under `scripts/systemd/`, trigger
+`scripts/sync-x-bookmarks.mjs` — same pattern as `reader-sync-stale`). Per
+linked account:
 
-### Schedule
+1. Refreshes the OAuth2 token if near expiry. **X rotates the refresh token on
+   every refresh** — the rotation is persisted to D1 immediately, and this
+   endpoint must remain the token's *only* refresher (running the retired
+   collector against the same token would kill it).
+2. Pages newest-first through the account's bookmarks (25/page, ≤5 pages),
+   stopping once a page isn't entirely new — "new" is a D1 guid check
+   (`x-bookmark:<tweet id>` in the user's Found feed), which replaces the old
+   collector's local `seen_ids` set. `since_id` is deliberately not used:
+   bookmarking an *old* tweet surfaces a low id at the top of the newest-first
+   list, which an id high-water mark would wrongly skip.
+3. Renders each new tweet via `server/utils/xRender.ts` (pure, unit-tested in
+   `__tests__/server/xRender.test.ts`) — quoted + reply/thread context carried
+   in the one bookmarks call via expansions, native X Articles rendered
+   long-form — and inserts into that user's Found feed.
 
-systemd **user** timer, vendored under `scripts/systemd/`:
-- `x-bookmark-sync.timer` — `OnCalendar=*-*-* 07,19:30:00`, `Persistent=true`,
-  `RandomizedDelaySec=600` (twice daily; catches up a run missed while the host
-  was off).
-- `x-bookmark-sync.service` — `Type=oneshot`, runs the script with `/usr/bin/node`.
-
-Install: copy both into `~/.config/systemd/user/`, then
-`systemctl --user daemon-reload && systemctl --user enable --now x-bookmark-sync.timer`.
-
-Ops: `journalctl --user -u x-bookmark-sync` to tail · `systemctl --user start
-x-bookmark-sync.service` to run now · `systemctl --user list-timers` for next run.
+A failed account (dead refresh token, 429, …) records `last_error` on its
+`XAccount` row — surfaced on Sources as "Sync failing — try relinking" — and
+never blocks other accounts.
 
 ### Cost
 
-X v2 is pay-per-usage at **$0.005 per post returned**. Twice-daily polling of a
-25-post first page bounds idle cost to ≈ $0.25/day worst case; you only ever pay
-for posts actually returned. `since_id` is deliberately **not** used: bookmarking
-an *old* tweet would surface a low id at the top of the newest-first list, which an
-id high-water mark would wrongly skip — hence the explicit `seen_ids` set instead.
+X v2 is pay-per-usage at **$0.005 per post returned**, billed to the app
+owner regardless of which linked account is being read — that's why linking is
+personal-gated. Twice-daily polling of a 25-post first page bounds idle cost to
+≈ $0.25/day per account worst case; you only ever pay for posts actually
+returned.
 
 ## Bluesky bookmark collector (Sleeper-side)
 
@@ -356,7 +365,7 @@ don't fire on the same second:
 | Timer | OnCalendar |
 |---|---|
 | `ai-digest-sync.timer` | `06:30` (daily — first in Found at breakfast) |
-| `x-bookmark-sync.timer` | `07,19:30` |
+| `reader-x-bookmarks.timer` | `07,19:30` (Worker-side X sync; replaced `x-bookmark-sync.timer`) |
 | `bluesky-bookmark-sync.timer` | `07,19:40` |
 | `instapaper-sync.timer` | `07,19:50` |
 | `mastodon-bookmark-sync.timer` | `08,20:00` |
@@ -378,6 +387,8 @@ before enabling the timer.
   on its route, hidden on reader/login.
 - `__tests__/components/FoundPage.test.ts` — Found-feed resolution (empty state +
   refetch vs. deck scoped to the `kind='found'` feed).
+- `__tests__/server/xRender.test.ts` — X bookmark → Found-item rendering (the
+  Worker-side port): context blocks, media, link filtering, native X Articles.
 
 ## Native app — TODO
 

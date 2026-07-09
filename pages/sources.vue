@@ -47,6 +47,32 @@
       </TransitionGroup>
     </section>
 
+    <!-- Linked accounts (X bookmarks → Found). Hidden for guests and while
+         the OAuth client is unconfigured. -->
+    <section v-if="xLink?.available" class="mt-10">
+      <MonoLabel dash>X account</MonoLabel>
+      <div class="mt-3 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3">
+        <template v-if="xLink.linked">
+          <div class="min-w-0">
+            <span class="text-lg text-ink">@{{ xLink.handle }}</span>
+            <p class="mt-1 text-sm text-mute">
+              <template v-if="xLink.lastError">Sync failing — try relinking.</template>
+              <template v-else-if="xLink.lastSyncAt">Bookmarks synced {{ formatRelativeDate(xLink.lastSyncAt) }}.</template>
+              <template v-else>Linked — bookmarks land in Found on the next sync.</template>
+            </p>
+          </div>
+          <div class="flex items-center gap-4">
+            <ActionLabel v-if="xLink.lastError" accent @click="linkX">Relink</ActionLabel>
+            <button class="src-action" @click="unlinkX">Unlink</button>
+          </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-mute">Bring your X bookmarks into the Found feed.</p>
+          <ActionLabel @click="linkX">Link X account</ActionLabel>
+        </template>
+      </div>
+    </section>
+
     <!-- Footer -->
     <HairlineRule class="mt-10" />
     <footer class="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -113,7 +139,47 @@ const busyUrl = ref<string | null>(null)
 const detectedArticle = ref<DetectedArticle | null>(null)
 const savingArticle = ref(false)
 
-onMounted(() => fetchFeeds())
+// Linked X account (bookmarks → Found)
+type XLinkStatus = {
+  available: boolean
+  linked: boolean
+  handle?: string | null
+  lastSyncAt?: string | null
+  lastError?: string | null
+}
+const xLink = ref<XLinkStatus | null>(null)
+
+onMounted(() => {
+  fetchFeeds()
+  fetchXLink()
+  // Returning from the OAuth dance: /sources?x=linked|error
+  const result = useRoute().query.x
+  if (result === 'linked') showSuccess('X account linked')
+  else if (result === 'error') showError('Could not link the X account')
+  if (result) navigateTo('/sources', { replace: true })
+})
+
+async function fetchXLink() {
+  try {
+    xLink.value = await $fetch<XLinkStatus>('/api/auth/x/link')
+  } catch {
+    xLink.value = null // signed out or unavailable — hide the block
+  }
+}
+
+function linkX() {
+  // Full navigation, not $fetch — the endpoint redirects to X's authorize page.
+  window.location.href = '/api/auth/x/start'
+}
+
+async function unlinkX() {
+  if (!window.confirm('Unlink your X account? Already-collected bookmarks stay in Found.')) return
+  try {
+    await $fetch('/api/auth/x/link', { method: 'DELETE' })
+    await fetchXLink()
+    showSuccess('X account unlinked')
+  } catch { showError('Failed to unlink') }
+}
 
 async function add() {
   if (!newUrl.value || adding.value) return

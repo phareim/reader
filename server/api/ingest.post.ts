@@ -16,7 +16,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
-import { lastRowId } from '~/server/utils/d1Result'
+import { resolveFoundFeed } from '~/server/utils/foundFeed'
 
 const ingestSchema = z.object({
   source: z.string().min(1).max(40),
@@ -50,39 +50,10 @@ export default defineEventHandler(async (event) => {
     const db = getD1(event)
 
     // Resolve (or lazily create) this user's single Found feed.
-    const foundFeedUrl = `found://${user.id}`
-    let feed = await db.prepare(
-      `SELECT id FROM "Feed" WHERE user_id = ? AND kind = 'found'`
-    ).bind(user.id).first<{ id: number }>()
-
-    if (!feed) {
-      const insertFeed = await db.prepare(
-        `
-        INSERT INTO "Feed" (user_id, url, title, description, kind, last_fetched_at, is_active)
-        VALUES (?, ?, ?, ?, 'found', ?, 0)
-        ON CONFLICT(user_id, url) DO UPDATE SET kind = 'found'
-        `
-      ).bind(
-        user.id,
-        foundFeedUrl,
-        'Found',
-        'Bookmarks and saves collected from across the web',
-        new Date().toISOString()
-      ).run()
-
-      const newId = lastRowId(insertFeed)
-      feed = newId
-        ? { id: newId }
-        : await db.prepare(`SELECT id FROM "Feed" WHERE user_id = ? AND url = ?`)
-            .bind(user.id, foundFeedUrl).first<{ id: number }>()
-    }
-
-    if (!feed?.id) {
-      throw new Error('Failed to resolve Found feed')
-    }
+    const feedId = await resolveFoundFeed(event, user.id)
 
     const guid = `${source}:${externalId}`
-    const insert = await insertArticleWithContent(event, Number(feed.id), {
+    const insert = await insertArticleWithContent(event, feedId, {
       guid,
       title,
       url,
@@ -97,12 +68,12 @@ export default defineEventHandler(async (event) => {
     if (!insert.inserted) {
       const existing = await db.prepare(
         `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
-      ).bind(feed.id, guid).first<{ id: number }>()
+      ).bind(feedId, guid).first<{ id: number }>()
       return {
         success: true,
         ingested: false,
         existing: true,
-        article: { id: existing?.id ?? null, url, feedId: Number(feed.id) }
+        article: { id: existing?.id ?? null, url, feedId }
       }
     }
 
@@ -110,7 +81,7 @@ export default defineEventHandler(async (event) => {
       success: true,
       ingested: true,
       existing: false,
-      article: { id: insert.id, url, feedId: Number(feed.id) }
+      article: { id: insert.id, url, feedId }
     }
   } catch (error: any) {
     if (error.statusCode) throw error

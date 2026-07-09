@@ -2,6 +2,15 @@
 /**
  * x-bookmark-sync.mjs — Sleeper-side collector: X bookmarks → Reader "Found" feed.
  *
+ * ⚠️ RETIRED (2026-07-09): X sync moved into the Worker. Users link their X
+ * account from /sources (OAuth2 PKCE → XAccount table) and
+ * POST /api/internal/sync-x-bookmarks pages bookmarks server-side, with the
+ * rendering ported to server/utils/xRender.ts. Kept as the reference
+ * implementation. Do NOT run this against a token that the Worker also
+ * refreshes — X rotates refresh tokens, and two refreshers kill the grant
+ * (this script's ~/.config/x-bookmarks/token.json is a separate grant, so
+ * running it standalone is safe, just redundant spend).
+ *
  * One of (eventually several) social collectors. Each run:
  *   1. refreshes the X OAuth2 user token if it's near expiry (rotates + persists),
  *   2. pages newest-first through @phareim's bookmarks (stopping once it has

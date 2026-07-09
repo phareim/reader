@@ -131,6 +131,23 @@ CREATE TABLE IF NOT EXISTS "Highlight" (
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
+-- Linked X (Twitter) accounts for the Worker-side bookmark sync
+-- (migration 010). One per user; tokens come from the PKCE link flow on
+-- /sources. X rotates the refresh token on every refresh — the internal
+-- sync endpoint persists rotations here and is the token's ONLY refresher.
+CREATE TABLE IF NOT EXISTS "XAccount" (
+  user_id TEXT PRIMARY KEY REFERENCES "User"(id) ON DELETE CASCADE,
+  x_user_id TEXT NOT NULL,
+  handle TEXT,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  obtained_at INTEGER NOT NULL,   -- unix seconds when access_token was minted
+  expires_in INTEGER NOT NULL,    -- access_token lifetime in seconds
+  last_sync_at TEXT,
+  last_error TEXT,
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+);
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
