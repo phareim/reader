@@ -85,67 +85,84 @@ The one generic seam. MCP-authed (`X-MCP-Token`).
 - `GET /api/feeds` now returns `kind` per feed; the `Feed` type carries
   `kind?: 'rss' | 'found' | 'manual'`.
 
-## X bookmarks (Worker-side — the odd one out)
+## Linked sources (Worker-side — X, Reddit, Hacker News)
 
-X is the one source that is **not** a Sleeper-side collector anymore: users link
-their own X account from the Sources page and the Worker syncs bookmarks itself.
-(The old collector `scripts/x-bookmark-sync.mjs` + `x-bookmark-sync.timer` are
-retired; the script stays in-repo as the reference implementation the Worker
-port was taken from.)
+Three sources are **not** Sleeper-side collectors: users connect them from the
+Sources page ("Linked sources" section) and the Worker syncs them itself. One
+row per (user, source) in the `LinkedSource` table (migrations `010` → `011`):
+OAuth token sets live in a `credentials` JSON column; Hacker News carries NULL
+credentials — favorites are public, linked by username only. (The old
+collector `scripts/x-bookmark-sync.mjs` + `x-bookmark-sync.timer` are retired;
+the script stays in-repo as the reference implementation. The Reddit
+collector `scripts/reddit-saved-sync.mjs` was never enabled and is likewise
+reference-only.)
 
-### Link flow (OAuth2 PKCE)
+### Link flows
 
-- `GET /api/auth/x/start` — session-authed, open to every signed-in user
-  (every linked account's reads bill the app owner's X account — accepted,
-  like the TTS bill). Stashes verifier+state in a 10-min `x_oauth` cookie and
-  redirects to X's authorize page (scopes
-  `bookmark.read tweet.read users.read offline.access` — app-only Bearer
-  **cannot** read bookmarks).
-- `GET /api/auth/x/callback` — verifies state, exchanges the code, resolves
-  the handle via `users/me`, upserts the per-user `XAccount` row (migration
-  `010-x-accounts.sql`). Always redirects to `/sources?x=linked|error`.
-- `GET /api/auth/x/link` / `DELETE /api/auth/x/link` — status for the Sources
-  block / unlink (best-effort upstream revoke; ingested articles stay).
+- **X** — `GET /api/auth/x/start` → OAuth2 **PKCE** → `/api/auth/x/callback`.
+  Scopes `bookmark.read tweet.read users.read offline.access` (app-only
+  Bearer **cannot** read bookmarks); handle resolved via `users/me`.
+- **Reddit** — `GET /api/auth/reddit/start` → OAuth2 authorization-code (no
+  PKCE — Reddit doesn't support it; the state cookie is the CSRF guard;
+  `duration=permanent` for a refresh token) → `/api/auth/reddit/callback`;
+  scopes `history identity`, username via `/api/v1/me`. Every Reddit call
+  carries the required descriptive `User-Agent` (`REDDIT_UA`).
+- **Hacker News** — `POST /api/sources/links/hackernews` `{ username }`: no
+  OAuth; validates the user exists via the official Firebase API and stores
+  the name.
+- **Status / unlink** — `GET /api/sources/links` (one entry per source;
+  `available:false` = OAuth client unconfigured, row hidden in the UI) and
+  `DELETE /api/sources/links/:source` (best-effort upstream token revoke;
+  ingested articles stay).
 
-Config: `NUXT_X_CLIENT_ID` (wrangler `[vars]`) + `NUXT_X_CLIENT_SECRET`
-(Worker secret). The redirect URI
-`https://reader.phareim.no/api/auth/x/callback` must be registered on the X
-app (developer.x.com → app → User authentication settings).
+All flows are session-authed and open to every signed-in user. OAuth
+callbacks always redirect to `/sources?linked=<source>|error=<source>`.
 
-### Sync — `POST /api/internal/sync-x-bookmarks`
+Config: `NUXT_X_CLIENT_ID` + `NUXT_REDDIT_CLIENT_ID` (wrangler `[vars]`),
+`NUXT_X_CLIENT_SECRET` + `NUXT_REDDIT_CLIENT_SECRET` (Worker secrets).
+Redirect URIs `https://reader.phareim.no/api/auth/x/callback` (developer.x.com
+→ app → User authentication settings) and
+`https://reader.phareim.no/api/auth/reddit/callback` (reddit.com/prefs/apps —
+the app must be type **web app** for accounts other than the developer's) must
+be registered.
 
-Bearer `NUXT_CRON_KEY`, called by the `reader-x-bookmarks.timer` systemd user
+### Sync — `POST /api/internal/sync-sources`
+
+Bearer `NUXT_CRON_KEY`, called by the `reader-sources-sync.timer` systemd user
 timer (07/19:30, units under `scripts/systemd/`, trigger
-`scripts/sync-x-bookmarks.mjs` — same pattern as `reader-sync-stale`). Per
-linked account:
+`scripts/sync-sources.mjs` — same pattern as `reader-sync-stale`). Dispatches
+per `LinkedSource` row on `source`; the shared shape:
 
-1. Refreshes the OAuth2 token if near expiry. **X rotates the refresh token on
-   every refresh** — the rotation is persisted to D1 immediately, and this
-   endpoint must remain the token's *only* refresher (running the retired
-   collector against the same token would kill it).
-2. Pages newest-first through the account's bookmarks (25/page, ≤5 pages),
-   stopping once a page isn't entirely new — "new" is a D1 guid check
-   (`x-bookmark:<tweet id>` in the user's Found feed), which replaces the old
-   collector's local `seen_ids` set. `since_id` is deliberately not used:
-   bookmarking an *old* tweet surfaces a low id at the top of the newest-first
-   list, which an id high-water mark would wrongly skip.
-3. Renders each new tweet via `server/utils/xRender.ts` (pure, unit-tested in
-   `__tests__/server/xRender.test.ts`) — quoted + reply/thread context carried
-   in the one bookmarks call via expansions, native X Articles rendered
-   long-form — and inserts into that user's Found feed.
+1. Refresh OAuth credentials if near expiry. **X and Reddit rotate refresh
+   tokens on every refresh** — the rotation is persisted to D1 immediately,
+   and this endpoint must remain the credentials' *only* refresher.
+2. Page newest-first (X 25/page ≤5 pages; Reddit saved 50/page ≤5, raw_json=1;
+   HN favorites 30/page ≤2 — scraped off the public page, each new id hydrated
+   from `hacker-news.firebaseio.com/v0/item/<id>.json`), stopping once a page
+   isn't entirely new — "new" is a D1 guid check (`x-bookmark:<tweet id>` /
+   `reddit:<fullname>` / `hn-favorite:<item id>` in the user's Found feed),
+   no local seen-set. `since_id`-style high-water marks are deliberately not
+   used: saving an *old* item surfaces a low id at the top of the newest-first
+   list, which a high-water mark would wrongly skip.
+3. Render via the pure unit-tested renderers — `server/utils/xRender.ts`
+   (quoted + reply/thread context via expansions, native X Articles rendered
+   long-form), `server/utils/redditRender.ts` (t3 posts + t1 comments from the
+   listing), `server/utils/hn.ts` (link stories point the card at the external
+   URL with the HN thread linked in the body; Ask HN text posts point at the
+   thread) — and insert into that user's Found feed.
 
-A failed account (dead refresh token, 429, …) records `last_error` on its
-`XAccount` row — surfaced on Sources as "Sync failing — try relinking" — and
-never blocks other accounts.
+A failed source (dead refresh token, 429, …) records `last_error` on its row —
+surfaced on Sources as "Sync failing — try relinking" — and never blocks the
+others.
 
 ### Cost
 
-X v2 is pay-per-usage at **$0.005 per post returned**, billed to the app
-owner regardless of which linked account is being read. Linking is open to
-every signed-in user (accepted cost, like TTS); re-gate with `isPersonalUser`
-in `start.get.ts` + `link.get.ts` if guest volume ever hurts. Twice-daily
-polling of a 25-post first page bounds idle cost to ≈ $0.25/day per account
-worst case; you only ever pay for posts actually returned.
+Reddit and Hacker News are free. X v2 is pay-per-usage at **$0.005 per post
+returned**, billed to the app owner regardless of which linked account is
+being read. Linking is open to every signed-in user (accepted cost, like TTS);
+re-gate with `isPersonalUser` in the start routes if guest volume ever hurts.
+Twice-daily polling of a 25-post first page bounds idle X cost to ≈ $0.25/day
+per account worst case; you only ever pay for posts actually returned.
 
 ## Bluesky bookmark collector (Sleeper-side)
 
@@ -210,7 +227,12 @@ with the `read:bookmarks` scope, then copy *Your access token*. No client
 id/secret needed for a single-user personal token. First run creates
 `state.json`; bookmarks of deleted/unviewable statuses are skipped.
 
-## Reddit collector (Sleeper-side)
+## Reddit collector (Sleeper-side — SUPERSEDED, never enabled)
+
+> **Superseded 2026-07-10** by the Worker-side linked-sources sync above
+> (`server/utils/redditRender.ts` is a direct port of this script's
+> rendering). The collector was scaffolded but never configured or scheduled;
+> it stays in-repo as reference only.
 
 `scripts/reddit-saved-sync.mjs` — Reddit's analog to bookmarks is the **saved**
 list, which holds both saved *posts* and saved *comments*.
@@ -366,11 +388,11 @@ don't fire on the same second:
 | Timer | OnCalendar |
 |---|---|
 | `ai-digest-sync.timer` | `06:30` (daily — first in Found at breakfast) |
-| `reader-x-bookmarks.timer` | `07,19:30` (Worker-side X sync; replaced `x-bookmark-sync.timer`) |
+| `reader-sources-sync.timer` | `07,19:30` (Worker-side X + Reddit + HN sync; replaced `x-bookmark-sync.timer` / `reader-x-bookmarks.timer`) |
 | `bluesky-bookmark-sync.timer` | `07,19:40` |
 | `instapaper-sync.timer` | `07,19:50` |
 | `mastodon-bookmark-sync.timer` | `08,20:00` |
-| `reddit-saved-sync.timer` | `08,20:10` |
+| `reddit-saved-sync.timer` | (superseded — never enabled; Reddit runs in `reader-sources-sync`) |
 | `sleeper-articles-sync.timer` | `08,20:20` |
 
 All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
@@ -390,6 +412,10 @@ before enabling the timer.
   refetch vs. deck scoped to the `kind='found'` feed).
 - `__tests__/server/xRender.test.ts` — X bookmark → Found-item rendering (the
   Worker-side port): context blocks, media, link filtering, native X Articles.
+- `__tests__/server/redditRender.test.ts` — Reddit saved → Found-item rendering:
+  t3 self/link/image posts, t1 comments with thread context, null skips.
+- `__tests__/server/hn.test.ts` — HN favorites-page id scrape + Firebase item →
+  Found-item rendering (link story vs Ask HN; comment/deleted/dead skips).
 
 ## Native app — TODO
 

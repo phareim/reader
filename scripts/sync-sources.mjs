@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * X bookmark sync trigger — calls the Worker's internal sync-x-bookmarks
- * endpoint, which pages every linked X account's bookmarks into their
- * Found feed (see server/api/internal/sync-x-bookmarks.post.ts). Runs from
- * a systemd user timer on Sleeper (scripts/systemd/reader-x-bookmarks.*),
- * replacing the retired x-bookmark-sync.mjs collector.
+ * Linked-sources sync trigger — calls the Worker's internal sync-sources
+ * endpoint, which pages every linked account (X bookmarks, Reddit saved,
+ * Hacker News favorites) into its user's Found feed (see
+ * server/api/internal/sync-sources.post.ts). Runs from a systemd user
+ * timer on Sleeper (scripts/systemd/reader-sources-sync.*), replacing the
+ * per-source Sleeper-side collectors.
  *
  * Reads ~/.config/reader/env for READER_API_URL and READER_CRON_KEY.
  */
@@ -34,21 +35,21 @@ if (!cronKey) {
   process.exit(1)
 }
 
-const res = await fetch(`${apiUrl}/api/internal/sync-x-bookmarks`, {
+const res = await fetch(`${apiUrl}/api/internal/sync-sources`, {
   method: 'POST',
   headers: { Authorization: `Bearer ${cronKey}` },
-  signal: AbortSignal.timeout(120_000),
+  signal: AbortSignal.timeout(180_000),
 })
 
 if (!res.ok) {
-  console.error(`sync-x-bookmarks failed: ${res.status} ${await res.text().catch(() => '')}`)
+  console.error(`sync-sources failed: ${res.status} ${await res.text().catch(() => '')}`)
   process.exit(1)
 }
 
 const result = await res.json()
 const errors = result.results.filter((r) => r.error)
 console.log(
-  `${result.accounts} account(s), ${result.ingested} bookmark(s) ingested` +
+  `${result.sources} linked source(s), ${result.ingested} item(s) ingested` +
     (errors.length ? `, errors: ${JSON.stringify(errors)}` : '')
 )
 if (errors.length) process.exit(1)

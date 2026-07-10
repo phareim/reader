@@ -27,12 +27,16 @@ NUXT_TTS_API_URL = "https://sleeper.phareim.no/reader-tts"
 # mirror). Everyone else gets the core reading experience — including
 # read-aloud, which is deliberately open to all signed-in users.
 NUXT_PERSONAL_EMAILS = "phareim@gmail.com"
-# X OAuth2 app client id (link-your-X-account on /sources). The client id
-# is public by design; the matching secret is a Worker secret below.
+# OAuth2 app client ids for the linked-sources flows on /sources (client
+# ids are public by design; the matching secrets are Worker secrets below).
+# A missing id+secret pair just hides that source's row in the UI.
 NUXT_X_CLIENT_ID = "VUxRd2UyR19DZmdiNWdlbUxoYks6MTpjaQ"
+# NUXT_REDDIT_CLIENT_ID = "..."  # set once the Reddit app exists (type "web app",
+#                                # redirect https://reader.phareim.no/api/auth/reddit/callback)
 
 # Secrets (wrangler secret put): NUXT_SFL_API_KEY, NUXT_TTS_API_KEY,
 # NUXT_INVITE_CODE (sign-up is closed while unset),
-# NUXT_CRON_KEY (auth for POST /api/internal/sync-{stale,x-bookmarks}),
-# NUXT_X_CLIENT_SECRET (X OAuth2 app client secret).
+# NUXT_CRON_KEY (auth for POST /api/internal/sync-{stale,sources}),
+# NUXT_X_CLIENT_SECRET (X OAuth2 app client secret),
+# NUXT_REDDIT_CLIENT_SECRET (Reddit OAuth2 app client secret).
 

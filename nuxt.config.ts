@@ -50,6 +50,8 @@ export default defineNuxtConfig({
     cronKey: '', // NUXT_CRON_KEY (Worker secret) — auth for /api/internal/sync-stale + sync-x-bookmarks
     xClientId: '', // NUXT_X_CLIENT_ID — X OAuth2 app client id (link-your-X-account)
     xClientSecret: '', // NUXT_X_CLIENT_SECRET (Worker secret) — X OAuth2 app client secret
+    redditClientId: '', // NUXT_REDDIT_CLIENT_ID — Reddit OAuth2 app client id (link-your-Reddit-account)
+    redditClientSecret: '', // NUXT_REDDIT_CLIENT_SECRET (Worker secret) — Reddit OAuth2 app client secret
   },
 
   typescript: {

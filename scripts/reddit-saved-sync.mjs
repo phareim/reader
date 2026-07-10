@@ -2,6 +2,12 @@
 /**
  * reddit-saved-sync.mjs — Sleeper-side collector: Reddit saved items → Reader "Found" feed.
  *
+ * ⚠️ SUPERSEDED (2026-07-10, never enabled): Reddit sync ships Worker-side
+ * instead. Users link their Reddit account from /sources (OAuth2 code flow →
+ * LinkedSource table) and POST /api/internal/sync-sources pages the saved
+ * listing server-side; the rendering below was ported verbatim to
+ * server/utils/redditRender.ts. Kept as reference only.
+ *
  * A sibling of x-bookmark-sync.mjs / bluesky-bookmark-sync.mjs / mastodon-*.
  * Reddit's analog to bookmarks is the **saved** list (posts you've saved AND
  * comments you've saved). Each run:

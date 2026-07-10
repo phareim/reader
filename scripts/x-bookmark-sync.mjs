@@ -3,8 +3,8 @@
  * x-bookmark-sync.mjs — Sleeper-side collector: X bookmarks → Reader "Found" feed.
  *
  * ⚠️ RETIRED (2026-07-09): X sync moved into the Worker. Users link their X
- * account from /sources (OAuth2 PKCE → XAccount table) and
- * POST /api/internal/sync-x-bookmarks pages bookmarks server-side, with the
+ * account from /sources (OAuth2 PKCE → LinkedSource table) and
+ * POST /api/internal/sync-sources pages bookmarks server-side, with the
  * rendering ported to server/utils/xRender.ts. Kept as the reference
  * implementation. Do NOT run this against a token that the Worker also
  * refreshes — X rotates refresh tokens, and two refreshers kill the grant

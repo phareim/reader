@@ -131,21 +131,23 @@ CREATE TABLE IF NOT EXISTS "Highlight" (
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
--- Linked X (Twitter) accounts for the Worker-side bookmark sync
--- (migration 010). One per user; tokens come from the PKCE link flow on
--- /sources. X rotates the refresh token on every refresh — the internal
--- sync endpoint persists rotations here and is the token's ONLY refresher.
-CREATE TABLE IF NOT EXISTS "XAccount" (
-  user_id TEXT PRIMARY KEY REFERENCES "User"(id) ON DELETE CASCADE,
-  x_user_id TEXT NOT NULL,
-  handle TEXT,
-  access_token TEXT NOT NULL,
-  refresh_token TEXT NOT NULL,
-  obtained_at INTEGER NOT NULL,   -- unix seconds when access_token was minted
-  expires_in INTEGER NOT NULL,    -- access_token lifetime in seconds
+-- Linked social/reading accounts for the Worker-side Found-feed syncs
+-- (migrations 010 → 011). One row per (user, source): X, Reddit, Hacker
+-- News, ... OAuth sources keep their token set in the credentials JSON
+-- (X and Reddit rotate refresh tokens — the internal sync endpoint
+-- persists rotations here and is the credentials' ONLY refresher);
+-- public sources (Hacker News favorites) carry NULL credentials.
+CREATE TABLE IF NOT EXISTS "LinkedSource" (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  source TEXT NOT NULL,           -- 'x' | 'reddit' | 'hackernews' | ...
+  external_id TEXT,               -- provider-side id (X user id, reddit/HN username)
+  handle TEXT,                    -- display handle for the Sources page
+  credentials TEXT,               -- JSON token set; NULL for public sources
   last_sync_at TEXT,
   last_error TEXT,
-  created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+  UNIQUE (user_id, source)
 );
 
 -- ============================================================================

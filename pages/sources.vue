@@ -47,28 +47,47 @@
       </TransitionGroup>
     </section>
 
-    <!-- Linked accounts (X bookmarks → Found). Hidden for guests and while
-         the OAuth client is unconfigured. -->
-    <section v-if="xLink?.available" class="mt-10">
-      <MonoLabel dash>X account</MonoLabel>
-      <div class="mt-3 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3">
-        <template v-if="xLink.linked">
+    <!-- Linked sources (X / Reddit / Hacker News → Found). Rows for
+         unconfigured OAuth clients are hidden by `available`. -->
+    <section v-if="visibleLinks.length" class="mt-10">
+      <MonoLabel dash>Linked sources</MonoLabel>
+      <div
+        v-for="link in visibleLinks" :key="link.source"
+        class="mt-3 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3"
+      >
+        <template v-if="link.linked">
           <div class="min-w-0">
-            <span class="text-lg text-ink">@{{ xLink.handle }}</span>
+            <span class="text-lg text-ink">{{ SOURCE_META[link.source].prefix }}{{ link.handle }}</span>
+            <MonoLabel class="ml-2">{{ SOURCE_META[link.source].name }}</MonoLabel>
             <p class="mt-1 text-sm text-mute">
-              <template v-if="xLink.lastError">Sync failing — try relinking.</template>
-              <template v-else-if="xLink.lastSyncAt">Bookmarks synced {{ formatRelativeDate(xLink.lastSyncAt) }}.</template>
-              <template v-else>Linked — bookmarks land in Found on the next sync.</template>
+              <template v-if="link.lastError">Sync failing — try relinking.</template>
+              <template v-else-if="link.lastSyncAt">{{ SOURCE_META[link.source].things }} synced {{ formatRelativeDate(link.lastSyncAt) }}.</template>
+              <template v-else>Linked — {{ SOURCE_META[link.source].things.toLowerCase() }} land in Found on the next sync.</template>
             </p>
           </div>
           <div class="flex items-center gap-4">
-            <ActionLabel v-if="xLink.lastError" accent @click="linkX">Relink</ActionLabel>
-            <button class="src-action" @click="unlinkX">Unlink</button>
+            <ActionLabel v-if="link.lastError && link.source !== 'hackernews'" accent @click="linkSource(link.source)">Relink</ActionLabel>
+            <button class="src-action" @click="unlinkSource(link.source)">Unlink</button>
+          </div>
+        </template>
+        <template v-else-if="link.source === 'hackernews'">
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
+            <form class="mt-1 flex items-end gap-3" @submit.prevent="linkHn">
+              <input
+                v-model="hnUsername" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"
+                placeholder="HN username"
+                class="w-44 border-0 border-b border-rule bg-transparent py-1 text-ink outline-none focus:border-accent"
+              />
+              <ActionLabel :disabled="hnLinking || !hnUsername.trim()" @click="linkHn">
+                {{ hnLinking ? 'Linking…' : 'Link' }}
+              </ActionLabel>
+            </form>
           </div>
         </template>
         <template v-else>
-          <p class="text-sm text-mute">Bring your X bookmarks into the Found feed.</p>
-          <ActionLabel @click="linkX">Link X account</ActionLabel>
+          <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
+          <ActionLabel @click="linkSource(link.source)">Link {{ SOURCE_META[link.source].name }}</ActionLabel>
         </template>
       </div>
     </section>
@@ -139,45 +158,79 @@ const busyUrl = ref<string | null>(null)
 const detectedArticle = ref<DetectedArticle | null>(null)
 const savingArticle = ref(false)
 
-// Linked X account (bookmarks → Found)
-type XLinkStatus = {
+// Linked sources (X / Reddit / Hacker News → Found)
+type SourceLink = {
+  source: 'x' | 'reddit' | 'hackernews'
   available: boolean
   linked: boolean
   handle?: string | null
   lastSyncAt?: string | null
   lastError?: string | null
 }
-const xLink = ref<XLinkStatus | null>(null)
+const SOURCE_META = {
+  x: { name: 'X', prefix: '@', things: 'Bookmarks', pitch: 'Bring your X bookmarks into the Found feed.' },
+  reddit: { name: 'Reddit', prefix: 'u/', things: 'Saved items', pitch: 'Bring your saved Reddit posts and comments into Found.' },
+  hackernews: { name: 'Hacker News', prefix: '', things: 'Favorites', pitch: 'Bring your public Hacker News favorites into Found.' },
+} as const
+
+const sourceLinks = ref<SourceLink[]>([])
+const visibleLinks = computed(() => sourceLinks.value.filter((l) => l.available))
+const hnUsername = ref('')
+const hnLinking = ref(false)
 
 onMounted(() => {
   fetchFeeds()
-  fetchXLink()
-  // Returning from the OAuth dance: /sources?x=linked|error
-  const result = useRoute().query.x
-  if (result === 'linked') showSuccess('X account linked')
-  else if (result === 'error') showError('Could not link the X account')
-  if (result) navigateTo('/sources', { replace: true })
+  fetchSourceLinks()
+  // Returning from an OAuth dance: /sources?linked=<source>|error=<source>
+  const q = useRoute().query
+  const linkedSource = q.linked as keyof typeof SOURCE_META | undefined
+  const errorSource = q.error as keyof typeof SOURCE_META | undefined
+  if (linkedSource && SOURCE_META[linkedSource]) showSuccess(`${SOURCE_META[linkedSource].name} account linked`)
+  else if (errorSource && SOURCE_META[errorSource]) showError(`Could not link the ${SOURCE_META[errorSource].name} account`)
+  if (linkedSource || errorSource) navigateTo('/sources', { replace: true })
 })
 
-async function fetchXLink() {
+async function fetchSourceLinks() {
   try {
-    xLink.value = await $fetch<XLinkStatus>('/api/auth/x/link')
+    const res = await $fetch<{ sources: SourceLink[] }>('/api/sources/links')
+    sourceLinks.value = res.sources
   } catch {
-    xLink.value = null // signed out or unavailable — hide the block
+    sourceLinks.value = [] // signed out — hide the section
   }
 }
 
-function linkX() {
-  // Full navigation, not $fetch — the endpoint redirects to X's authorize page.
-  window.location.href = '/api/auth/x/start'
+function linkSource(source: SourceLink['source']) {
+  // Full navigation, not $fetch — the endpoint redirects to the provider's
+  // authorize page.
+  window.location.href = `/api/auth/${source}/start`
 }
 
-async function unlinkX() {
-  if (!window.confirm('Unlink your X account? Already-collected bookmarks stay in Found.')) return
+async function linkHn() {
+  const username = hnUsername.value.trim()
+  if (!username || hnLinking.value) return
+  hnLinking.value = true
   try {
-    await $fetch('/api/auth/x/link', { method: 'DELETE' })
-    await fetchXLink()
-    showSuccess('X account unlinked')
+    const res = await $fetch<{ handle: string }>('/api/sources/links/hackernews', {
+      method: 'POST',
+      body: { username }
+    })
+    hnUsername.value = ''
+    await fetchSourceLinks()
+    showSuccess(`Linked Hacker News as ${res.handle}`)
+  } catch (err: any) {
+    showError(err.statusCode === 404 || err.status === 404 ? 'No such Hacker News user' : 'Could not link Hacker News')
+  } finally {
+    hnLinking.value = false
+  }
+}
+
+async function unlinkSource(source: SourceLink['source']) {
+  const meta = SOURCE_META[source]
+  if (!window.confirm(`Unlink ${meta.name}? Already-collected items stay in Found.`)) return
+  try {
+    await $fetch(`/api/sources/links/${source}`, { method: 'DELETE' })
+    await fetchSourceLinks()
+    showSuccess(`${meta.name} unlinked`)
   } catch { showError('Failed to unlink') }
 }
 
