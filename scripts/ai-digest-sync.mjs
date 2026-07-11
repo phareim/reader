@@ -29,6 +29,8 @@
  *   --verbose         log the window, items, token usage (implied by --dry-run)
  *   --window-hours N  override the look-back window (default 26)
  *   --date YYYY-MM-DD rebuild for a specific day (testing / backfill)
+ *   --replace         overwrite an already-posted digest for the day in place
+ *                     (same guid; the card returns to unread)
  */
 
 import fs from 'node:fs';
@@ -41,6 +43,7 @@ const STATE_PATH = path.join(ACFG, 'state.json');
 
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry-run');
+const REPLACE = args.includes('--replace');
 const VERBOSE = args.includes('--verbose') || DRY;
 
 function numFlag(name, dflt) {
@@ -248,6 +251,7 @@ const card = {
   content: html,
   summary: summary || undefined,
   publishedAt: now.toISOString(),
+  ...(REPLACE ? { replace: true } : {}),
 };
 
 if (DRY) {
@@ -264,7 +268,7 @@ try {
   state.last_date = digestDate;
   fs.mkdirSync(ACFG, { recursive: true });
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
-  console.error(`done — ${r.ingested ? 'posted' : 'already-present'} AI digest for ${digestDate} (${items.length} items)`);
+  console.error(`done — ${r.ingested ? 'posted' : r.replaced ? 'rebuilt' : 'already-present'} AI digest for ${digestDate} (${items.length} items)`);
 } catch (e) {
   console.error(`✗ ingest failed: ${e.message}`);
   process.exit(1);

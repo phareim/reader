@@ -10,12 +10,18 @@
  * differs only by `source` + `externalId`. Items land UNREAD and are neither
  * auto-saved nor marked read, so they flow into the deck like any article.
  * Idempotent via guid = `${source}:${externalId}` + UNIQUE(feed_id, guid).
+ *
+ * `replace: true` rebuilds an existing card in place instead of skipping it:
+ * the row's metadata and R2 body are overwritten and the card returns to
+ * unread (rebuilt content deserves another look). The ai-digest collector
+ * uses this to regenerate a day's digest under the same guid.
  */
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
+import { storeArticleContent } from '~/server/utils/article-content'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 
 const ingestSchema = z.object({
@@ -27,7 +33,8 @@ const ingestSchema = z.object({
   content: z.string().optional(),
   summary: z.string().max(2000).optional(),
   imageUrl: z.string().url().optional(),
-  publishedAt: z.string().optional()
+  publishedAt: z.string().optional(),
+  replace: z.boolean().optional()
 })
 
 export default defineEventHandler(async (event) => {
@@ -43,7 +50,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { source, externalId, url, title, author, content, summary, imageUrl, publishedAt } =
+  const { source, externalId, url, title, author, content, summary, imageUrl, publishedAt, replace } =
     validation.data
 
   try {
@@ -69,6 +76,33 @@ export default defineEventHandler(async (event) => {
       const existing = await db.prepare(
         `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
       ).bind(feedId, guid).first<{ id: number }>()
+
+      if (replace && existing?.id) {
+        const contentKey = content
+          ? await storeArticleContent(event, existing.id, content)
+          : null
+        await db.prepare(
+          `
+          UPDATE "Article"
+          SET title = ?, url = ?, author = ?, summary = ?, image_url = ?,
+              published_at = COALESCE(?, published_at),
+              content_key = COALESCE(?, content_key),
+              is_read = 0, read_at = NULL, read_progress = 0
+          WHERE id = ?
+          `
+        ).bind(
+          title, url, author || null, summary || null, imageUrl || null,
+          publishedAt || null, contentKey, existing.id
+        ).run()
+        return {
+          success: true,
+          ingested: false,
+          existing: true,
+          replaced: true,
+          article: { id: existing.id, url, feedId }
+        }
+      }
+
       return {
         success: true,
         ingested: false,

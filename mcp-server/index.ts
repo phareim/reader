@@ -196,6 +196,20 @@ const tools: Tool[] = [
     }
   },
   {
+    name: 'delete_article',
+    description: 'Delete an article entirely. Only manually added articles and Found cards (social bookmarks, AI digests) can be deleted — regular RSS articles cannot (unsave them instead).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        articleId: {
+          type: 'number',
+          description: 'The ID of the article to delete'
+        }
+      },
+      required: ['articleId']
+    }
+  },
+  {
     name: 'list_tags',
     description: 'Get all tags currently used in the Reader. Shows tag names, colors, and usage counts.',
     inputSchema: {
@@ -334,19 +348,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error('articleId is required')
         }
 
-        // Get the article by fetching with specific ID filter
-        const data = await apiRequest<ArticlesResponse>(`/api/articles?limit=1`)
-        const article = data.articles.find((a: any) => a.id === args.articleId)
-
-        if (!article) {
-          throw new Error(`Article ${args.articleId} not found`)
-        }
+        const article = await apiRequest<any>(`/api/articles/${args.articleId}`)
 
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify(article, null, 2)
+            }
+          ]
+        }
+      }
+
+      case 'delete_article': {
+        if (!args.articleId) {
+          throw new Error('articleId is required')
+        }
+
+        await apiRequest<{ success: boolean }>(
+          `/api/articles/${args.articleId}/delete`,
+          { method: 'DELETE' }
+        )
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Article ${args.articleId} deleted.`
             }
           ]
         }

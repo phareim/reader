@@ -1,6 +1,7 @@
 /**
  * DELETE /api/articles/:id
- * Delete an article entirely (only for manually added articles)
+ * Delete an article entirely (manual additions and Found cards only —
+ * regular RSS articles would just be re-synced, so they can't be deleted).
  * This is different from unsaving - this actually deletes the article
  */
 
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
     // Get the article with its feed
     const article = await db.prepare(
       `
-      SELECT a.id, a.content_key, f.user_id, f.title AS feed_title
+      SELECT a.id, a.content_key, f.user_id, f.title AS feed_title, f.kind AS feed_kind
       FROM "Article" a
       JOIN "Feed" f ON f.id = a.feed_id
       WHERE a.id = ?
@@ -46,11 +47,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Only allow deletion of manually added articles (from Manual Additions feed)
-    if (article.feed_title !== 'Manual Additions') {
+    // Only manual additions and Found cards may be deleted. The Manual
+    // Additions feed predates Feed.kind, so it is matched by title too.
+    const deletable =
+      article.feed_kind === 'found' ||
+      article.feed_kind === 'manual' ||
+      article.feed_title === 'Manual Additions'
+    if (!deletable) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Can only delete manually added articles',
+        statusMessage: 'Can only delete manual or Found articles',
         message: 'Regular feed articles cannot be deleted. You can unsave them instead.'
       })
     }
