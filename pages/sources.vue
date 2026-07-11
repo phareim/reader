@@ -38,6 +38,9 @@
             >{{ feed.title }}</NuxtLink>
             <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
           </div>
+          <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">
+            {{ feedHealthNote(feed) }}
+          </p>
           <div class="mt-1.5 flex gap-4">
             <button class="src-action" @click="markRead(feed.id)">Mark read</button>
             <button class="src-action" @click="editTags(feed)">Tags</button>
@@ -136,6 +139,7 @@
 <script setup lang="ts">
 import type { Feed } from '~/types'
 import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
+import { feedHealthNote } from '~/utils/feedHealth'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found'])
 

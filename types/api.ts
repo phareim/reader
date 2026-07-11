@@ -14,6 +14,7 @@ export interface Feed {
   lastFetchedAt: string | null
   lastError: string | null
   errorCount: number
+  newestArticleAt: string | null
   isActive: boolean
 }
 
