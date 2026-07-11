@@ -35,11 +35,11 @@ export default defineEventHandler(async (event) => {
     const result = await db.prepare(
       `
       UPDATE "Article"
-      SET read_progress = ?1
-      WHERE id = ?2
-        AND feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?3)
+      SET read_progress = ?1, progress_updated_at = ?2
+      WHERE id = ?3
+        AND feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?4)
       `
-    ).bind(clamped, id, user.id).run()
+    ).bind(clamped, new Date().toISOString(), id, user.id).run()
 
     if (!rowsChanged(result)) {
       throw createError({

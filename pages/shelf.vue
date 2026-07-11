@@ -6,6 +6,24 @@
     </header>
     <HairlineRule class="mt-3" />
 
+    <!-- Continue reading: unread articles with a saved position. Quiet strip
+         above the saved list; absent entirely when nothing is in progress. -->
+    <section v-if="inProgress.length" class="mt-6">
+      <MonoLabel dash>Continue reading</MonoLabel>
+      <ul class="mt-1">
+        <li v-for="a in inProgress" :key="a.id" class="border-b border-rule py-3">
+          <NuxtLink :to="`/article/${a.id}`" class="block">
+            <div class="flex items-baseline justify-between gap-4">
+              <MonoLabel dash>{{ a.feedTitle }}</MonoLabel>
+              <MonoLabel>{{ Math.round((a.readProgress || 0) * 100) }}%</MonoLabel>
+            </div>
+            <h2 class="mt-1 text-lg leading-snug text-ink">{{ a.title }}</h2>
+          </NuxtLink>
+        </li>
+      </ul>
+      <HairlineRule class="mt-6" />
+    </section>
+
     <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
     <p v-else-if="articles.length === 0" class="mt-8 italic text-mute">
       Nothing on the shelf yet — swipe a card right when something touches you.
@@ -45,6 +63,7 @@ const { unsaveArticle } = useSavedArticles()
 const { showError, showSuccess } = useToast()
 
 const articles = ref<Article[]>([])
+const inProgress = ref<Article[]>([])
 const loading = ref(true)
 
 async function load() {
@@ -59,6 +78,17 @@ async function load() {
   }
 }
 
+async function loadInProgress() {
+  try {
+    const res = await $fetch<{ articles: Article[] }>('/api/articles', {
+      params: { inProgress: 'true', limit: 8 }
+    })
+    inProgress.value = res.articles
+  } catch {
+    inProgress.value = [] // the strip is optional — fail silent
+  }
+}
+
 async function remove(id: number) {
   try {
     await unsaveArticle(id)
@@ -69,5 +99,8 @@ async function remove(id: number) {
   }
 }
 
-onMounted(() => load())
+onMounted(() => {
+  load()
+  loadInProgress()
+})
 </script>

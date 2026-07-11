@@ -32,6 +32,7 @@ export interface Article {
   isRead: boolean
   isStarred: boolean
   readAt?: string | null
+  readProgress?: number
   savedId?: number  // Present when article is saved (for tag management)
   tags?: string[]   // Tags for saved articles
 }

@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
+import { RESTORE_MIN, RESTORE_MAX } from '~/utils/readingPosition'
 
 export default defineEventHandler(async (event) => {
   // Auth required — results are always scoped to the caller's own feeds.
@@ -13,6 +14,9 @@ export default defineEventHandler(async (event) => {
   const isRead = query.isRead === 'true' ? true : query.isRead === 'false' ? false : undefined
   const isStarred = query.isStarred === 'true' ? true : undefined
   const excludeSaved = query.excludeSaved === 'true'
+  // Articles the reader is partway through (the shelf's "Continue reading"
+  // strip): unread, with a saved position inside the restore band.
+  const inProgress = query.inProgress === 'true'
   const limit = Math.min(parseInt(query.limit as string) || 50, 200)
   const offset = parseInt(query.offset as string) || 0
 
@@ -127,6 +131,17 @@ export default defineEventHandler(async (event) => {
       params.push(user.id)
     }
 
+    if (inProgress) {
+      where += ' AND a.is_read = 0 AND a.read_progress >= ? AND a.read_progress <= ?'
+      params.push(RESTORE_MIN, RESTORE_MAX)
+    }
+
+    // In-progress rows order by most recently touched (pre-013 positions
+    // have no timestamp and sort last); everything else by publish date.
+    const orderBy = inProgress
+      ? 'a.progress_updated_at IS NULL, a.progress_updated_at DESC, a.published_at DESC'
+      : 'a.published_at DESC'
+
     const countResult = await db.prepare(
       `SELECT COUNT(*) AS total FROM "Article" a WHERE ${where}`
     ).bind(...params).first()
@@ -147,12 +162,13 @@ export default defineEventHandler(async (event) => {
         a.is_read,
         a.is_starred,
         a.read_at,
+        a.read_progress,
         f.title AS feed_title,
         f.favicon_url AS feed_favicon
       FROM "Article" a
       JOIN "Feed" f ON f.id = a.feed_id
       WHERE ${where}
-      ORDER BY a.published_at DESC
+      ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
       `
     ).bind(...params, limit, offset).all()
@@ -174,7 +190,8 @@ export default defineEventHandler(async (event) => {
         publishedAt: article.published_at,
         isRead: Boolean(article.is_read),
         isStarred: Boolean(article.is_starred),
-        readAt: article.read_at
+        readAt: article.read_at,
+        readProgress: article.read_progress ?? 0
       })),
       total: Number(countResult?.total || 0),
       hasMore: offset + (articlesResult.results?.length || 0) < Number(countResult?.total || 0)

@@ -9,8 +9,8 @@
  * the top, and a finished one (the reader hit "Mark as read" at the bottom)
  * re-opens at the top for reference rather than at the tail end.
  */
-const RESTORE_MIN = 0.03
-const RESTORE_MAX = 0.95
+export const RESTORE_MIN = 0.03
+export const RESTORE_MAX = 0.95
 
 /** Below this, a change in position isn't worth a network write. */
 const SAVE_DELTA = 0.01
