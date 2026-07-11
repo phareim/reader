@@ -56,8 +56,9 @@ export default defineEventHandler(async (event) => {
           site_url,
           favicon_url,
           last_fetched_at,
-          is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          is_active,
+          kind
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual')
         `
       ).bind(
         user.id,
