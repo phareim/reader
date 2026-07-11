@@ -76,6 +76,9 @@ CREATE TABLE IF NOT EXISTS "Article" (
   -- (SFL !existing), so undo can delete the right idea without trusting the
   -- client. NULL otherwise.
   sfl_idea_id TEXT,
+  -- normalized URL (server/utils/urlNormalize.ts) for cross-source Found
+  -- dedup; set at insert time (migration 012)
+  url_norm TEXT,
   UNIQUE(feed_id, guid)
 );
 
@@ -162,6 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_feed_is_active ON "Feed"(is_active);
 CREATE INDEX IF NOT EXISTS idx_feed_user_kind ON "Feed"(user_id, kind);
 
 CREATE INDEX IF NOT EXISTS idx_article_feed_id_is_read ON "Article"(feed_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_article_feed_url_norm ON "Article"(feed_id, url_norm);
 CREATE INDEX IF NOT EXISTS idx_article_is_read_published_at ON "Article"(is_read, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_article_published_at ON "Article"(published_at DESC);
 

@@ -22,6 +22,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
 import { storeArticleContent } from '~/server/utils/article-content'
+import { normalizeUrl } from '~/server/utils/urlNormalize'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 
 const ingestSchema = z.object({
@@ -60,24 +61,12 @@ export default defineEventHandler(async (event) => {
     const feedId = await resolveFoundFeed(event, user.id)
 
     const guid = `${source}:${externalId}`
-    const insert = await insertArticleWithContent(event, feedId, {
-      guid,
-      title,
-      url,
-      author,
-      content,
-      summary,
-      imageUrl,
-      publishedAt: publishedAt || null,
-      source
-    })
+    const existing = await db.prepare(
+      `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
+    ).bind(feedId, guid).first<{ id: number }>()
 
-    if (!insert.inserted) {
-      const existing = await db.prepare(
-        `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
-      ).bind(feedId, guid).first<{ id: number }>()
-
-      if (replace && existing?.id) {
+    if (existing?.id) {
+      if (replace) {
         const contentKey = content
           ? await storeArticleContent(event, existing.id, content)
           : null
@@ -87,12 +76,13 @@ export default defineEventHandler(async (event) => {
           SET title = ?, url = ?, author = ?, summary = ?, image_url = ?,
               published_at = COALESCE(?, published_at),
               content_key = COALESCE(?, content_key),
+              url_norm = ?,
               is_read = 0, read_at = NULL, read_progress = 0
           WHERE id = ?
           `
         ).bind(
           title, url, author || null, summary || null, imageUrl || null,
-          publishedAt || null, contentKey, existing.id
+          publishedAt || null, contentKey, normalizeUrl(url), existing.id
         ).run()
         return {
           success: true,
@@ -107,7 +97,55 @@ export default defineEventHandler(async (event) => {
         success: true,
         ingested: false,
         existing: true,
-        article: { id: existing?.id ?? null, url, feedId }
+        article: { id: existing.id, url, feedId }
+      }
+    }
+
+    // Cross-source dedup: the same page already sits in Found under another
+    // source's guid (an X post arriving both as x-bookmark and via the
+    // sleeper-articles mirror, say). Insert a read tombstone rather than a
+    // second visible card — recording the guid keeps collectors' "stop once
+    // a page isn't all-new" paging honest.
+    const urlNorm = normalizeUrl(url)
+    const dup = urlNorm
+      ? await db.prepare(
+          `SELECT id, source FROM "Article" WHERE feed_id = ? AND url_norm = ? LIMIT 1`
+        ).bind(feedId, urlNorm).first<{ id: number; source: string | null }>()
+      : null
+
+    const insert = await insertArticleWithContent(event, feedId, {
+      guid,
+      title,
+      url,
+      author,
+      content: dup ? undefined : content,
+      summary,
+      imageUrl,
+      publishedAt: publishedAt || null,
+      source,
+      markRead: !!dup
+    })
+
+    if (insert.inserted && dup) {
+      return {
+        success: true,
+        ingested: true,
+        existing: false,
+        duplicateUrl: true,
+        duplicateOf: dup.source,
+        article: { id: insert.id, url, feedId }
+      }
+    }
+
+    if (!insert.inserted) {
+      const raced = await db.prepare(
+        `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
+      ).bind(feedId, guid).first<{ id: number }>()
+      return {
+        success: true,
+        ingested: false,
+        existing: true,
+        article: { id: raced?.id ?? null, url, feedId }
       }
     }
 

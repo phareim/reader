@@ -1,6 +1,7 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { storeArticleContent } from '~/server/utils/article-content'
 import { lastRowId, rowsChanged } from '~/server/utils/d1Result'
+import { normalizeUrl } from '~/server/utils/urlNormalize'
 
 type ArticleInsert = {
   guid: string
@@ -12,6 +13,10 @@ type ArticleInsert = {
   imageUrl?: string | null
   publishedAt?: Date | string | null
   source?: string | null
+  // Insert already marked read — used for cross-source URL-dedup tombstones:
+  // the guid gets recorded (so sync paging sees the item as known) but the
+  // card never surfaces as unread.
+  markRead?: boolean
 }
 
 export const insertArticleWithContent = async (event: any, feedId: number, item: ArticleInsert) => {
@@ -31,8 +36,11 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
       summary,
       image_url,
       published_at,
-      source
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      source,
+      url_norm,
+      is_read,
+      read_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).bind(
     feedId,
@@ -43,7 +51,10 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
     item.summary || null,
     item.imageUrl || null,
     publishedAt,
-    item.source || null
+    item.source || null,
+    normalizeUrl(item.url),
+    item.markRead ? 1 : 0,
+    item.markRead ? new Date().toISOString() : null
   ).run()
 
   const articleId = lastRowId(insert)

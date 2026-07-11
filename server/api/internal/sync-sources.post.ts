@@ -6,6 +6,7 @@ import { renderRedditChild } from '~/server/utils/redditRender'
 import { parseFavoriteIds, hasMoreFavorites, renderHnItem } from '~/server/utils/hn'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 import { insertArticleWithContent } from '~/server/utils/article-store'
+import { normalizeUrl } from '~/server/utils/urlNormalize'
 import {
   listAllLinkedSources,
   parseCredentials,
@@ -111,20 +112,41 @@ async function knownGuids(event: any, feedId: number, guids: string[]): Promise<
 }
 
 async function insertItems(event: any, feedId: number, items: FoundItem[]): Promise<number> {
+  // Cross-source URL dedup: an item whose page already sits in Found under
+  // another source's guid lands as a READ tombstone (no body) instead of a
+  // second visible card. The guid still gets recorded, so the "stop once a
+  // page isn't all-new" paging above stays honest — a plain skip would keep
+  // the item guid-fresh forever and re-page past it on every sync.
+  const norms = items
+    .map((item) => normalizeUrl(item.url))
+    .filter((n): n is string => !!n)
+  let dupNorms = new Set<string>()
+  if (norms.length) {
+    const placeholders = norms.map(() => '?').join(',')
+    const { results } = await getD1(event).prepare(
+      `SELECT url_norm FROM "Article" WHERE feed_id = ? AND url_norm IN (${placeholders})`
+    ).bind(feedId, ...norms).all()
+    dupNorms = new Set((results ?? []).map((r: any) => r.url_norm))
+  }
+
   let ingested = 0
   for (const item of items) {
+    const norm = normalizeUrl(item.url)
+    const isDup = !!norm && dupNorms.has(norm)
+    if (norm) dupNorms.add(norm) // also dedup within this batch
     const insert = await insertArticleWithContent(event, feedId, {
       guid: `${item.source}:${item.externalId}`,
       title: item.title,
       url: item.url,
       author: item.author,
-      content: item.content,
+      content: isDup ? undefined : item.content,
       summary: item.summary,
       imageUrl: item.imageUrl,
       publishedAt: item.publishedAt || null,
       source: item.source,
+      markRead: isDup,
     })
-    if (insert.inserted) ingested++
+    if (insert.inserted && !isDup) ingested++
   }
   return ingested
 }
