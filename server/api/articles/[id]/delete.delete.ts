@@ -8,6 +8,7 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { deleteArticleContent, deleteSavedArticleNote } from '~/server/utils/article-content'
+import { deleteFtsRows } from '~/server/utils/searchIndex'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -70,6 +71,7 @@ export default defineEventHandler(async (event) => {
     }
 
     await deleteArticleContent(event, article.content_key)
+    await deleteFtsRows(event, [articleId])
     await db.prepare('DELETE FROM "Article" WHERE id = ?').bind(articleId).run()
 
     return {

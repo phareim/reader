@@ -101,17 +101,21 @@ const tools: Tool[] = [
   },
   {
     name: 'search_articles',
-    description: 'Search for articles. Returns articles matching the criteria.',
+    description: 'Search for articles. With `q`, runs full-text search over titles, summaries, and article bodies (ranked, with snippets). Without `q`, lists articles filtered by feed/read status.',
     inputSchema: {
       type: 'object',
       properties: {
+        q: {
+          type: 'string',
+          description: 'Full-text query (words are AND-ed; the last word matches as a prefix)'
+        },
         feedId: {
           type: 'number',
-          description: 'Optional: Search within specific feed'
+          description: 'Optional: Search within specific feed (ignored when q is set)'
         },
         isRead: {
           type: 'boolean',
-          description: 'Optional: Filter by read status'
+          description: 'Optional: Filter by read status (ignored when q is set)'
         },
         limit: {
           type: 'number',
@@ -320,6 +324,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'search_articles': {
+        // Full-text mode: q hits the ranked FTS endpoint.
+        if (args.q) {
+          const params = new URLSearchParams({ q: String(args.q) })
+          if (args.limit) params.append('limit', String(args.limit))
+          const data = await apiRequest<{ query: string; results: any[] }>(
+            `/api/search?${params}`
+          )
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ query: data.query, results: data.results }, null, 2)
+              }
+            ]
+          }
+        }
+
         const params = new URLSearchParams()
         if (args.feedId) params.append('feedId', String(args.feedId))
         if (args.isRead !== undefined) params.append('isRead', String(args.isRead))

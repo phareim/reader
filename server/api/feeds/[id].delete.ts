@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { deleteArticleContent, deleteSavedArticleNote } from '~/server/utils/article-content'
+import { deleteFtsRows } from '~/server/utils/searchIndex'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -43,6 +44,9 @@ export default defineEventHandler(async (event) => {
 
       await deleteArticleContent(event, article.content_key)
     }
+
+    // FTS rows don't cascade with the article delete below.
+    await deleteFtsRows(event, (articlesResult.results || []).map((a: any) => Number(a.id)))
 
     await db.prepare('DELETE FROM "Feed" WHERE id = ?').bind(id).run()
 

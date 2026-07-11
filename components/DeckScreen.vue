@@ -170,6 +170,9 @@ function onKey(e: KeyboardEvent) {
       helpOpen.value = !helpOpen.value
     } else if (e.key === 'R' && e.shiftKey) {
       syncAll()
+    } else if (e.key === '/') {
+      e.preventDefault()
+      navigateTo('/search')
     }
     return
   }
@@ -189,6 +192,9 @@ function onKey(e: KeyboardEvent) {
     stack.value?.openTop()
   } else if (e.key === 'R' && e.shiftKey) {
     syncAll()
+  } else if (e.key === '/') {
+    e.preventDefault()
+    navigateTo('/search')
   }
 }
 onMounted(() => window.addEventListener('keydown', onKey))

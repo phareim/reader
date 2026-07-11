@@ -155,6 +155,16 @@ CREATE TABLE IF NOT EXISTS "LinkedSource" (
   UNIQUE (user_id, source)
 );
 
+-- Full-text search index (migration 014). rowid = Article.id; maintained by
+-- server/utils/searchIndex.ts (insert / full-text fetch / ingest replace /
+-- delete) — FTS tables don't cascade, so deletes are explicit.
+CREATE VIRTUAL TABLE IF NOT EXISTS "ArticleFts" USING fts5(
+  title,
+  summary,
+  body,
+  tokenize = 'unicode61 remove_diacritics 2'
+);
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================

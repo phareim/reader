@@ -23,6 +23,7 @@ import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
 import { storeArticleContent } from '~/server/utils/article-content'
 import { normalizeUrl } from '~/server/utils/urlNormalize'
+import { indexArticleFts } from '~/server/utils/searchIndex'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 
 const ingestSchema = z.object({
@@ -84,6 +85,7 @@ export default defineEventHandler(async (event) => {
           title, url, author || null, summary || null, imageUrl || null,
           publishedAt || null, contentKey, normalizeUrl(url), existing.id
         ).run()
+        await indexArticleFts(event, { id: existing.id, title, summary, bodyHtml: content })
         return {
           success: true,
           ingested: false,

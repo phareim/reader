@@ -3,6 +3,9 @@
     <header class="flex items-baseline justify-between">
       <MonoLabel dash>Shelf</MonoLabel>
       <div class="flex items-baseline gap-4">
+        <NuxtLink to="/search" class="focus-visible:outline focus-visible:outline-1">
+          <MonoLabel>Search</MonoLabel>
+        </NuxtLink>
         <NuxtLink to="/highlights" class="focus-visible:outline focus-visible:outline-1">
           <MonoLabel>Highlights</MonoLabel>
         </NuxtLink>

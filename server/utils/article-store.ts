@@ -2,6 +2,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { storeArticleContent } from '~/server/utils/article-content'
 import { lastRowId, rowsChanged } from '~/server/utils/d1Result'
 import { normalizeUrl } from '~/server/utils/urlNormalize'
+import { indexArticleFts } from '~/server/utils/searchIndex'
 
 type ArticleInsert = {
   guid: string
@@ -67,6 +68,16 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
     await db.prepare(
       'UPDATE "Article" SET content_key = ? WHERE id = ?'
     ).bind(contentKey, articleId).run()
+  }
+
+  // Read tombstones (URL-dedup shadows) stay out of the search index.
+  if (!item.markRead) {
+    await indexArticleFts(event, {
+      id: articleId,
+      title: item.title,
+      summary: item.summary,
+      bodyHtml: item.content
+    })
   }
 
   return { inserted: true, id: articleId }

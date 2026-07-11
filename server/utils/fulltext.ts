@@ -1,6 +1,7 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { storeArticleContent, fetchArticleContent } from '~/server/utils/article-content'
 import { extractReadableContent, extractLeadImage, acceptExtraction } from '~/server/utils/extractContent'
+import { updateFtsBody } from '~/server/utils/searchIndex'
 
 type FullTextResult = {
   status: 'fetched' | 'failed' | 'skipped'
@@ -86,6 +87,9 @@ export const fetchFullText = async (
            END
        WHERE id = ?3`
     ).bind(contentKey, leadImage, article.id).run()
+
+    // Keep the search index in step with the upgraded body.
+    await updateFtsBody(event, article.id, body)
 
     // Read back the effective image_url (the CASE above only backfills when the
     // row had none / only filler) so callers can update a card in place.
