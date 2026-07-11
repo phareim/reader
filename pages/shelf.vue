@@ -2,7 +2,12 @@
   <main class="mx-auto max-w-measure px-5 py-6 pb-20">
     <header class="flex items-baseline justify-between">
       <MonoLabel dash>Shelf</MonoLabel>
-      <MonoLabel>{{ articles.length }} saved</MonoLabel>
+      <div class="flex items-baseline gap-4">
+        <NuxtLink to="/highlights" class="focus-visible:outline focus-visible:outline-1">
+          <MonoLabel>Highlights</MonoLabel>
+        </NuxtLink>
+        <MonoLabel>{{ articles.length }} saved</MonoLabel>
+      </div>
     </header>
     <HairlineRule class="mt-3" />
 
