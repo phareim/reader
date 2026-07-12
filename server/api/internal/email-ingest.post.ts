@@ -81,8 +81,9 @@ export default defineEventHandler(async (event) => {
         ? (looksLikePlainText(text) ? paragraphize(text) : text)
         : undefined
 
+    const guid = emailGuid(messageId)
     const insert = await insertArticleWithContent(event, feedId, {
-      guid: emailGuid(messageId),
+      guid,
       title: stripForwardPrefixes(subject),
       // No canonical URL exists for an email; the first link in the body
       // (usually "view in browser") is the most useful stand-in.
@@ -94,11 +95,19 @@ export default defineEventHandler(async (event) => {
       source: 'email'
     })
 
+    let articleId = insert.id
+    if (!insert.inserted) {
+      const existing = await db.prepare(
+        'SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?'
+      ).bind(feedId, guid).first<{ id: number }>()
+      articleId = existing?.id ?? null
+    }
+
     return {
       success: true,
       ingested: insert.inserted,
       existing: !insert.inserted,
-      article: { id: insert.id, feedId }
+      article: { id: articleId, feedId }
     }
   } catch (error: any) {
     if (error.statusCode) throw error
