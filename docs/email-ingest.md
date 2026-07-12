@@ -1,6 +1,17 @@
 # Email → Reader: `reader@phareim.no`
 
-**Status: design — nothing here is built yet.**
+**Status: Phase 1 built + deployed (2026-07-12).** What exists:
+`POST /api/internal/email-ingest` on the Reader (Bearer
+`NUXT_EMAIL_INGEST_KEY`), the `reader-email` Worker (`email-worker/` —
+deployed, secret set, CI workflow `deploy-email-worker.yml` path-filtered
+on `email-worker/**`), pure helpers in `server/utils/emailIngest.ts` +
+`email-worker/src/authResults.ts` (both unit-tested). Phase 1 pulled two
+Phase-2 items forward because they were cheap: HTML-part rendering and
+first-link URL extraction. **Remaining manual step:** enable Email Routing
+on the `phareim.no` zone in the Cloudflare dashboard and add the custom
+address `reader@phareim.no` → deliver to Worker `reader-email` (the local
+API token lacks the DNS/Email-Routing perms to do it headlessly). Still
+open for Phase 2: forward-block author recovery, tracking-pixel strip.
 
 Forward any email — a newsletter issue, a paywalled-article-in-your-inbox, a
 long announcement — from your registered email address to

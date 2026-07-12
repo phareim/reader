@@ -1,0 +1,9 @@
+name = "reader-email"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+# Secrets (wrangler secret put …):
+#   EMAIL_INGEST_KEY — must equal the Reader Worker's NUXT_EMAIL_INGEST_KEY
+
+[vars]
+READER_API_URL = "https://reader.phareim.no"

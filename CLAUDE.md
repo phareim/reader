@@ -61,6 +61,7 @@ Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/server/urlNormalize.test.ts` — `normalizeUrl` for cross-source Found dedup (scheme/www/fragment folding, tracking-param strip, twitter→x.com aliasing, X path-only params, YouTube params preserved, never-collide negatives)
 - `__tests__/utils/feedHealth.test.ts` — `feedHealthNote` Sources annotations (failing/paused/quiet states, silence for healthy + push-only kinds, failing-beats-quiet precedence)
 - `__tests__/server/searchIndex.test.ts` — `buildFtsQuery` (token quoting, prefix-last, FTS-syntax neutralization, 8-token cap) + `renderSnippetHtml` (sentinel→`<mark>`, escape-before-mark injection safety, client/server sentinel parity)
+- `__tests__/server/emailIngest.test.ts` — email→Reader helpers: `stripForwardPrefixes` (chained Fwd/Re/SV/VS), `firstHttpLink` (href-first, bare-URL boundaries + punctuation shed), `emailGuid` (stability, over-long compression), and the email Worker's `senderAuthOk` alignment check (DKIM/SPF/DMARC pass + relaxed alignment, unrelated-domain and suffix-trickery rejections, allow-on-missing-header)
 - `__tests__/components/BasicComponent.test.ts` — smoke test for the Vue/Jest toolchain
 
 `~/` and `@/` resolve to repo root (see `jest.config.js` `moduleNameMapper`). **`motion-v` is ESM and is mocked entirely** rather than transformed: `moduleNameMapper` points `motion-v` at `__tests__/mocks/motion-v.ts`, which renders `motion.*` as passthrough divs (cached per tag for stable component identity) and exposes `__setManualAnimations` / `__resolveAnimations` so tests can assert behavior mid-flight. Mock network calls rather than hitting live feeds; Nuxt auto-imported composables don't exist under Jest, so component tests provide them as `globalThis` stubs.
@@ -209,6 +210,9 @@ Routes follow REST conventions:
 
 **Ingest** (the "Found" feed — see "Found feed (social bookmarks)"):
 - `POST /api/ingest` - Generic, source-agnostic seam. MCP-authed. Body `{ source, externalId, url, title, author?, content?, summary?, imageUrl?, publishedAt?, replace? }` → resolves/creates the user's `kind='found'` feed (via `resolveFoundFeed` in `server/utils/foundFeed.ts`, shared with the X sync) and inserts an unread article (guid = `${source}:${externalId}`, idempotent). Does **not** save or mark read. `replace: true` rebuilds an already-ingested guid in place — metadata + R2 body overwritten, card returned to unread (used by `ai-digest-sync.mjs --replace` to regenerate a day's digest). **Cross-source URL dedup**: a new guid whose normalized URL (`server/utils/urlNormalize.ts`, `Article.url_norm`, migration `012`) already exists in the user's Found feed lands as a **read tombstone** (no body) instead of a second visible card — the guid is still recorded so collectors' "stop once a page isn't all-new" paging stays honest. Same check in the Worker-side `sync-sources` inserts. Backfill for pre-012 rows: `POST /api/internal/backfill-url-norm` (Bearer `NUXT_CRON_KEY`, batched — repeat until `remaining: 0`).
+
+**Email ingest** (forward-to-save via `reader@phareim.no` — full design in [`docs/email-ingest.md`](docs/email-ingest.md)):
+- `POST /api/internal/email-ingest` - Bearer `NUXT_EMAIL_INGEST_KEY` (dedicated secret, not the cron key). Called by the standalone **`reader-email` Worker** (`email-worker/` in this repo — Nitro's generated entry can't grow an `email()` handler, so Email Routing delivers to this ~150-line Worker, which parses MIME via `postal-mime`, enforces a 2 MB cap + sender-auth alignment (`email-worker/src/authResults.ts`, pure + unit-tested; missing header ⇒ allow, Cloudflare's edge SPF/DKIM gate already ran), and POSTs here; failures become honest SMTP bounces via `setReject`). The endpoint resolves the **sender's address against `User.email`** (403 ⇒ bounce), caps at 20 email cards/user/day (429), and inserts into the user's Found feed via `insertArticleWithContent` (`source='email'`, guid from Message-ID via `emailGuid` — double-forwards are no-ops; title via `stripForwardPrefixes`; URL = first body link via `firstHttpLink` else filler; HTML part preferred, text `paragraphize`d — helpers in `server/utils/emailIngest.ts`, pure + unit-tested). Worker deploys via `.github/workflows/deploy-email-worker.yml` (path-filtered) or `npx wrangler deploy` from `email-worker/`. **Requires the one-time dashboard step**: Email Routing on the `phareim.no` zone with custom address `reader@phareim.no` → Worker `reader-email`.
 
 **Linked sources** (connect X / Reddit / Hacker News on Sources — see "Linked sources (Worker-side)" under the Found feed):
 - `GET /api/auth/x/start` / `GET /api/auth/reddit/start` - Begin that provider's OAuth2 dance (browser navigation, not `$fetch`): state (+ PKCE verifier for X; Reddit has no PKCE) in a 10-min cookie, redirect to the authorize page. Session-authed, open to **every** signed-in user — like read-aloud, Petter foots the X bill (~$0.005/post) for guests; Reddit and HN are free
@@ -418,6 +422,11 @@ NUXT_PERSONAL_EMAILS="phareim@gmail.com"
 
 # Background sync: Bearer key for POST /api/internal/sync-{stale,sources}
 NUXT_CRON_KEY="..."
+
+# Email ingest: Bearer key for POST /api/internal/email-ingest — must equal
+# EMAIL_INGEST_KEY on the reader-email Worker (email-worker/). A copy lives
+# in ~/.config/reader/env as READER_EMAIL_INGEST_KEY.
+NUXT_EMAIL_INGEST_KEY="..."
 
 # Linked sources (Sources page) + Worker-side Found syncs. Each pair fails
 # soft (that source's row is hidden) while unset; HN needs no credentials.
