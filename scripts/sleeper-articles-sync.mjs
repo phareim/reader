@@ -38,9 +38,17 @@
  *   --dry-run        fetch + render + print, do NOT POST (implies --verbose)
  *   --verbose        log paging, item counts, errors
  *   --seed           mark all current ready ids as seen, ingest nothing (baseline)
+ *   --ids a,b,c      force-ingest exactly these article ids — skips catch-up
+ *                    paging AND the seen-set, so it reaches seeded-out backlog
+ *                    items too (guid dedup upstream keeps re-sends harmless).
+ *                    Used by the articles service's push-on-ready/starred hook.
  *   --page-size N    articles per list page (default 50, capped at 100 by the API)
  *   --max-pages N    hard cap on catch-up paging (default 8)
  *   --max-items N    hard cap on articles ingested per run (default 60)
+ *
+ * Concurrency: runs triggered by the articles service and the systemd timer
+ * both wrap the invocation in `flock ~/.config/sleeper-articles/.lock` so
+ * state.json is never written by two runs at once.
  */
 
 import fs from 'node:fs';
@@ -63,6 +71,11 @@ function numFlag(name, dflt) {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] ? Number(args[i + 1]) : dflt;
 }
+function strFlag(name) {
+  const i = args.indexOf(name);
+  return i >= 0 && args[i + 1] ? args[i + 1] : '';
+}
+const FORCE_IDS = strFlag('--ids').split(',').map(s => s.trim()).filter(Boolean);
 function log(...a) { if (VERBOSE) console.error(...a); }
 function readEnvFile(p) {
   if (!fs.existsSync(p)) return {};
@@ -256,7 +269,12 @@ const freshIds = [];   // ids to fetch+ingest (newest-first)
 const seedIds = [];    // ids to just mark seen (--seed)
 let cursor = null, page = 0;
 
-do {
+if (FORCE_IDS.length) {
+  // Force mode: exactly these ids, seen or not. No paging, no seed.
+  if (SEED) throw new Error('--ids and --seed are mutually exclusive');
+  freshIds.push(...FORCE_IDS);
+  log(`--ids: force-ingesting ${FORCE_IDS.length} article(s), skipping catch-up paging`);
+} else do {
   const q = new URLSearchParams({ status: 'ready', limit: String(PAGE_SIZE) });
   if (cursor != null) q.set('cursor', String(cursor));
   const j = await apiGet(`/?${q.toString()}`);

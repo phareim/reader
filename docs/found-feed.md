@@ -377,8 +377,22 @@ redundancy is unwanted.
 | `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
 
 Flags: `--dry-run` (fetch + render + print, don't POST), `--verbose`, `--seed`
-(baseline the backlog), `--page-size N` (default 50), `--max-pages N` (default 8),
-`--max-items N` (default 60).
+(baseline the backlog), `--ids a,b,c` (force-ingest exactly these article ids —
+skips paging **and** the seen-set, so it reaches seeded-out backlog items too),
+`--page-size N` (default 50), `--max-pages N` (default 8), `--max-items N`
+(default 60).
+
+### Push-on-ready / push-on-starred (2026-07-12)
+
+The Articles service itself now triggers this collector, so cards land in Found
+within a minute instead of waiting for the twice-daily timer: on every article
+that flips to `ready`, on `PATCH` transitions to `starred: true` (Petter's
+"best content" signal — reaches even pre-seed backlog items via `--ids`), and on
+`POST /digest` upserts (the Sunday obsession brief). The hook lives at
+`~/chat/articles/src/services/reader-push.ts` (debounced 45s, killswitch
+`READER_PUSH_ENABLED`). Both the push spawn and the systemd unit wrap the run in
+`flock ~/.config/sleeper-articles/.lock`, so concurrent runs serialize instead
+of racing on `state.json`. The timer stays as the safety net.
 
 ## Schedules (all collectors)
 

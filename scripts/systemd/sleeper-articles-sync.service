@@ -5,8 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Adjust the path if the repo lives elsewhere on the host.
-ExecStart=/usr/bin/node /home/petter/github/reader/scripts/sleeper-articles-sync.mjs
+# Adjust the path if the repo lives elsewhere on the host. flock serializes
+# against the articles service's push-on-ready trigger (same lock file).
+ExecStart=/usr/bin/flock -w 600 %h/.config/sleeper-articles/.lock /usr/bin/node /home/petter/github/reader/scripts/sleeper-articles-sync.mjs
 # Secrets/state are read from ~/.config/sleeper-articles/ and ~/.config/reader/ —
 # no EnvironmentFile needed.
 Nice=10
