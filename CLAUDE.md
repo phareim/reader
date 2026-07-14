@@ -185,8 +185,8 @@ Routes follow REST conventions:
 **Highlights** (see "Highlights → SFL"):
 - `GET /api/highlights` - Every highlight the user owns, newest first, joined with article title/url + feed title — powers the `/highlights` room
 - `GET /api/articles/:id/highlights` - List the article's highlights (ordered by `start_offset`)
-- `POST /api/articles/:id/highlights` - Create a highlight `{ quote, note, startOffset, endOffset }` → SFL `quote` idea + local row
-- `DELETE /api/highlights/:id` - Delete a highlight (id in path, no body) + its SFL idea
+- `POST /api/articles/:id/highlights` - Create a highlight `{ quote, note, startOffset, endOffset }` → SFL `quote` idea + local row + best-effort taste-maker mirror (see "Highlights → taste-maker")
+- `DELETE /api/highlights/:id` - Delete a highlight (id in path, no body) + its SFL idea + best-effort taste-maker undo
 
 **Saved Articles**:
 - `GET /api/saved-articles` - List user's saved articles (optional tag filter)
@@ -259,6 +259,14 @@ The yellow-pen verb saves a *specific passage* (not the whole article) to SFL as
 - **Server client** (`server/utils/sfl.ts`, alongside the elevate helpers): `createQuoteIdea` posts `{ type:'quote', title:<quote≤120>, summary:note, data:{ text, note, source_url, source_title } }` with **no `url`** (quote dedup is url-scoped; we want many quotes per article). `findOrCreateTag` (GET `/api/tags` match-by-title, else POST a `type:'tag'` idea) + `tagIdea` (POST `/api/connections` `label:'tagged_with'`, swallows the 400 "already exists") mirror the canonical `~/sfl-hook` convention. Both are **best-effort** — a tag failure never fails the highlight.
 - **Route contract**: `POST /api/articles/:id/highlights` creates the quote idea, promotes hashtags to tags, then inserts the local `Highlight` row. **Fails soft**: if `getSflConfig` 503s (SFL unconfigured) the mark is still stored locally with `sfl_idea_id = NULL`; any *other* SFL error (network/timeout) is surfaced. `DELETE /api/highlights/:id` (id in path — no DELETE body, per the Workers entry) deletes the local row and the SFL idea when one exists.
 - **Client semantics**: **non-optimistic** — the page awaits the server id before painting the mark (`saveHighlight` in `pages/article/[id].vue`). Independent of the shelf and does **not** mark the article read.
+
+### Highlights → taste-maker
+
+Personal-account highlights are ALSO mirrored one-way into **taste-maker** (`taste.phareim.no`, `~/github/taste-maker`) as `quote` items — encounter in Reader, refine there. Runs **after** the local row insert (the row id is the idempotency key `reader-highlight:<id>`; taste-maker dedupes on it, so re-sends are harmless).
+
+- **Server client** (`server/utils/taste.ts`): `createQuoteItem` POSTs `{highlight_id, quote, note, source_url, source_title}` to `/api/ingest/highlight`; `deleteQuoteItem` sends the undo, which taste-maker honors only while the item is untouched (no refine wins/losses, no connections). Unlike the SFL mirror, this is **fully best-effort** — never surfaces an error; `Highlight.taste_item_id` (migration `015`) is NULL on a miss.
+- **Backfill/repair**: `node scripts/taste-highlight-backfill.mjs` (from this repo on a wrangler-authed host; `--dry-run`/`--force`) mirrors all rows with NULL `taste_item_id` and writes the ids back. First run 2026-07-14: 11/11.
+- **Config**: `NUXT_TASTE_API_URL` (wrangler `[vars]`, `https://taste.phareim.no`) + `NUXT_TASTE_INGEST_KEY` (Worker secret = taste-maker's `TASTE_INGEST_KEY`; host copy in `~/.config/taste/env`). Unset ⇒ the mirror silently skips; everything else works.
 
 ### Read aloud (TTS)
 
