@@ -66,6 +66,15 @@ export async function getSessionUser(event: H3Event): Promise<any | null> {
     return null
   }
 
+  // Re-set the cookie with the CURRENT attributes on every successful
+  // validation. Browsers that logged in before 2026-07-09 hold a host-only
+  // cookie (no Domain) that never reaches the sibling apps on *.phareim.no —
+  // and since Reader itself keeps accepting it, it would never be upgraded
+  // at login. Request cookies don't carry their attributes, so we can't
+  // detect the stale variant; upgrading unconditionally is idempotent (same
+  // token value) and the D1 expires_at still rules the session lifetime.
+  setCookie(event, SESSION_COOKIE, token, cookieOptions())
+
   return user
 }
 
