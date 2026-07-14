@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { getSflConfig, createQuoteIdea, findOrCreateTag, tagIdea } from '~/server/utils/sfl'
+import { getTasteConfig, createQuoteItem } from '~/server/utils/taste'
 import { lastRowId } from '~/server/utils/d1Result'
 import { extractHashtags } from '~/utils/hashtags'
 import { isPersonalUser } from '~/server/utils/personal'
@@ -10,6 +11,11 @@ import { isPersonalUser } from '~/server/utils/personal'
  * `quote` idea (with any `#hashtags` in the note promoted to real SFL tags),
  * then store the local anchor row. Fails soft if SFL is unconfigured — the
  * mark still persists locally with `sfl_idea_id = NULL`.
+ *
+ * After the row exists, the passage is also mirrored to taste-maker as a
+ * `quote` item (needs the row id for its idempotency key, hence post-insert).
+ * That mirror is fully best-effort — `taste_item_id = NULL` marks a miss,
+ * repairable via scripts/taste-highlight-sync.mjs.
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -78,12 +84,36 @@ export default defineEventHandler(async (event) => {
     `
   ).bind(user.id, articleId, sflIdeaId, quote, note || null, startOffset, endOffset, now).run()
 
+  const highlightId = lastRowId(insert)
+
+  // Mirror into taste-maker (one-way: encounter here, refine there). Runs
+  // after the insert because the idempotency key is the highlight row id.
+  // Best-effort by design — never sinks the highlight.
+  let tasteItemId: string | null = null
+  if (isPersonalUser(event, user) && highlightId) {
+    const tasteCfg = getTasteConfig(event)
+    if (tasteCfg) {
+      tasteItemId = await createQuoteItem(tasteCfg, {
+        highlightId,
+        quote,
+        note: note || undefined,
+        sourceUrl: article.url,
+        sourceTitle: article.title,
+      })
+      if (tasteItemId) {
+        await db.prepare(`UPDATE "Highlight" SET taste_item_id = ? WHERE id = ?`)
+          .bind(tasteItemId, highlightId).run()
+      }
+    }
+  }
+
   return {
     success: true,
     highlight: {
-      id: lastRowId(insert),
+      id: highlightId,
       articleId,
       sflIdeaId,
+      tasteItemId,
       quote,
       note: note || null,
       startOffset,

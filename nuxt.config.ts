@@ -43,6 +43,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     sflApiUrl: '',  // NUXT_SFL_API_URL
     sflApiKey: '',  // NUXT_SFL_API_KEY
+    tasteApiUrl: '', // NUXT_TASTE_API_URL — taste-maker base (highlight→quote mirror)
+    tasteIngestKey: '', // NUXT_TASTE_INGEST_KEY (Worker secret; = taste-maker's TASTE_INGEST_KEY)
     ttsApiUrl: '',  // NUXT_TTS_API_URL (reader-tts on Sleeper)
     ttsApiKey: '',  // NUXT_TTS_API_KEY
     inviteCode: '', // NUXT_INVITE_CODE (Worker secret) — sign-up is closed while unset
