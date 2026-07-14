@@ -4,9 +4,18 @@ import BottomBar from '~/components/BottomBar.vue'
 
 ;(globalThis as any).computed = computed
 
-function mountWith(routeName: string, routePath = '/', feeds: any[] = [{ id: 1, kind: 'found' }]) {
+function mountWith(
+  routeName: string,
+  routePath = '/',
+  feeds: any[] = [{ id: 1, kind: 'found' }],
+  auth: { loggedIn?: boolean; checked?: boolean } = {},
+) {
   ;(globalThis as any).useRoute = () => ({ name: routeName, path: routePath })
   ;(globalThis as any).useFeeds = () => ({ feeds: ref(feeds) })
+  ;(globalThis as any).useAuth = () => ({
+    loggedIn: ref(auth.loggedIn ?? true),
+    checked: ref(auth.checked ?? true),
+  })
   return mount(BottomBar, {
     global: {
       stubs: {
@@ -58,5 +67,10 @@ describe('BottomBar', () => {
   it('hides itself on the article reader and login', () => {
     expect(mountWith('article-id', '/article/1').find('nav').exists()).toBe(false)
     expect(mountWith('login', '/login').find('nav').exists()).toBe(false)
+  })
+
+  it('hides itself for a definitely-signed-out visitor, but not while checking', () => {
+    expect(mountWith('index', '/', [], { loggedIn: false, checked: true }).find('nav').exists()).toBe(false)
+    expect(mountWith('index', '/', [], { loggedIn: false, checked: false }).find('nav').exists()).toBe(true)
   })
 })

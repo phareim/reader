@@ -27,6 +27,9 @@ let hasMore: ReturnType<typeof ref<boolean>>
 let loadingMore: ReturnType<typeof ref<boolean>>
 let viewMode: ReturnType<typeof ref<'deck' | 'grid'>>
 let setViewMode: jest.Mock
+let authUser: ReturnType<typeof ref<boolean>>
+let authChecked: ReturnType<typeof ref<boolean>>
+let navigateToMock: jest.Mock
 
 beforeEach(() => {
   fetchArticles = jest.fn().mockResolvedValue(undefined)
@@ -52,7 +55,15 @@ beforeEach(() => {
   })
   ;(globalThis as any).useToast = () => ({ showSuccess: jest.fn(), showError: jest.fn() })
   ;(globalThis as any).useViewMode = () => ({ viewMode, setViewMode })
-  ;(globalThis as any).useAuth = () => ({ personal: ref(true) })
+  authUser = ref(true)
+  authChecked = ref(true)
+  navigateToMock = jest.fn()
+  ;(globalThis as any).useAuth = () => ({
+    personal: ref(true),
+    loggedIn: computed(() => authUser.value),
+    checked: authChecked,
+  })
+  ;(globalThis as any).navigateTo = navigateToMock
 })
 
 // Every test's component registers a window keydown listener — unmount them
@@ -94,6 +105,12 @@ const stubs = {
     },
   }),
   HelpOverlay: true,
+  ActionLabel: defineComponent({
+    props: { accent: Boolean, disabled: Boolean },
+    emits: ['click'],
+    setup: (_, { slots, emit }) => () =>
+      h('button', { 'data-testid': 'action-label', onClick: () => emit('click') }, slots.default?.()),
+  }),
   MonoLabel: defineComponent({
     props: { dash: Boolean, accent: Boolean },
     setup: (_, { slots }) => () => h('span', slots.default?.()),
@@ -118,6 +135,30 @@ describe('DeckScreen', () => {
     expect(fetchArticles).toHaveBeenCalledWith(undefined, undefined, undefined)
     expect(fetchSavedArticleIds).toHaveBeenCalledTimes(1)
     expect(w.text()).toContain('The Reader')
+  })
+
+  it('signed out (checked, no user) — shows the sign-in doorstep instead of the deck', async () => {
+    authUser.value = false
+    const w = mountScreen()
+    await flushPromises()
+
+    const btn = w.find('[data-testid="action-label"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toContain('Sign in')
+    expect(w.find('[data-testid="card-stack"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('unread')
+
+    await btn.trigger('click')
+    expect(navigateToMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('session still checking — never flashes the sign-in doorstep', async () => {
+    authUser.value = false
+    authChecked.value = false
+    const w = mountScreen()
+    await flushPromises()
+
+    expect(w.find('[data-testid="action-label"]').exists()).toBe(false)
   })
 
   it('tag="tech" — fetchArticles called with (undefined, undefined, "tech") and header shows "tech"', async () => {

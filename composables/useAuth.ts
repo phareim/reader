@@ -5,6 +5,10 @@
 export const useAuth = () => {
   const user = useState<{ id: string; email: string; name: string; image?: string } | null>('auth_user', () => null)
   const loggedIn = computed(() => !!user.value)
+  // True once the session check has completed (either way) — lets the UI
+  // tell "still checking" apart from "actually signed out", so signed-out
+  // states never flash during the initial load.
+  const checked = useState<boolean>('auth_checked', () => false)
   // Allowlisted personal integrations (SFL elevate, highlight mirror,
   // read-aloud) — false for guest accounts, so the UI hides those verbs.
   const personal = useState<boolean>('auth_personal', () => false)
@@ -17,6 +21,8 @@ export const useAuth = () => {
     } catch {
       user.value = null
       personal.value = false
+    } finally {
+      checked.value = true
     }
   }
 
@@ -51,6 +57,7 @@ export const useAuth = () => {
   return {
     user,
     loggedIn,
+    checked,
     personal,
     fetchSession,
     signIn,

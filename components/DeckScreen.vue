@@ -7,7 +7,7 @@
   <main class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pb-16 pt-4">
     <header class="flex items-baseline justify-between pb-3">
       <MonoLabel dash>{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
-      <span class="flex items-baseline gap-3">
+      <span v-if="!signedOut" class="flex items-baseline gap-3">
         <ClientOnly>
           <span class="flex items-baseline gap-1.5" role="group" aria-label="View mode">
             <button
@@ -30,7 +30,15 @@
 
     <div class="relative min-h-0 flex-1 py-4">
       <ClientOnly>
-        <template v-if="loaded">
+        <!-- Signed out: a calm doorstep instead of an inexplicably empty deck.
+             Gated on `checked` so it never flashes during the session fetch. -->
+        <div v-if="signedOut" class="flex h-full flex-col items-center justify-center gap-6 text-center">
+          <p class="max-w-xs italic leading-relaxed text-mute">
+            A calm reader for your feeds, saved articles, and highlights.
+          </p>
+          <ActionLabel accent @click="goLogin">Sign in</ActionLabel>
+        </div>
+        <template v-else-if="loaded">
           <CardStack
             v-if="viewMode === 'deck'"
             ref="stack"
@@ -72,7 +80,12 @@ const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMor
 const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { syncAll: syncFeeds, feeds, fetchFeeds } = useFeeds()
 const { viewMode, setViewMode } = useViewMode()
-const { personal } = useAuth()
+const { personal, loggedIn, checked } = useAuth()
+
+// "Definitely signed out" (session check done, no user) — drives the
+// doorstep state and hides the deck chrome that only makes sense signed in.
+const signedOut = computed(() => checked.value && !loggedIn.value)
+const goLogin = () => navigateTo('/login')
 const { showSuccess, showError } = useToast()
 
 const stack = ref()

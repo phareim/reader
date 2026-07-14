@@ -21,6 +21,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const { feeds } = useFeeds()
+const { loggedIn, checked } = useAuth()
 
 // Found is a push-only feed populated by Petter's collectors — an account
 // without a kind='found' feed would only ever see an empty room, so the
@@ -37,7 +38,12 @@ const rooms = computed(() => [
   { path: '/sources', label: 'Sources' },
 ])
 
-const visible = computed(() => route.name !== 'article-id' && route.name !== 'login')
+// Hidden on the article page and login, and for definitely-signed-out
+// visitors (checked && !loggedIn) — every room behind the tabs needs a
+// session anyway; the deck's doorstep state offers the sign-in.
+const visible = computed(
+  () => route.name !== 'article-id' && route.name !== 'login' && (loggedIn.value || !checked.value)
+)
 
 function isActive(path: string) {
   if (path === '/') return route.path === '/' || route.name === 'tag' || route.name === 'feed-id'
