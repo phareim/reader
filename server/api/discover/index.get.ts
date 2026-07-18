@@ -2,9 +2,10 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 
 /**
- * The /discover page's list: every ready candidate, ranked by how many of
- * the user's own subscriptions recommend it. json_group_array (not
- * GROUP_CONCAT) for the via-titles — feed titles can contain any separator.
+ * The /discover page's list: every ready candidate, ranked by recommender
+ * count — subscription blogrolls and labeled sources (HN front page, SFL
+ * saves, …) count alike. json_group_array (not GROUP_CONCAT) for the
+ * via-titles — feed titles can contain any separator.
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -21,10 +22,10 @@ export default defineEventHandler(async (event) => {
       c.description,
       c.newest_article_at,
       COUNT(e.id) AS via_count,
-      json_group_array(f.title) AS via_titles
+      json_group_array(COALESCE(f.title, e.label, e.source)) AS via_titles
     FROM "DiscoverCandidate" c
     JOIN "DiscoverEdge" e ON e.candidate_id = c.id
-    JOIN "Feed" f ON f.id = e.feed_id
+    LEFT JOIN "Feed" f ON f.id = e.feed_id
     WHERE c.user_id = ? AND c.status = 'candidate'
     GROUP BY c.id
     ORDER BY via_count DESC, c.newest_article_at DESC

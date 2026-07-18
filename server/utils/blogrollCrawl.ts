@@ -72,6 +72,22 @@ interface FetchedPage {
   body: string
 }
 
+/** Hosts the user already subscribes to (feed URL + site URL) — never
+ *  candidates. Shared with the external-candidate ingest endpoint. */
+export async function loadSubscribedHosts(db: any, userId: string): Promise<Set<string>> {
+  const { results } = await db.prepare(
+    'SELECT url, site_url FROM "Feed" WHERE user_id = ?'
+  ).bind(userId).all()
+  const hosts = new Set<string>()
+  for (const row of (results ?? []) as { url: string; site_url: string | null }[]) {
+    for (const u of [row.url, row.site_url]) {
+      const host = u && candidateHost(u)
+      if (host) hosts.add(host)
+    }
+  }
+  return hosts
+}
+
 async function fetchText(url: string): Promise<FetchedPage | null> {
   const response = await fetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -157,22 +173,12 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
     failures: [],
   }
 
-  // Hosts each user already subscribes to (feed URL + site URL), cached per
-  // user for the whole batch — recommendations for these are not candidates.
+  // Subscribed-host sets cached per user for the whole batch.
   const subscribedHostCache = new Map<string, Set<string>>()
   const subscribedHosts = async (userId: string): Promise<Set<string>> => {
     const cached = subscribedHostCache.get(userId)
     if (cached) return cached
-    const { results } = await db.prepare(
-      'SELECT url, site_url FROM "Feed" WHERE user_id = ?'
-    ).bind(userId).all<{ url: string; site_url: string | null }>()
-    const hosts = new Set<string>()
-    for (const row of results ?? []) {
-      for (const u of [row.url, row.site_url]) {
-        const host = u && candidateHost(u)
-        if (host) hosts.add(host)
-      }
-    }
+    const hosts = await loadSubscribedHosts(db, userId)
     subscribedHostCache.set(userId, hosts)
     return hosts
   }
@@ -256,7 +262,7 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
         // Existing rows of ANY status (incl. dismissed/subscribed/dead) only
         // gain the edge — terminal rows are the fence against resurrection.
         const edge = await db.prepare(
-          'INSERT OR IGNORE INTO "DiscoverEdge" (candidate_id, feed_id) VALUES (?, ?)'
+          "INSERT OR IGNORE INTO \"DiscoverEdge\" (candidate_id, feed_id, source) VALUES (?, ?, 'blogroll')"
         ).bind(candidateId, feed.id).run()
         summary.edgesAdded += rowsChanged(edge)
       }
@@ -311,9 +317,17 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
           ).bind(row.user_id, feedUrlNorm, row.id).first<{ id: number }>()
         : null
       if (duplicate) {
+        // Fold feed edges via the UNIQUE constraint; labeled edges (NULL
+        // feed_id, inert under UNIQUE) dedupe on (source) explicitly.
         await db.prepare(
-          'INSERT OR IGNORE INTO "DiscoverEdge" (candidate_id, feed_id) SELECT ?, feed_id FROM "DiscoverEdge" WHERE candidate_id = ?'
+          'INSERT OR IGNORE INTO "DiscoverEdge" (candidate_id, feed_id, source, label) SELECT ?, feed_id, source, label FROM "DiscoverEdge" WHERE candidate_id = ? AND feed_id IS NOT NULL'
         ).bind(duplicate.id, row.id).run()
+        await db.prepare(
+          `INSERT INTO "DiscoverEdge" (candidate_id, feed_id, source, label)
+           SELECT ?, NULL, e.source, e.label FROM "DiscoverEdge" e
+           WHERE e.candidate_id = ? AND e.feed_id IS NULL
+             AND NOT EXISTS (SELECT 1 FROM "DiscoverEdge" d WHERE d.candidate_id = ? AND d.feed_id IS NULL AND d.source = e.source)`
+        ).bind(duplicate.id, row.id, duplicate.id).run()
         await db.prepare('DELETE FROM "DiscoverCandidate" WHERE id = ?').bind(row.id).run()
         continue
       }

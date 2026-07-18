@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — mine HN front-page domains into Discover
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/hn-frontpage-candidates.mjs
+# Auth is read from ~/.config/reader/env (READER_MCP_TOKEN) —
+# no EnvironmentFile needed.
+Nice=10

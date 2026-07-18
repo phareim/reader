@@ -195,9 +195,11 @@ CREATE TABLE IF NOT EXISTS "DiscoverCandidate" (
 CREATE TABLE IF NOT EXISTS "DiscoverEdge" (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   candidate_id INTEGER NOT NULL REFERENCES "DiscoverCandidate"(id) ON DELETE CASCADE,
-  feed_id INTEGER NOT NULL REFERENCES "Feed"(id) ON DELETE CASCADE,
+  feed_id INTEGER REFERENCES "Feed"(id) ON DELETE CASCADE,  -- NULL for labeled sources (migration 017)
+  source TEXT NOT NULL DEFAULT 'blogroll',                  -- 'blogroll' | 'hn-frontpage' | 'sfl-saves' | ...
+  label TEXT,                                               -- display name when feed_id IS NULL
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
-  UNIQUE (candidate_id, feed_id)
+  UNIQUE (candidate_id, feed_id, source)
 );
 
 -- Full-text search index (migration 014). rowid = Article.id; maintained by

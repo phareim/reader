@@ -12,7 +12,12 @@
  * Runs on Sleeper only — reads local service data. Auth for the Reader API
  * comes from ~/.config/reader/env (READER_API_URL + READER_MCP_TOKEN).
  *
- * Usage: node scripts/feed-candidates.mjs [--json] [--min-score N]
+ * Unless --no-push is given, the shortlist is also POSTed to Reader's
+ * Discover ingest seam (POST /api/discover/candidates, source `sfl-saves`)
+ * so the candidates land on /discover next to the blogroll-graph finds —
+ * idempotent server-side, and still never auto-subscribes.
+ *
+ * Usage: node scripts/feed-candidates.mjs [--json] [--min-score N] [--no-push]
  */
 
 import { execFileSync } from 'node:child_process'
@@ -28,6 +33,7 @@ const ENV_FILE = join(HOME, '.config/reader/env')
 
 const argv = process.argv.slice(2)
 const asJson = argv.includes('--json')
+const noPush = argv.includes('--no-push')
 const minScore = Number(argv[argv.indexOf('--min-score') + 1]) || 4
 
 // Domains that are aggregators/platforms, not subscribable publications
@@ -203,5 +209,30 @@ if (asJson) {
     console.log(
       `- **${c.domain}** — score ${c.score} (${c.saves} saved, ${c.starred} starred, ${c.folds} folded to wiki) — ${feed}`
     )
+  }
+}
+
+// --- 7. Push into Discover -----------------------------------------------------
+// Only candidates with a working feed — /discover shows subscribable things.
+const pushable = candidates.filter((c) => c.feedUrl)
+if (!noPush && pushable.length) {
+  const res = await fetch(`${cfg.READER_API_URL}/api/discover/candidates`, {
+    method: 'POST',
+    headers: { 'X-MCP-Token': cfg.READER_MCP_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      source: 'sfl-saves',
+      label: 'Your SFL saves',
+      candidates: pushable.slice(0, 50).map((c) => ({
+        url: `https://${c.domain}/`,
+        feedUrl: c.feedUrl,
+      })),
+    }),
+    signal: AbortSignal.timeout(60_000),
+  })
+  if (res.ok) {
+    const result = await res.json()
+    console.error(`\ndiscover: +${result.added} candidate(s), +${result.edges} edge(s), ${result.skipped} skipped`)
+  } else {
+    console.error(`\ndiscover push failed (${res.status}) — report above is unaffected`)
   }
 }
