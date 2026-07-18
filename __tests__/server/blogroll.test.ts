@@ -159,6 +159,22 @@ describe('extractExternalLinks', () => {
     expect(links[0].title).toBeNull()
   })
 
+  it('excludes page chrome — the corporate network footer is not a blogroll', () => {
+    const html = `
+      <header><a href="https://parentcorp.example/">Parent Corp</a></header>
+      <nav><a href="https://sister1.example/">Sister Site</a></nav>
+      <main>
+        <a href="https://friend.example/">A Friend</a>
+      </main>
+      <footer>
+        <div><a href="https://sister2.example/">Variety-ish</a></div>
+        <a href="https://sister3.example/">Billboard-ish</a>
+      </footer>
+      <div role="contentinfo"><a href="https://sister4.example/">Legal</a></div>`
+    const links = extractExternalLinks(html, PAGE)
+    expect(links.map((l) => l.host)).toEqual(['friend.example'])
+  })
+
   it('caps the number of links', () => {
     const html = Array.from({ length: 50 }, (_, i) => `<a href="https://blog${i}.example/">B${i}</a>`).join('')
     expect(extractExternalLinks(html, PAGE)).toHaveLength(MAX_BLOGROLL_LINKS)

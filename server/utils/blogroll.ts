@@ -119,11 +119,17 @@ export function extractBlogrollLink(html: string, pageUrl: string): string | nul
   return null
 }
 
+/** Page chrome whose links are never blogroll entries — a media site's
+ *  footer lists its corporate siblings (Rolling Stone → Variety, Billboard…)
+ *  on every page, including the custom 404 a guessed /links path lands on. */
+const CHROME_SELECTOR = 'footer, nav, header, aside, [role="navigation"], [role="contentinfo"], [role="banner"]'
+
 /**
  * External links from a human-readable blogroll page: http(s) anchors
- * pointing off-origin, platform domains dropped, deduped by host (first
- * wins), anchor text as the provisional title. Capped so a 200-link
- * directory page contributes only its head.
+ * pointing off-origin, platform domains dropped, page chrome (footer/nav/
+ * header/aside) excluded, deduped by host (first wins), anchor text as the
+ * provisional title. Capped so a 200-link directory page contributes only
+ * its head.
  */
 export function extractExternalLinks(
   html: string,
@@ -138,6 +144,7 @@ export function extractExternalLinks(
 
   for (const a of document.querySelectorAll('a[href]')) {
     if (links.length >= max) break
+    if (a.closest(CHROME_SELECTOR)) continue
     const href = a.getAttribute('href') || ''
     let url: URL
     try {
