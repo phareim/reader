@@ -2,7 +2,12 @@
   <main class="mx-auto max-w-measure px-5 py-6 pb-24">
     <header class="flex items-baseline justify-between">
       <MonoLabel dash>Sources</MonoLabel>
-      <MonoLabel>{{ feeds.length }} feeds</MonoLabel>
+      <div class="flex items-baseline gap-4">
+        <NuxtLink to="/discover" class="focus-visible:outline focus-visible:outline-1">
+          <MonoLabel>Discover</MonoLabel>
+        </NuxtLink>
+        <MonoLabel>{{ feeds.length }} feeds</MonoLabel>
+      </div>
     </header>
     <HairlineRule class="mt-3 mb-5" />
 
@@ -141,7 +146,7 @@ import type { Feed } from '~/types'
 import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
 import { feedHealthNote } from '~/utils/feedHealth'
 
-const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search'])
+const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover'])
 
 const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()

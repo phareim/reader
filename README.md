@@ -13,6 +13,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 - ✅ Cloudflare R2 for article content + saved notes storage
 - ✅ HTML sanitization for safe article rendering
 - ✅ Fast, lightweight Nuxt 3 frontend
+- ✅ Discover — new feeds recommended by the blogs you already read (blogroll/OPML crawl of your subscriptions' sites, ranked by recommender count)
 
 ## Quick Start
 

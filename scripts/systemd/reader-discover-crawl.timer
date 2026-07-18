@@ -1,0 +1,14 @@
+[Unit]
+Description=Reader — Discover blogroll crawl every 6 hours
+
+[Timer]
+# Every 6h: each run crawls up to 5 sites (≥7-day per-site re-crawl floor),
+# resolves 6 site-only candidates, and probes 8 — 28 runs/week covers ~140
+# subscriptions while any single Worker invocation stays far from the
+# subrequest cap. Blogrolls change slowly; there is no need to hurry.
+OnCalendar=00/6:30
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
