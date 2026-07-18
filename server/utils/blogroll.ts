@@ -124,6 +124,16 @@ export function extractBlogrollLink(html: string, pageUrl: string): string | nul
  *  on every page, including the custom 404 a guessed /links path lands on. */
 const CHROME_SELECTOR = 'footer, nav, header, aside, [role="navigation"], [role="contentinfo"], [role="banner"]'
 
+/** A blogroll recommends BLOGS — links land on a homepage or a shallow
+ *  path. Deep or dated paths are articles (a media site's "/links" page is
+ *  a wall of cross-network article cards, e.g. Rolling Stone → Variety
+ *  `/2026/film/box-office/<slug>`), and dropping them lets the
+ *  MIN_BLOGROLL_LINKS gate reject such pages wholesale. */
+export function looksLikeArticleLink(url: URL): boolean {
+  const segments = url.pathname.split('/').filter(Boolean)
+  return segments.length > 2 || /\/20\d{2}\//.test(url.pathname)
+}
+
 /**
  * External links from a human-readable blogroll page: http(s) anchors
  * pointing off-origin, platform domains dropped, page chrome (footer/nav/
@@ -153,6 +163,7 @@ export function extractExternalLinks(
       continue
     }
     if (url.protocol !== 'http:' && url.protocol !== 'https:') continue
+    if (looksLikeArticleLink(url)) continue
     const host = candidateHost(url.toString())
     if (!host || host === ownHost || seen.has(host) || isPlatformHost(host)) continue
     seen.add(host)

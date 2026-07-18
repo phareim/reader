@@ -175,6 +175,16 @@ describe('extractExternalLinks', () => {
     expect(links.map((l) => l.host)).toEqual(['friend.example'])
   })
 
+  it('drops article-style links — deep or dated paths are not blog recommendations', () => {
+    const html = `
+      <a href="https://variety.example/2026/film/box-office/big-movie-flops-123/">Article card</a>
+      <a href="https://wired.example/story/some-long-piece/part-two/">Deep piece</a>
+      <a href="https://friend.example/blog/">Shallow blog</a>
+      <a href="https://other.example/">Homepage</a>`
+    const links = extractExternalLinks(html, PAGE)
+    expect(links.map((l) => l.host)).toEqual(['friend.example', 'other.example'])
+  })
+
   it('caps the number of links', () => {
     const html = Array.from({ length: 50 }, (_, i) => `<a href="https://blog${i}.example/">B${i}</a>`).join('')
     expect(extractExternalLinks(html, PAGE)).toHaveLength(MAX_BLOGROLL_LINKS)
