@@ -7,9 +7,12 @@
  * Sleeper (see scripts/systemd/reader-discover-crawl.{service,timer});
  * coverage comes from the timer cadence, not batch size.
  *
- * The timeout is 300s (not sync-stale's 120s): the resolve stage runs
- * discoverFeeds(), whose page fetch honors FETCH_TIMEOUT (default 30s) per
- * candidate, so a slow batch legitimately takes minutes.
+ * Each stage is POSTed as its OWN Worker invocation (the per-invocation
+ * fetch budget is ~50 in practice — one combined run blows it), resolve
+ * several times to drain the backlog blogroll finds create. The timeout is
+ * 300s per call (not sync-stale's 120s): the resolve stage's page fetches
+ * honor FETCH_TIMEOUT (default 30s) per candidate, so a slow batch
+ * legitimately takes minutes.
  *
  * Reads ~/.config/reader/env for READER_API_URL and READER_CRON_KEY.
  */
@@ -39,21 +42,37 @@ if (!cronKey) {
   process.exit(1)
 }
 
-const res = await fetch(`${apiUrl}/api/internal/discover-crawl`, {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${cronKey}` },
-  signal: AbortSignal.timeout(300_000),
-})
-
-if (!res.ok) {
-  console.error(`discover-crawl failed: ${res.status} ${await res.text().catch(() => '')}`)
-  process.exit(1)
+async function runStage(stage) {
+  const res = await fetch(`${apiUrl}/api/internal/discover-crawl`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${cronKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage }),
+    signal: AbortSignal.timeout(300_000),
+  })
+  if (!res.ok) {
+    console.error(`discover-crawl ${stage} failed: ${res.status} ${await res.text().catch(() => '')}`)
+    process.exit(1)
+  }
+  return await res.json()
 }
 
-const result = await res.json()
+const total = {
+  sitesCrawled: 0, blogrollsFound: 0, candidatesAdded: 0,
+  edgesAdded: 0, resolved: 0, probed: 0, failures: [],
+}
+// One crawl, three resolve rounds (blogroll finds create a resolve backlog
+// far faster than one round drains it), one probe round.
+for (const stage of ['crawl', 'resolve', 'resolve', 'resolve', 'probe']) {
+  const r = await runStage(stage)
+  for (const key of Object.keys(total)) {
+    if (key === 'failures') total.failures.push(...r.failures)
+    else total[key] += r[key]
+  }
+}
+
 console.log(
-  `crawled ${result.sitesCrawled} site(s), ${result.blogrollsFound} blogroll(s), ` +
-    `+${result.candidatesAdded} candidate(s), +${result.edgesAdded} edge(s), ` +
-    `resolved ${result.resolved}, probed ${result.probed}` +
-    (result.failures.length ? `, failures: ${JSON.stringify(result.failures)}` : '')
+  `crawled ${total.sitesCrawled} site(s), ${total.blogrollsFound} blogroll(s), ` +
+    `+${total.candidatesAdded} candidate(s), +${total.edgesAdded} edge(s), ` +
+    `resolved ${total.resolved}, probed ${total.probed}` +
+    (total.failures.length ? `, failures: ${JSON.stringify(total.failures)}` : '')
 )

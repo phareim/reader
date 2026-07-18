@@ -39,8 +39,12 @@ async function probeFeedUrl(url: string): Promise<boolean> {
  * 1. Fetches the page HTML
  * 2. Parses <link rel="alternate"> tags for feed URLs
  * 3. Falls back to probing common feed URL patterns
+ *
+ * `maxProbes` caps step 3 for subrequest-frugal callers (each probe costs
+ * up to 2 fetches against the Worker invocation's budget — the Discover
+ * resolve stage passes 3; the interactive add-smart path keeps them all).
  */
-export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
+export async function discoverFeeds(url: string, opts: { maxProbes?: number } = {}): Promise<DiscoveredFeed[]> {
   const feeds: DiscoveredFeed[] = []
   const seen = new Set<string>()
 
@@ -122,7 +126,7 @@ export async function discoverFeeds(url: string): Promise<DiscoveredFeed[]> {
       // The patterns are all guesses at the same main feed (and often
       // redirect to each other), so the first hit is enough — pushing every
       // working alias would present the user with a list of duplicates.
-      for (const pattern of commonPatterns) {
+      for (const pattern of commonPatterns.slice(0, opts.maxProbes ?? commonPatterns.length)) {
         const testUrl = baseUrl + pattern
         if (await probeFeedUrl(testUrl)) {
           feeds.push({

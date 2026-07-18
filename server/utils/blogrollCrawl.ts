@@ -29,8 +29,12 @@ import {
  *   C. probe        — parseFeed() the resolved URL for title/description/
  *      newest_article_at, promoting to 'candidate'
  *
- * Batches are sized so a worst-case cron run stays well under the Worker's
- * 1000-subrequest cap (see the route handlers for the numbers).
+ * The Worker's per-invocation fetch budget is TIGHT in practice (~50 on the
+ * free plan — seed runs proved it, D1 statements appear not to count), so
+ * `stages` lets the cron trigger run each stage as its OWN invocation with
+ * its own budget; batches are sized so any single stage stays under ~45
+ * fetches worst-case. The resolve stage also caps discoverFeeds' path
+ * probing (maxProbes 3 ⇒ ≤7 fetches per candidate instead of ≤21).
  */
 
 const RECRAWL_DAYS = 7
@@ -41,12 +45,16 @@ const FETCH_TIMEOUT_MS = 10_000
 const MAX_OPML_OUTLINES = 30
 const USER_AGENT = 'Mozilla/5.0 (compatible; RSS Reader/1.0)'
 
+export type DiscoverStage = 'crawl' | 'resolve' | 'probe'
+
 export interface DiscoverCrawlOptions {
   siteBatch: number
   resolveBatch: number
   probeBatch: number
   /** Scope every stage to one user (the session-authed refresh path). */
   userId?: string
+  /** Which stages to run this invocation (default: all three). */
+  stages?: DiscoverStage[]
 }
 
 export interface DiscoverCrawlSummary {
@@ -138,6 +146,7 @@ async function findBlogroll(siteUrl: string): Promise<FoundBlogroll | null> {
 export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOptions): Promise<DiscoverCrawlSummary> {
   const db = getD1(event)
   const now = () => new Date().toISOString()
+  const stages = opts.stages ?? ['crawl', 'resolve', 'probe']
   const summary: DiscoverCrawlSummary = {
     sitesCrawled: 0,
     blogrollsFound: 0,
@@ -170,7 +179,7 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
 
   // ---- Stage A: crawl sites -------------------------------------------------
   const cutoff = new Date(Date.now() - RECRAWL_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  const { results: feeds } = await db.prepare(
+  const { results: feeds } = !stages.includes('crawl') ? { results: [] } : await db.prepare(
     `
     SELECT f.id, f.user_id, f.url, f.site_url
     FROM "Feed" f
@@ -269,7 +278,7 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
   }
 
   // ---- Stage B: resolve site-only candidates into feed URLs -----------------
-  const { results: unresolved } = await db.prepare(
+  const { results: unresolved } = !stages.includes('resolve') ? { results: [] } : await db.prepare(
     `
     SELECT id, user_id, site_url, attempts
     FROM "DiscoverCandidate"
@@ -287,7 +296,9 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
 
   for (const row of unresolved ?? []) {
     try {
-      const found = row.site_url ? await discoverFeeds(row.site_url) : []
+      // maxProbes keeps a miss at ≤7 fetches instead of ≤21 — the Worker's
+      // per-invocation fetch budget is the binding constraint here.
+      const found = row.site_url ? await discoverFeeds(row.site_url, { maxProbes: 3 }) : []
       if (!found.length) throw new Error('no feed found')
       const feedUrl = found[0].url
       const feedUrlNorm = normalizeUrl(feedUrl)
@@ -329,7 +340,7 @@ export async function runDiscoverCrawl(event: H3Event, opts: DiscoverCrawlOption
   }
 
   // ---- Stage C: probe resolved candidates -----------------------------------
-  const { results: unprobed } = await db.prepare(
+  const { results: unprobed } = !stages.includes('probe') ? { results: [] } : await db.prepare(
     `
     SELECT id, user_id, feed_url, title, attempts
     FROM "DiscoverCandidate"
