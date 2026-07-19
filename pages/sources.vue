@@ -3,6 +3,13 @@
     <header class="flex items-baseline justify-between">
       <MonoLabel dash>Sources</MonoLabel>
       <div class="flex items-baseline gap-4">
+        <ClientOnly>
+          <div class="flex items-baseline gap-2">
+            <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
+            <MonoLabel>{{ textSize }}%</MonoLabel>
+            <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
+          </div>
+        </ClientOnly>
         <NuxtLink to="/discover" class="focus-visible:outline focus-visible:outline-1">
           <MonoLabel>Discover</MonoLabel>
         </NuxtLink>
@@ -160,6 +167,11 @@ const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFee
 const { markAllAsRead, fetchArticles } = useArticles()
 const { user, signOut } = useAuth()
 const { showSuccess, showError } = useToast()
+
+// Global text-size preference (scales the root font-size — see useTextSize)
+const { textSize, increase, decrease } = useTextSize()
+const atMin = computed(() => textSize.value <= TEXT_SIZE.MIN)
+const atMax = computed(() => textSize.value >= TEXT_SIZE.MAX)
 
 const newUrl = ref('')
 const adding = ref(false)
@@ -405,6 +417,7 @@ async function signOutAction() {
 }
 .src-action:hover { color: var(--text-strong); }
 .src-action:focus-visible { outline: 1px solid var(--tufte-accent); }
+.src-action:disabled { opacity: 0.35; pointer-events: none; }
 
 /* Feed row removal: fade + collapse so a deleted feed leaves the list cleanly */
 .feed-row { transition: opacity .28s ease, transform .28s ease; }
