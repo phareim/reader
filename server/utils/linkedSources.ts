@@ -9,8 +9,8 @@ import { getD1 } from '~/server/utils/cloudflare'
  * initial link (both X and Reddit rotate refresh tokens).
  */
 
-export type SourceKey = 'x' | 'reddit' | 'hackernews'
-export const SOURCE_KEYS: SourceKey[] = ['x', 'reddit', 'hackernews']
+export type SourceKey = 'x' | 'reddit' | 'hackernews' | 'github'
+export const SOURCE_KEYS: SourceKey[] = ['x', 'reddit', 'hackernews', 'github']
 
 export type OauthCredentials = {
   access_token: string

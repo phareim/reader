@@ -85,13 +85,13 @@ The one generic seam. MCP-authed (`X-MCP-Token`).
 - `GET /api/feeds` now returns `kind` per feed; the `Feed` type carries
   `kind?: 'rss' | 'found' | 'manual'`.
 
-## Linked sources (Worker-side — X, Reddit, Hacker News)
+## Linked sources (Worker-side — X, Reddit, Hacker News, GitHub)
 
-Three sources are **not** Sleeper-side collectors: users connect them from the
+Four sources are **not** Sleeper-side collectors: users connect them from the
 Sources page ("Linked sources" section) and the Worker syncs them itself. One
 row per (user, source) in the `LinkedSource` table (migrations `010` → `011`):
-OAuth token sets live in a `credentials` JSON column; Hacker News carries NULL
-credentials — favorites are public, linked by username only. (The old
+OAuth token sets live in a `credentials` JSON column; Hacker News and GitHub
+carry NULL credentials — favorites/stars are public, linked by username only. (The old
 collector `scripts/x-bookmark-sync.mjs` + `x-bookmark-sync.timer` are retired;
 the script stays in-repo as the reference implementation. The Reddit
 collector `scripts/reddit-saved-sync.mjs` was never enabled and is likewise
@@ -110,6 +110,10 @@ reference-only.)
 - **Hacker News** — `POST /api/sources/links/hackernews` `{ username }`: no
   OAuth; validates the user exists via the official Firebase API and stores
   the name.
+- **GitHub** — `POST /api/sources/links/github` `{ username }`: same shape as
+  HN; validates via `GET api.github.com/users/:name` and stores the canonical
+  login. Every GitHub call carries the required `User-Agent` (`GITHUB_UA` in
+  `server/utils/githubStars.ts`).
 - **Status / unlink** — `GET /api/sources/links` (one entry per source;
   `available:false` = OAuth client unconfigured, row hidden in the UI) and
   `DELETE /api/sources/links/:source` (best-effort upstream token revoke;
@@ -138,9 +142,11 @@ per `LinkedSource` row on `source`; the shared shape:
    and this endpoint must remain the credentials' *only* refresher.
 2. Page newest-first (X 25/page ≤5 pages; Reddit saved 50/page ≤5, raw_json=1;
    HN favorites 30/page ≤2 — scraped off the public page, each new id hydrated
-   from `hacker-news.firebaseio.com/v0/item/<id>.json`), stopping once a page
-   isn't entirely new — "new" is a D1 guid check (`x-bookmark:<tweet id>` /
-   `reddit:<fullname>` / `hn-favorite:<item id>` in the user's Found feed),
+   from `hacker-news.firebaseio.com/v0/item/<id>.json`; GitHub starred 30/page
+   ≤2 — `Accept: application/vnd.github.star+json` so entries carry
+   `starred_at`), stopping once a page isn't entirely new — "new" is a D1 guid
+   check (`x-bookmark:<tweet id>` / `reddit:<fullname>` /
+   `hn-favorite:<item id>` / `github-star:<repo id>` in the user's Found feed),
    no local seen-set. `since_id`-style high-water marks are deliberately not
    used: saving an *old* item surfaces a low id at the top of the newest-first
    list, which a high-water mark would wrongly skip.
@@ -149,7 +155,9 @@ per `LinkedSource` row on `source`; the shared shape:
    long-form), `server/utils/redditRender.ts` (t3 posts + t1 comments from the
    listing), `server/utils/hn.ts` (link stories point the card at the external
    URL with the HN thread linked in the body; Ask HN text posts point at the
-   thread) — and insert into that user's Found feed.
+   thread), `server/utils/githubStars.ts` (starred-repo cards — description,
+   language, compacted star count, homepage link, owner avatar as the card
+   image) — and insert into that user's Found feed.
 
 A failed source (dead refresh token, 429, …) records `last_error` on its row —
 surfaced on Sources as "Sync failing — try relinking" — and never blocks the
@@ -157,7 +165,9 @@ others.
 
 ### Cost
 
-Reddit and Hacker News are free. X v2 is pay-per-usage at **$0.005 per post
+Reddit, Hacker News, and GitHub are free (GitHub's unauthenticated API allows
+60 req/h per egress IP — a rate-limited run records `last_error` and the next
+timer run retries). X v2 is pay-per-usage at **$0.005 per post
 returned**, billed to the app owner regardless of which linked account is
 being read. Linking is open to every signed-in user (accepted cost, like TTS);
 re-gate with `isPersonalUser` in the start routes if guest volume ever hurts.

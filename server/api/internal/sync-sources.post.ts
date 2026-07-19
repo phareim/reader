@@ -4,6 +4,7 @@ import { refreshRedditToken, REDDIT_UA } from '~/server/utils/redditOauth'
 import { renderTweet, buildIncludeMaps, type FoundItem } from '~/server/utils/xRender'
 import { renderRedditChild } from '~/server/utils/redditRender'
 import { parseFavoriteIds, hasMoreFavorites, renderHnItem } from '~/server/utils/hn'
+import { renderGithubStar, GITHUB_UA } from '~/server/utils/githubStars'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 import { insertArticleWithContent } from '~/server/utils/article-store'
 import { normalizeUrl } from '~/server/utils/urlNormalize'
@@ -36,6 +37,8 @@ const X_MAX_PAGES = 5
 const REDDIT_PAGE = 50 // free API; Reddit max is 100
 const REDDIT_MAX_PAGES = 5
 const HN_MAX_PAGES = 2 // 30 favorites/page; favorites accrue slowly
+const GITHUB_PAGE = 30 // stars accrue slowly too; unauthenticated API is 60 req/h per IP
+const GITHUB_MAX_PAGES = 2
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -54,6 +57,7 @@ export default defineEventHandler(async (event) => {
       if (row.source === 'x') result.ingested = await syncX(event, row)
       else if (row.source === 'reddit') result.ingested = await syncReddit(event, row)
       else if (row.source === 'hackernews') result.ingested = await syncHackerNews(event, row)
+      else if (row.source === 'github') result.ingested = await syncGithub(event, row)
       else throw new Error(`no sync handler for source '${row.source}'`)
       await recordSyncResult(event, row.id)
     } catch (error: any) {
@@ -272,6 +276,41 @@ async function syncHackerNews(event: any, row: LinkedSourceRow): Promise<number>
     }
 
     if (freshIds.length < ids.length || !hasMoreFavorites(html)) break // caught up
+  }
+
+  return ingested
+}
+
+// --- GitHub stars (public — no credentials) ---
+
+async function syncGithub(event: any, row: LinkedSourceRow): Promise<number> {
+  const feedId = await resolveFoundFeed(event, row.user_id)
+
+  let ingested = 0
+  for (let page = 1; page <= GITHUB_MAX_PAGES; page++) {
+    // star+json puts starred_at on each entry; default order is
+    // newest-starred first. Unauthenticated (60 req/h per IP) — a 403/429
+    // burst just records last_error and the next timer run retries.
+    const res = await fetch(
+      `https://api.github.com/users/${encodeURIComponent(row.external_id || '')}/starred?per_page=${GITHUB_PAGE}&page=${page}`,
+      {
+        headers: { 'User-Agent': GITHUB_UA, Accept: 'application/vnd.github.star+json' },
+        signal: AbortSignal.timeout(15_000),
+      }
+    )
+    const entries: any = res.ok ? await res.json().catch(() => null) : null
+    if (!res.ok || !Array.isArray(entries)) {
+      throw new Error(`GitHub starred ${res.status}`)
+    }
+    if (!entries.length) break
+
+    const withRepo = entries.filter((e) => (e?.repo ?? e)?.id)
+    const known = await knownGuids(event, feedId, withRepo.map((e) => `github-star:${(e.repo ?? e).id}`))
+    const fresh = withRepo.filter((e) => !known.has(`github-star:${(e.repo ?? e).id}`))
+    const items = fresh.map(renderGithubStar).filter((i): i is FoundItem => !!i)
+    ingested += await insertItems(event, feedId, items)
+
+    if (fresh.length < withRepo.length || entries.length < GITHUB_PAGE) break // caught up
   }
 
   return ingested

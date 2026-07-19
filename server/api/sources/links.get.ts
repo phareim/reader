@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
     x: !!config.xClientId && !!config.xClientSecret,
     reddit: !!config.redditClientId && !!config.redditClientSecret,
     hackernews: true,
+    github: true,
   }
 
   const rows = await listLinkedSources(event, user.id)

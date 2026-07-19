@@ -82,21 +82,21 @@
             </p>
           </div>
           <div class="flex items-center gap-4">
-            <ActionLabel v-if="link.lastError && link.source !== 'hackernews'" accent @click="linkSource(link.source)">Relink</ActionLabel>
+            <ActionLabel v-if="link.lastError && !isUsernameSource(link.source)" accent @click="linkSource(link.source)">Relink</ActionLabel>
             <button class="src-action" @click="unlinkSource(link.source)">Unlink</button>
           </div>
         </template>
-        <template v-else-if="link.source === 'hackernews'">
+        <template v-else-if="isUsernameSource(link.source)">
           <div class="min-w-0 flex-1">
             <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
-            <form class="mt-1 flex items-end gap-3" @submit.prevent="linkHn">
+            <form class="mt-1 flex items-end gap-3" @submit.prevent="linkByUsername(link.source)">
               <input
-                v-model="hnUsername" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"
-                placeholder="HN username"
+                v-model="usernames[link.source]" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"
+                :placeholder="SOURCE_META[link.source].placeholder"
                 class="w-44 border-0 border-b border-rule bg-transparent py-1 text-ink outline-none focus:border-accent"
               />
-              <ActionLabel :disabled="hnLinking || !hnUsername.trim()" @click="linkHn">
-                {{ hnLinking ? 'Linking…' : 'Link' }}
+              <ActionLabel :disabled="linkingUsername === link.source || !usernames[link.source]?.trim()" @click="linkByUsername(link.source)">
+                {{ linkingUsername === link.source ? 'Linking…' : 'Link' }}
               </ActionLabel>
             </form>
           </div>
@@ -175,9 +175,9 @@ const busyUrl = ref<string | null>(null)
 const detectedArticle = ref<DetectedArticle | null>(null)
 const savingArticle = ref(false)
 
-// Linked sources (X / Reddit / Hacker News → Found)
+// Linked sources (X / Reddit / Hacker News / GitHub → Found)
 type SourceLink = {
-  source: 'x' | 'reddit' | 'hackernews'
+  source: 'x' | 'reddit' | 'hackernews' | 'github'
   available: boolean
   linked: boolean
   handle?: string | null
@@ -187,13 +187,19 @@ type SourceLink = {
 const SOURCE_META = {
   x: { name: 'X', prefix: '@', things: 'Bookmarks', pitch: 'Bring your X bookmarks into the Found feed.' },
   reddit: { name: 'Reddit', prefix: 'u/', things: 'Saved items', pitch: 'Bring your saved Reddit posts and comments into Found.' },
-  hackernews: { name: 'Hacker News', prefix: '', things: 'Favorites', pitch: 'Bring your public Hacker News favorites into Found.' },
+  hackernews: { name: 'Hacker News', prefix: '', things: 'Favorites', pitch: 'Bring your public Hacker News favorites into Found.', placeholder: 'HN username' },
+  github: { name: 'GitHub', prefix: '', things: 'Stars', pitch: 'Bring your public GitHub stars into Found.', placeholder: 'GitHub username' },
 } as const
+
+// Public sources linked by a username form — no OAuth dance.
+type UsernameSource = 'hackernews' | 'github'
+const isUsernameSource = (s: SourceLink['source']): s is UsernameSource =>
+  s === 'hackernews' || s === 'github'
 
 const sourceLinks = ref<SourceLink[]>([])
 const visibleLinks = computed(() => sourceLinks.value.filter((l) => l.available))
-const hnUsername = ref('')
-const hnLinking = ref(false)
+const usernames = reactive<Record<UsernameSource, string>>({ hackernews: '', github: '' })
+const linkingUsername = ref<UsernameSource | null>(null)
 
 onMounted(() => {
   fetchFeeds()
@@ -222,22 +228,23 @@ function linkSource(source: SourceLink['source']) {
   window.location.href = `/api/auth/${source}/start`
 }
 
-async function linkHn() {
-  const username = hnUsername.value.trim()
-  if (!username || hnLinking.value) return
-  hnLinking.value = true
+async function linkByUsername(source: UsernameSource) {
+  const username = usernames[source].trim()
+  const name = SOURCE_META[source].name
+  if (!username || linkingUsername.value) return
+  linkingUsername.value = source
   try {
-    const res = await $fetch<{ handle: string }>('/api/sources/links/hackernews', {
+    const res = await $fetch<{ handle: string }>(`/api/sources/links/${source}`, {
       method: 'POST',
       body: { username }
     })
-    hnUsername.value = ''
+    usernames[source] = ''
     await fetchSourceLinks()
-    showSuccess(`Linked Hacker News as ${res.handle}`)
+    showSuccess(`Linked ${name} as ${res.handle}`)
   } catch (err: any) {
-    showError(err.statusCode === 404 || err.status === 404 ? 'No such Hacker News user' : 'Could not link Hacker News')
+    showError(err.statusCode === 404 || err.status === 404 ? `No such ${name} user` : `Could not link ${name}`)
   } finally {
-    hnLinking.value = false
+    linkingUsername.value = null
   }
 }
 
