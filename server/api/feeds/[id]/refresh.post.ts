@@ -17,13 +17,21 @@ export default defineEventHandler(async (event) => {
 
   // Verify feed exists and belongs to user
   const feed = await db.prepare(
-    'SELECT id, url, title, user_id FROM "Feed" WHERE id = ? AND user_id = ?'
+    'SELECT id, url, title, user_id, kind FROM "Feed" WHERE id = ? AND user_id = ?'
   ).bind(id, user.id).first()
 
   if (!feed) {
     throw createError({
       statusCode: 404,
       statusMessage: 'Feed not found'
+    })
+  }
+
+  // Found/manual feeds are push-only — there is no upstream to fetch
+  if (feed.kind === 'found' || feed.kind === 'manual') {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'This feed is push-only and cannot be synced'
     })
   }
 

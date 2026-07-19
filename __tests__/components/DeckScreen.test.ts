@@ -30,6 +30,9 @@ let setViewMode: jest.Mock
 let authUser: ReturnType<typeof ref<boolean>>
 let authChecked: ReturnType<typeof ref<boolean>>
 let navigateToMock: jest.Mock
+let syncAllMock: jest.Mock
+let refreshFeedMock: jest.Mock
+let feedsList: ReturnType<typeof ref<any[]>>
 
 beforeEach(() => {
   fetchArticles = jest.fn().mockResolvedValue(undefined)
@@ -48,9 +51,13 @@ beforeEach(() => {
     fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore,
   })
   ;(globalThis as any).useSavedArticles = () => ({ fetchSavedArticleIds, savedArticleIds })
+  syncAllMock = jest.fn().mockResolvedValue(undefined)
+  refreshFeedMock = jest.fn().mockResolvedValue({ success: true, newArticles: 0 })
+  feedsList = ref([] as any[])
   ;(globalThis as any).useFeeds = () => ({
-    syncAll: jest.fn(),
-    feeds: ref([] as any[]),
+    syncAll: syncAllMock,
+    refreshFeed: refreshFeedMock,
+    feeds: feedsList,
     fetchFeeds: jest.fn().mockResolvedValue(undefined),
   })
   ;(globalThis as any).useToast = () => ({ showSuccess: jest.fn(), showError: jest.fn() })
@@ -251,6 +258,30 @@ describe('DeckScreen', () => {
 
     key('u')
     expect(gridUndo).toHaveBeenCalledTimes(1)
+  })
+
+  it('feed-scoped deck — shift+R syncs only that feed via refreshFeed', async () => {
+    feedsList.value = [{ id: 7, title: 'Blog', kind: 'rss' }] as any[]
+    mountScreen({ props: { feedId: 7, title: 'Blog' }, attachTo: document.body })
+    await flushPromises()
+
+    key('R', { shiftKey: true })
+    await flushPromises()
+
+    expect(refreshFeedMock).toHaveBeenCalledWith(7)
+    expect(syncAllMock).not.toHaveBeenCalled()
+  })
+
+  it('push-only Found feed — shift+R falls back to the full sync', async () => {
+    feedsList.value = [{ id: 9, title: 'Found', kind: 'found' }] as any[]
+    mountScreen({ props: { feedId: 9, title: 'Found' }, attachTo: document.body })
+    await flushPromises()
+
+    key('R', { shiftKey: true })
+    await flushPromises()
+
+    expect(refreshFeedMock).not.toHaveBeenCalled()
+    expect(syncAllMock).toHaveBeenCalledTimes(1)
   })
 
   it('returning to deck mode re-snapshots the deck from the live unread list', async () => {

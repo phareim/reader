@@ -47,6 +47,11 @@
             {{ feedHealthNote(feed) }}
           </p>
           <div class="mt-1.5 flex gap-4">
+            <button
+              v-if="(feed.kind ?? 'rss') === 'rss'"
+              class="src-action"
+              @click="syncFeed(feed)"
+            >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
             <button class="src-action" @click="markRead(feed.id)">Mark read</button>
             <button class="src-action" @click="editTags(feed)">Tags</button>
             <button class="src-action hover:text-accent-ink" @click="confirmDelete(feed)">Delete</button>
@@ -148,7 +153,7 @@ import { feedHealthNote } from '~/utils/feedHealth'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover', 'good-reads'])
 
-const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
+const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, refreshFeed, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()
 const { user, signOut } = useAuth()
 const { showSuccess, showError } = useToast()
@@ -318,6 +323,19 @@ async function saveDetectedArticle() {
   } finally {
     savingArticle.value = false
   }
+}
+
+const syncingFeedId = ref<number | null>(null)
+
+async function syncFeed(feed: Feed) {
+  if (syncingFeedId.value !== null) return
+  syncingFeedId.value = feed.id
+  try {
+    const res = await refreshFeed(feed.id)
+    const n = res?.newArticles ?? 0
+    showSuccess(n === 0 ? 'No new articles' : n === 1 ? '1 new article' : `${n} new articles`)
+  } catch { showError('Sync failed') }
+  finally { syncingFeedId.value = null }
 }
 
 async function markRead(feedId: number) {

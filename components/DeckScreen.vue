@@ -78,7 +78,7 @@ const emit = defineEmits<{ notFound: [] }>()
 
 const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore } = useArticles()
 const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
-const { syncAll: syncFeeds, feeds, fetchFeeds } = useFeeds()
+const { syncAll: syncFeeds, refreshFeed, feeds, fetchFeeds } = useFeeds()
 const { viewMode, setViewMode } = useViewMode()
 const { personal, loggedIn, checked } = useAuth()
 
@@ -149,13 +149,24 @@ onMounted(async () => {
   fetchFeeds().catch(() => {}).finally(() => { feedsLoaded.value = true })
 })
 
+// On a feed-scoped deck, sync just that feed — but only when we know it's a
+// pull feed (found/manual are push-only). Unknown or push-only ⇒ full sync,
+// the pre-existing behavior.
+const scopedSyncFeed = computed(() => {
+  if (props.feedId == null) return null
+  const feed = feeds.value.find((f) => f.id === props.feedId)
+  return feed && (feed.kind ?? 'rss') === 'rss' ? feed : null
+})
+
 async function syncAll() {
   syncing.value = true
+  const scoped = scopedSyncFeed.value
   try {
-    await syncFeeds()
+    if (scoped) await refreshFeed(scoped.id)
+    else await syncFeeds()
     await loadArticles()
     refillDeck()
-    showSuccess('Feeds synced')
+    showSuccess(scoped ? 'Feed synced' : 'Feeds synced')
   } catch (err: any) {
     if (err?.statusCode === 404) { emit('notFound'); return }
     showError('Sync failed')
