@@ -4,7 +4,10 @@
     height, so the page itself can never scroll — no iOS rubber-band, no
     URL-bar collapse creep. Grid mode scrolls inside its own scroller.
   -->
-  <main class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pb-16 pt-4">
+  <main
+    class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pt-4"
+    style="padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));"
+  >
     <header class="flex items-baseline justify-between gap-3 pb-3">
       <MonoLabel dash class="min-w-0 truncate">{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
       <span v-if="!signedOut" class="flex shrink-0 items-baseline gap-3 whitespace-nowrap">

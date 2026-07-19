@@ -2,8 +2,9 @@
   <Transition name="toast">
     <div
       v-if="success || error"
-      class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 border bg-paper-raised px-4 py-2"
+      class="fixed left-1/2 -translate-x-1/2 z-50 border bg-paper-raised px-4 py-2"
       :class="error ? 'border-accent' : 'border-rule-strong'"
+      style="bottom: calc(4.5rem + env(safe-area-inset-bottom));"
     >
       <MonoLabel :accent="!!error" dash>{{ success || error }}</MonoLabel>
     </div>

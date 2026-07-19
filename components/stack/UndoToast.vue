@@ -1,6 +1,10 @@
 <template>
   <Transition name="undo">
-    <div v-if="visible" class="fixed bottom-16 left-1/2 z-50 -translate-x-1/2">
+    <div
+      v-if="visible"
+      class="fixed left-1/2 z-50 -translate-x-1/2"
+      style="bottom: calc(4.5rem + env(safe-area-inset-bottom));"
+    >
       <ActionLabel accent @click="emit('undo')">Undo {{ label }}</ActionLabel>
     </div>
   </Transition>
