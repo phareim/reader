@@ -35,8 +35,8 @@
         <p v-if="quietNote(row)" class="mt-1.5 text-sm italic text-mute">{{ quietNote(row) }}</p>
         <div class="mt-3 flex items-baseline gap-5">
           <MonoLabel v-if="added[row.id]" dash>Added</MonoLabel>
-          <ActionLabel v-else accent :disabled="busyId === row.id" @click="add(row)">
-            {{ busyId === row.id ? 'Adding…' : 'Add' }}
+          <ActionLabel v-else accent :disabled="busy[row.id]" @click="add(row)">
+            {{ busy[row.id] ? 'Adding…' : 'Add' }}
           </ActionLabel>
           <button v-if="!added[row.id]" class="disc-dismiss" @click="dismiss(row)">&mdash; Dismiss</button>
         </div>
@@ -66,9 +66,10 @@ const { showSuccess, showError } = useToast()
 const rows = ref<DiscoverRow[]>([])
 const loading = ref(true)
 const refreshing = ref(false)
-const busyId = ref<number | null>(null)
-// A plain object, not a Set — Vue tracks it and vue3-jest's downlevel
-// target makes Set spreads hazardous (see highlights.vue).
+// Plain objects, not Sets — Vue tracks them and vue3-jest's downlevel
+// target makes Set spreads hazardous (see highlights.vue). Busy state is
+// per-row so a slow add never blocks adding the next candidate.
+const busy = ref<Record<number, boolean>>({})
 const added = ref<Record<number, boolean>>({})
 
 function viaLine(row: DiscoverRow): string {
@@ -98,8 +99,8 @@ async function load() {
 }
 
 async function add(row: DiscoverRow) {
-  if (busyId.value !== null) return
-  busyId.value = row.id
+  if (busy.value[row.id]) return
+  busy.value = { ...busy.value, [row.id]: true }
   try {
     const res = await $fetch<{ feed: { title: string }; articlesAdded: number }>(
       `/api/discover/${row.id}/subscribe`,
@@ -110,7 +111,7 @@ async function add(row: DiscoverRow) {
   } catch {
     showError('Could not add — the feed did not respond')
   } finally {
-    busyId.value = null
+    busy.value = { ...busy.value, [row.id]: false }
   }
 }
 

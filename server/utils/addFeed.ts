@@ -71,22 +71,33 @@ export async function addFeedForUser(event: H3Event, userId: number, url: string
   const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 100
   const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
 
+  // Items are independent (distinct guids under INSERT OR IGNORE), so insert
+  // through a small pool — Workers allow ~6 simultaneous connections, and a
+  // serial loop over 100 articles × 4 round trips each kept the caller
+  // waiting tens of seconds.
+  const CONCURRENCY = 5
   let articlesAdded = 0
-  for (const item of articlesToAdd) {
-    const result = await insertArticleWithContent(event, Number(feedId), {
-      guid: item.guid,
-      title: item.title,
-      url: item.url,
-      author: item.author,
-      content: item.content,
-      summary: item.summary,
-      imageUrl: item.imageUrl,
-      publishedAt: item.publishedAt
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, articlesToAdd.length) }, async () => {
+      while (next < articlesToAdd.length) {
+        const item = articlesToAdd[next++]
+        const result = await insertArticleWithContent(event, Number(feedId), {
+          guid: item.guid,
+          title: item.title,
+          url: item.url,
+          author: item.author,
+          content: item.content,
+          summary: item.summary,
+          imageUrl: item.imageUrl,
+          publishedAt: item.publishedAt
+        })
+        if (result.inserted) {
+          articlesAdded += 1
+        }
+      }
     })
-    if (result.inserted) {
-      articlesAdded += 1
-    }
-  }
+  )
 
   return {
     existing: false,

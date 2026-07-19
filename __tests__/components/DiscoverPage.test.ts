@@ -108,6 +108,31 @@ describe('pages/discover.vue', () => {
     expect(row.find('.disc-dismiss').exists()).toBe(false)
   })
 
+  it('a slow Add does not block adding another row', async () => {
+    let resolveFirst!: (value: unknown) => void
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/discover') return Promise.resolve({ candidates: [...ROWS] })
+      if (url === '/api/discover/1/subscribe') return new Promise((res) => { resolveFirst = res })
+      if (url === '/api/discover/2/subscribe') {
+        return Promise.resolve({ feed: { title: 'Old Timer' }, articlesAdded: 3 })
+      }
+      return Promise.resolve({ ok: true })
+    })
+    const w = await mountPage()
+
+    await w.findAll('li')[0].find('.action-label').trigger('click')
+    await w.findAll('li')[1].find('.action-label').trigger('click')
+    await flushPromises()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/discover/2/subscribe', { method: 'POST' })
+    expect(w.findAll('li')[0].text()).toContain('Adding…')
+    expect(w.findAll('li')[1].text()).toContain('Added')
+
+    resolveFirst({ feed: { title: 'A Friend' }, articlesAdded: 12 })
+    await flushPromises()
+    expect(w.findAll('li')[0].text()).toContain('Added')
+  })
+
   it('failed Add keeps the row actionable and toasts the error', async () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === '/api/discover') return Promise.resolve({ candidates: [...ROWS] })
