@@ -1,16 +1,28 @@
 <template>
   <main class="mx-auto max-w-measure px-5 py-6 pb-20">
-    <header class="flex items-baseline justify-between">
+    <header class="flex items-center justify-between">
       <MonoLabel dash>Shelf</MonoLabel>
-      <div class="flex items-baseline gap-4">
-        <NuxtLink to="/search" class="focus-visible:outline focus-visible:outline-1">
-          <MonoLabel>Search</MonoLabel>
+      <!-- Like ActionLabel: on phones the glyph carries each link, from sm: up
+           the mono text label takes over. items-center (not baseline) so the
+           14px glyphs sit level with the 10px mono labels. -->
+      <div class="flex items-center gap-4">
+        <NuxtLink to="/search" aria-label="Search" class="focus-visible:outline focus-visible:outline-1">
+          <span class="flex text-mute sm:hidden" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
+          </span>
+          <MonoLabel class="hidden sm:inline">Search</MonoLabel>
         </NuxtLink>
-        <NuxtLink to="/highlights" class="focus-visible:outline focus-visible:outline-1">
-          <MonoLabel>Highlights</MonoLabel>
+        <NuxtLink to="/highlights" aria-label="Highlights" class="focus-visible:outline focus-visible:outline-1">
+          <span class="flex text-mute sm:hidden" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" /></svg>
+          </span>
+          <MonoLabel class="hidden sm:inline">Highlights</MonoLabel>
         </NuxtLink>
-        <NuxtLink to="/good-reads" class="focus-visible:outline focus-visible:outline-1">
-          <MonoLabel>Good reads</MonoLabel>
+        <NuxtLink to="/good-reads" aria-label="Good reads" class="focus-visible:outline focus-visible:outline-1">
+          <span class="flex text-mute sm:hidden" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.8l-5.8 3 1.1-6.4L2.6 9.8l6.5-.9z" /></svg>
+          </span>
+          <MonoLabel class="hidden sm:inline">Good reads</MonoLabel>
         </NuxtLink>
         <MonoLabel>{{ articles.length }} saved</MonoLabel>
       </div>
