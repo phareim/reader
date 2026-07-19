@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   const body = await readBody(event)
-  const { feedId, articleIds } = body ?? {}
+  const { feedId, tag, articleIds } = body ?? {}
 
   const db = getD1(event)
 
@@ -35,6 +35,29 @@ export default defineEventHandler(async (event) => {
   }
 
   let targetFeedId: number | undefined
+  // Feed ids for a tag-scoped mark-all (the grid on /TAG-NAME). Mirrors the
+  // articles list endpoint: name match is ASCII case-insensitive, unknown
+  // tag is a 404, a tag with no feeds marks nothing.
+  let tagFeedIds: number[] | undefined
+
+  if (feedId === undefined && typeof tag === 'string' && tag.trim()) {
+    const tagRow = await db.prepare(
+      'SELECT id FROM "Tag" WHERE user_id = ? AND name = ? COLLATE NOCASE'
+    ).bind(user.id, tag.trim()).first<{ id: number }>()
+
+    if (!tagRow) {
+      throw createError({ statusCode: 404, statusMessage: 'Tag not found' })
+    }
+
+    const feedsResult = await db.prepare(
+      'SELECT ft.feed_id AS id FROM "FeedTag" ft JOIN "Feed" f ON f.id = ft.feed_id WHERE ft.tag_id = ? AND f.user_id = ?'
+    ).bind(tagRow.id, user.id).all()
+
+    tagFeedIds = (feedsResult.results || []).map((row: any) => Number(row.id))
+    if (tagFeedIds.length === 0) {
+      return { markedCount: 0 }
+    }
+  }
 
   if (feedId !== undefined) {
     targetFeedId = Number(feedId)
@@ -65,6 +88,9 @@ export default defineEventHandler(async (event) => {
     if (targetFeedId !== undefined) {
       where += ' AND feed_id = ?'
       params.push(targetFeedId)
+    } else if (tagFeedIds) {
+      where += ` AND feed_id IN (${tagFeedIds.map(() => '?').join(',')})`
+      params.push(...tagFeedIds)
     }
 
     const countResult = await db.prepare(

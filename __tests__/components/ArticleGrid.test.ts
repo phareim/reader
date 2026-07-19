@@ -47,7 +47,12 @@ const stubs = {
     setup: (p: any) => () =>
       h('div', { 'data-testid': 'undo-toast', 'data-visible': String(p.visible), 'data-label': p.label }),
   }),
-  ActionLabel: true,
+  // Real stub (not `true`) so @click wiring is exercised.
+  ActionLabel: defineComponent({
+    emits: ['click'],
+    setup: (_, { emit, slots }) => () =>
+      h('button', { class: 'action-label-stub', onClick: () => emit('click') }, slots.default?.()),
+  }),
   MonoLabel: true,
 }
 
@@ -90,17 +95,30 @@ describe('ArticleGrid commit wiring', () => {
     expect(w.find('[data-testid="undo-toast"]').attributes('data-label')).toBe('Save')
   })
 
-  it('a second commit during an in-flight commit is ignored', async () => {
+  it('a second commit on the SAME card mid-flight is ignored', async () => {
     __setManualAnimations(true)
     const w = mountGrid()
     const first = (w.vm as any).commitCard(1, 'left')
-    const second = (w.vm as any).commitCard(2, 'right') // busy → no-op
+    const second = (w.vm as any).commitCard(1, 'right') // same card exiting → no-op
     __resolveAnimations()
     await first
     await second
     await flushPromises()
     expect(markAsRead).toHaveBeenCalledTimes(1)
     expect(saveArticle).not.toHaveBeenCalled()
+  })
+
+  it('commits on DIFFERENT cards overlap — the second is not queued behind the first', async () => {
+    __setManualAnimations(true)
+    const w = mountGrid()
+    const first = (w.vm as any).commitCard(1, 'left')
+    const second = (w.vm as any).commitCard(2, 'right') // concurrent, runs too
+    __resolveAnimations()
+    await first
+    await second
+    await flushPromises()
+    expect(markAsRead).toHaveBeenCalledWith(1, true)
+    expect(saveArticle).toHaveBeenCalledWith(2)
   })
 
   it('undo after read marks unread; undo after save unsaves (LIFO)', async () => {
@@ -167,6 +185,30 @@ describe('ArticleGrid infinite scroll', () => {
 
     expect(unobserve).toHaveBeenCalled()
     expect(observe).toHaveBeenCalled()
+  })
+})
+
+describe('ArticleGrid mark-all-read', () => {
+  const markAllButton = (w: ReturnType<typeof mountGrid>) =>
+    w.findAll('button.action-label-stub').find((b) => b.text().includes('Mark'))
+
+  it('renders the button at the bottom and emits markAllRead on click', async () => {
+    const w = mountGrid()
+    const btn = markAllButton(w)
+    expect(btn).toBeTruthy()
+    expect(btn!.text()).toBe('Mark all read')
+    await btn!.trigger('click')
+    expect(w.emitted('markAllRead')).toHaveLength(1)
+  })
+
+  it('shows the busy label while markingAll', () => {
+    const w = mountGrid({ markingAll: true })
+    expect(markAllButton(w)!.text()).toBe('Marking…')
+  })
+
+  it('is absent when the grid is empty', () => {
+    const w = mountGrid({ articles: [] })
+    expect(markAllButton(w)).toBeUndefined()
   })
 })
 

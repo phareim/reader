@@ -25,6 +25,10 @@ export function useMotionValue(initial: number) {
   return { get: () => v, set: (n: number) => { v = n }, on: () => () => {} }
 }
 
+// Non-composable variant (per-card values created outside setup).
+export const motionValue = useMotionValue
+export type MotionValue<T = number> = ReturnType<typeof useMotionValue>
+
 export function useTransform() {
   return useMotionValue(0)
 }

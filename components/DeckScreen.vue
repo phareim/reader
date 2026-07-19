@@ -74,8 +74,10 @@
             :has-more="hasMore"
             :loading-more="loadingMore"
             :syncing="syncing"
+            :marking-all="markingAll"
             @load-more="loadMoreArticles"
             @sync="syncAll"
+            @mark-all-read="markAllRead"
           />
         </template>
         <div v-else class="flex h-full items-center justify-center">
@@ -94,7 +96,7 @@ import type { Article } from '~/types'
 const props = defineProps<{ tag?: string; feedId?: number; title?: string }>()
 const emit = defineEmits<{ notFound: [] }>()
 
-const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore } = useArticles()
+const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMore, loadingMore, markAllAsRead } = useArticles()
 const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { syncAll: syncFeeds, refreshFeed, feeds, fetchFeeds } = useFeeds()
 const { viewMode, setViewMode } = useViewMode()
@@ -190,6 +192,26 @@ async function syncAll() {
     showError('Sync failed')
   } finally {
     syncing.value = false
+  }
+}
+
+// The grid's bottom "Mark all read": marks the whole current scope (feed,
+// tag, or everything) read server-side — past unfetched pages too — then
+// refetches so the grid and header count settle honestly.
+const markingAll = ref(false)
+async function markAllRead() {
+  if (markingAll.value) return
+  markingAll.value = true
+  try {
+    const res = await markAllAsRead(props.feedId, props.tag)
+    await loadArticles()
+    refillDeck() // keep the deck snapshot honest for a later toggle back
+    const n = res?.markedCount ?? 0
+    showSuccess(n === 1 ? '1 article marked read' : `${n} articles marked read`)
+  } catch {
+    showError('Could not mark all read')
+  } finally {
+    markingAll.value = false
   }
 }
 

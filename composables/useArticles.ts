@@ -152,7 +152,7 @@ export const useArticles = () => {
     }
   }
 
-  const markAllAsRead = async (feedId?: number) => {
+  const markAllAsRead = async (feedId?: number, tag?: string) => {
     loading.value = true
     error.value = null
 
@@ -160,6 +160,8 @@ export const useArticles = () => {
       const body: any = {}
       if (feedId !== undefined) {
         body.feedId = feedId
+      } else if (tag) {
+        body.tag = tag
       }
 
       const response = await $fetch<{ markedCount: number }>('/api/articles/mark-all-read', {

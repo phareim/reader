@@ -4,10 +4,11 @@
       <!--
         Each cell is horizontally draggable (drag="x") while touch-action:
         pan-y leaves vertical pans to the native scroller — the gesture split
-        that lets one surface both scroll and swipe. The shared x MotionValue
-        binds only to the active cell (dragId), so a fling never leaks onto a
-        recycled row. TransitionGroup's move transition covers the reflow when
-        a committed card leaves the live list.
+        that lets one surface both scroll and swipe. Each cell owns its own
+        MotionValue (xFor), so a committed card can fling off while the next
+        swipe starts immediately — commits overlap instead of queueing.
+        TransitionGroup's move transition covers the reflow when a committed
+        card leaves the live list.
       -->
       <!-- Single column on phones (wider rows read + sort easier), 3-col ≥sm -->
       <TransitionGroup tag="div" name="grid-cards" class="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-3">
@@ -15,10 +16,10 @@
           v-for="article in articles"
           :key="article.id"
           class="relative"
-          :class="dragId === article.id ? 'z-20' : undefined"
+          :class="dragId === article.id || exiting.has(article.id) ? 'z-20' : undefined"
           style="touch-action: pan-y;"
-          :style="dragId === article.id ? { x } : undefined"
-          :drag="busy ? false : 'x'"
+          :style="{ x: xFor(article.id) }"
+          :drag="exiting.has(article.id) ? false : 'x'"
           :drag-elastic="0.9"
           :drag-momentum="false"
           @pointerdown="onPointerDown(article)"
@@ -45,6 +46,15 @@
         <MonoLabel dash>Loading&hellip;</MonoLabel>
       </div>
 
+      <!-- Mark the whole scope (feed / tag / everything) read — the parent
+           owns the API call; the count keeps going server-side even past
+           unfetched pages. -->
+      <div v-if="articles.length" class="flex justify-center pb-8 pt-2">
+        <ActionLabel :disabled="markingAll" @click="emit('markAllRead')">
+          {{ markingAll ? 'Marking…' : 'Mark all read' }}
+        </ActionLabel>
+      </div>
+
       <div v-if="articles.length === 0" class="flex h-full items-center justify-center">
         <DeckEmptyState :syncing="syncing" @sync="emit('sync')" />
       </div>
@@ -58,8 +68,8 @@
 // ref/watch imported explicitly (not relying on Nuxt auto-imports) so the
 // component also resolves under Jest. Harmless under Nuxt.
 import { ref, watch, onUnmounted } from 'vue'
-import { motion, useMotionValue, animate } from 'motion-v'
-import type { PanInfo } from 'motion-v'
+import { motion, motionValue, animate } from 'motion-v'
+import type { MotionValue, PanInfo } from 'motion-v'
 import type { Article } from '~/types'
 import { GRID, resolveGridDirection, type GridDirection } from '~/utils/grid'
 import { DECK } from '~/utils/deck'
@@ -69,32 +79,45 @@ const props = defineProps<{
   hasMore: boolean
   loadingMore: boolean
   syncing?: boolean
+  markingAll?: boolean
 }>()
-const emit = defineEmits<{ loadMore: []; sync: [] }>()
+const emit = defineEmits<{ loadMore: []; sync: []; markAllRead: [] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
 const { markAsRead } = useArticles()
 const { showError } = useToast()
 
 /* ── Drag physics ──────────────────────────────────────────────────── */
-// One shared MotionValue, bound (via :style) to whichever cell owns the
-// current gesture. Bound on pointerdown — before any drag movement — so
-// motion drives our value from the first pixel.
-const x = useMotionValue(0)
+// One MotionValue PER CARD, created lazily on first bind. A committing card
+// flings out on its own value, so the next swipe can start immediately —
+// nothing is shared between gestures. Entries are dropped after the commit
+// so an undone card re-enters at x = 0.
+const xMap = new Map<number, MotionValue<number>>()
+function xFor(id: number): MotionValue<number> {
+  let v = xMap.get(id)
+  if (!v) {
+    v = motionValue(0)
+    xMap.set(id, v)
+  }
+  return v
+}
+
 const dragId = ref<number | null>(null)
 const pending = ref<GridDirection | null>(null)
 const pendingProgress = ref(0)
-const busy = ref(false)
+// Cards currently mid-commit (flinging out). Guards double-commits on the
+// SAME card only — other cards stay fully interactive.
+const exiting = ref<Set<number>>(new Set())
 const movedFar = ref(false)
 
 function onPointerDown(article: Article) {
-  if (busy.value) return
+  if (exiting.value.has(article.id)) return
   dragId.value = article.id
   movedFar.value = false
 }
 
 function onDragStart(article: Article) {
-  if (busy.value || dragId.value !== article.id) return
+  if (dragId.value !== article.id) return
   pending.value = null
   pendingProgress.value = 0
 }
@@ -126,13 +149,13 @@ async function onDragEnd(article: Article, info: PanInfo) {
   if (dir) {
     await commitCard(article.id, dir, info.velocity.x)
   } else {
-    await settleWithin(animate(x, 0, DECK.SPRING))
-    if (dragId.value === article.id && !busy.value) dragId.value = null
+    if (dragId.value === article.id) dragId.value = null
+    await settleWithin(animate(xFor(article.id), 0, DECK.SPRING))
   }
 }
 
 function onTap(article: Article) {
-  if (movedFar.value || busy.value) return
+  if (movedFar.value || exiting.value.has(article.id)) return
   navigateTo(`/article/${article.id}`)
 }
 
@@ -152,18 +175,20 @@ function settleWithin(p: Promise<unknown>, ms = ANIMATION_SAFETY_MS): Promise<vo
 }
 
 /**
- * Fling the card off horizontally, then perform the optimistic verb. The
- * store update removes the article from the parent's live list, so the cell
- * leaves the DOM on its own; we reset the MotionValue afterwards so nothing
- * inherits the offset. Exposed for tests (the gesture path funnels here).
+ * Fling the card off horizontally on its own MotionValue, then perform the
+ * optimistic verb. The store update removes the article from the parent's
+ * live list, so the cell leaves the DOM on its own; the card's map entry is
+ * dropped afterwards so an undone card re-enters at rest. Only the SAME card
+ * is guarded against a double-commit — swipes on other cards run
+ * concurrently. Exposed for tests (the gesture path funnels here).
  */
 async function commitCard(id: number, dir: GridDirection, vx = 0) {
-  if (busy.value) return
-  busy.value = true
-  dragId.value = id
+  if (exiting.value.has(id)) return
+  exiting.value = new Set(exiting.value).add(id)
+  if (dragId.value === id) dragId.value = null
   try {
     const w = typeof window === 'undefined' ? 800 : window.innerWidth
-    await settleWithin(animate(x, dir === 'left' ? -w : w, { ...GRID.FLING, velocity: vx }))
+    await settleWithin(animate(xFor(id), dir === 'left' ? -w : w, { ...GRID.FLING, velocity: vx }))
     if (dir === 'left') {
       markAsRead(id, true).catch(() => showError('Mark-read failed'))
       showUndo('Read')
@@ -173,9 +198,10 @@ async function commitCard(id: number, dir: GridDirection, vx = 0) {
     }
     history.value = [...history.value, { id, action: dir }]
   } finally {
-    x.set(0)
-    dragId.value = null
-    busy.value = false
+    xMap.delete(id)
+    const next = new Set(exiting.value)
+    next.delete(id)
+    exiting.value = next
   }
 }
 
@@ -196,7 +222,6 @@ function showUndo(label: string) {
 }
 
 async function performUndo() {
-  if (busy.value) return
   undoVisible.value = false
   const entry = history.value[history.value.length - 1]
   if (!entry) return
