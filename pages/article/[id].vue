@@ -685,7 +685,7 @@ async function markReadAndReturn() {
   markingRead.value = true
   try {
     await markAsRead(id, true)
-    navigateTo('/')
+    goBack()
   } catch {
     showError('Could not mark as read')
     markingRead.value = false
