@@ -17,6 +17,12 @@ const stubs = {
   HairlineRule: defineComponent({
     setup: () => () => h('hr', { 'data-testid': 'hairline' }),
   }),
+  // Render nothing so the image-variant tests' `find('img')` still targets
+  // the lead image, not the tiny favicon.
+  FeedFavicon: defineComponent({
+    props: { src: String, size: Number },
+    setup: () => () => null,
+  }),
 }
 
 const baseArticle = {

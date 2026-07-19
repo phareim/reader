@@ -15,7 +15,7 @@
       />
       <div class="absolute inset-x-0 bottom-0 px-5 pb-4">
         <div class="font-mono uppercase" style="font-size: 10px; letter-spacing: 0.16em; color: rgba(255,250,240,.85);">
-          &mdash; {{ article.feedTitle }} &middot; {{ relativeDate }}
+          &mdash; <FeedFavicon :src="article.feedFavicon" class="mr-0.5" />{{ article.feedTitle }} &middot; {{ relativeDate }}
         </div>
         <h2 class="mt-1.5 text-2xl leading-snug sm:text-3xl" style="color: #fffdf6; text-shadow: 0 1px 2px rgba(0,0,0,.35);">
           {{ article.title }}
@@ -26,7 +26,7 @@
     <!-- Without image: typographic head -->
     <div v-else class="px-5 pt-5">
       <div class="flex items-baseline justify-between">
-        <MonoLabel dash>{{ article.feedTitle }}</MonoLabel>
+        <MonoLabel dash><FeedFavicon :src="article.feedFavicon" class="mr-1" />{{ article.feedTitle }}</MonoLabel>
         <MonoLabel>{{ relativeDate }}</MonoLabel>
       </div>
       <h2 class="mt-3 text-2xl leading-snug text-ink sm:text-3xl">{{ article.title }}</h2>

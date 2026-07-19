@@ -126,6 +126,7 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 - `ActionLabel.vue` - **the Tufte substitute for a button**: a bordered mono label, emits `click`; `accent` prop promotes it to the single crimson accent. Use this anywhere a button is needed
 - `CardFrame.vue` - hairline-framed raised paper surface (no shadow, no radius) — deck cards, modals, and prompts compose this
 - `HairlineRule.vue` - hairline `<hr>` (never boxes); `strong` prop for the heavier rule
+- `FeedFavicon.vue` - a feed's tiny favicon (`Feed.favicon_url`, Google S2) beside its name — quiet per-feed differentiation on Sources rows, deck/grid cards, and shelf rows; renders nothing when the URL is missing or fails to load (`size` prop, default 12px)
 
 **Card deck** (`components/stack/`) — the reading entrance:
 - `CardStack.vue` - owns the deck state + motion-v physics, performs the five verbs, exposes `commit(direction)`, `undo()`, and `openTop()` to the page

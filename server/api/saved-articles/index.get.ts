@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
         a.published_at,
         a.is_read,
         f.title AS feed_title,
+        f.favicon_url AS feed_favicon,
         GROUP_CONCAT(DISTINCT t.name) AS tags
       FROM "SavedArticle" sa
       JOIN "Article" a ON a.id = sa.article_id
@@ -63,6 +64,7 @@ export default defineEventHandler(async (event) => {
         id: saved.article_id,
         feedId: saved.feed_id,
         feedTitle: saved.feed_title,
+        feedFavicon: saved.feed_favicon,
         title: saved.title,
         url: saved.url,
         author: saved.author,

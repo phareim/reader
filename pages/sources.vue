@@ -39,8 +39,11 @@
           <div class="flex items-baseline justify-between gap-3">
             <NuxtLink
               :to="`/feed/${feed.id}`"
-              class="min-w-0 truncate text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
-            >{{ feed.title }}</NuxtLink>
+              class="flex min-w-0 items-center gap-2 text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
+            >
+              <FeedFavicon :src="feed.faviconUrl" :size="14" />
+              <span class="truncate">{{ feed.title }}</span>
+            </NuxtLink>
             <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
           </div>
           <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">

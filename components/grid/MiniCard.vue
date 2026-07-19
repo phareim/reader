@@ -21,7 +21,7 @@
         :class="image ? 'line-clamp-3' : 'line-clamp-4'"
       >{{ article.title }}</h3>
       <div class="mt-auto min-w-0 truncate pt-2">
-        <MonoLabel>{{ article.feedTitle }} &middot; {{ relativeDate }}</MonoLabel>
+        <MonoLabel><FeedFavicon :src="article.feedFavicon" class="mr-1" />{{ article.feedTitle }} &middot; {{ relativeDate }}</MonoLabel>
       </div>
     </div>
   </CardFrame>

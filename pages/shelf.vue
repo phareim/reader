@@ -37,7 +37,7 @@
         <li v-for="a in inProgress" :key="a.id" class="border-b border-rule py-3">
           <NuxtLink :to="`/article/${a.id}`" class="block">
             <div class="flex items-baseline justify-between gap-4">
-              <MonoLabel dash>{{ a.feedTitle }}</MonoLabel>
+              <MonoLabel dash><FeedFavicon :src="a.feedFavicon" class="mr-1" />{{ a.feedTitle }}</MonoLabel>
               <MonoLabel>{{ Math.round((a.readProgress || 0) * 100) }}%</MonoLabel>
             </div>
             <h2 class="mt-1 text-lg leading-snug text-ink">{{ a.title }}</h2>
@@ -56,7 +56,7 @@
       <li v-for="a in articles" :key="a.id" class="border-b border-rule py-4">
         <NuxtLink :to="`/article/${a.id}`" class="block">
           <div class="flex items-baseline justify-between gap-4">
-            <MonoLabel dash>{{ a.feedTitle }}</MonoLabel>
+            <MonoLabel dash><FeedFavicon :src="a.feedFavicon" class="mr-1" />{{ a.feedTitle }}</MonoLabel>
             <MonoLabel>{{ a.publishedAt ? formatRelativeDate(a.publishedAt) : '' }}</MonoLabel>
           </div>
           <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
