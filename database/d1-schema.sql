@@ -136,6 +136,17 @@ CREATE TABLE IF NOT EXISTS "Highlight" (
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP)
 );
 
+-- GoodRead table (migration 018) — the star at the end of the reader.
+-- Independent of the shelf, like Highlight: an article can be a good read
+-- without being saved, and unsaving never clears the mark.
+CREATE TABLE IF NOT EXISTS "GoodRead" (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  article_id INTEGER NOT NULL REFERENCES "Article"(id) ON DELETE CASCADE,
+  created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
+  UNIQUE(user_id, article_id)
+);
+
 -- Linked social/reading accounts for the Worker-side Found-feed syncs
 -- (migrations 010 → 011). One row per (user, source): X, Reddit, Hacker
 -- News, ... OAuth sources keep their token set in the credentials JSON
@@ -234,6 +245,7 @@ CREATE INDEX IF NOT EXISTS idx_saved_article_article_id_user_id ON "SavedArticle
 CREATE INDEX IF NOT EXISTS idx_tag_user_id ON "Tag"(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_highlight_article_user ON "Highlight"(article_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_good_read_user_id_created_at ON "GoodRead"(user_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_discover_candidate_user_status ON "DiscoverCandidate"(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_discover_edge_feed ON "DiscoverEdge"(feed_id);

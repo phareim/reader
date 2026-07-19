@@ -71,13 +71,25 @@
       <article ref="articleEl" class="prose" v-html="sanitizedContent" @click="onArticleClick" />
 
       <HairlineRule class="my-6" />
-      <!-- Mark-as-read sits inline with the two share buttons. The share
-           buttons (public web-intent compose URLs) stay non-accent so the
-           single crimson stays on "Mark as read"; brand glyphs render on
-           every width. -->
+      <!-- Mark-as-read sits inline with the good-read star and the two share
+           buttons. The share buttons (public web-intent compose URLs) stay
+           non-accent so the single crimson stays on "Mark as read"; the star
+           takes the accent only once marked (same precedent as the Save
+           bookmark); brand glyphs render on every width. -->
       <div class="flex items-center justify-center gap-3 pb-24">
         <ActionLabel accent :disabled="markingRead" @click="markReadAndReturn">
           {{ markingRead ? 'Marking…' : 'Mark as read' }}
+        </ActionLabel>
+
+        <ActionLabel
+          :accent="goodRead"
+          :aria-label="goodRead ? 'Unmark good read' : 'Mark as a good read'"
+          @click="toggleGoodReadAction"
+        >
+          <template #icon>
+            <svg width="13" height="13" viewBox="0 0 24 24" :fill="goodRead ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.8l-5.8 3 1.1-6.4L2.6 9.8l6.5-.9z" /></svg>
+          </template>
+          Good read
         </ActionLabel>
 
         <template v-if="article.url">
@@ -204,6 +216,7 @@ const router = useRouter()
 const id = Number(route.params.id)
 
 const { isSaved, saveArticle, unsaveArticle, fetchSavedArticleIds } = useSavedArticles()
+const { isGoodRead, seedGoodRead, toggleGoodRead } = useGoodReads()
 const { elevate } = useElevate()
 const { personal } = useAuth()
 const { markAsRead } = useArticles()
@@ -329,6 +342,7 @@ async function removeHighlight() {
 }
 
 const saved = computed(() => isSaved(id))
+const goodRead = computed(() => isGoodRead(id))
 const relativeDate = computed(() =>
   article.value?.publishedAt ? formatRelativeDate(article.value.publishedAt) : ''
 )
@@ -552,6 +566,7 @@ onMounted(async () => {
     error.value = err.statusMessage || 'Could not load the article'
     return
   }
+  seedGoodRead(id, !!article.value?.isGoodRead)
 
   const content = article.value?.content || ''
   const visible = stripHtml(content)
@@ -639,6 +654,14 @@ async function toggleSaveAction() {
   } catch { showError('Could not update the shelf') }
 }
 
+async function toggleGoodReadAction() {
+  const marking = !goodRead.value
+  try {
+    await toggleGoodRead(id)
+    showSuccess(marking ? 'Marked as a good read' : 'Good-read mark removed')
+  } catch { showError('Could not update good reads') }
+}
+
 async function elevateAction() {
   if (!personal.value || elevating.value) return
   elevating.value = true
@@ -700,6 +723,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'r') markReadAndReturn()
   else if (e.key === 'e') elevateAction()
   else if (e.key === 'v') openOriginal()
+  else if (e.key === 'g') toggleGoodReadAction()
   else if (e.key === 'h') startHighlight()
   else if (e.key === 'w') openRsvp()
   else if (e.key === 'l') toggleReadAloud()

@@ -146,7 +146,7 @@ import type { Feed } from '~/types'
 import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
 import { feedHealthNote } from '~/utils/feedHealth'
 
-const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover'])
+const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover', 'good-reads'])
 
 const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, updateFeedTags } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()

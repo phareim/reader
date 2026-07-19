@@ -64,6 +64,10 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const goodRead = await db.prepare(
+    'SELECT id FROM "GoodRead" WHERE user_id = ? AND article_id = ?'
+  ).bind(user.id, articleId).first()
+
   const content = await fetchArticleContent(event, article.content_key)
   const note = savedArticle ? await fetchSavedArticleNote(event, savedArticle.note_key) : null
 
@@ -85,6 +89,7 @@ export default defineEventHandler(async (event) => {
     feedKind: article.feed_kind,
     feedFaviconUrl: article.feed_favicon_url,
     savedId: savedArticle?.id,
+    isGoodRead: !!goodRead,
     note,
     tags: savedTags,
     isAuthenticated: !!user

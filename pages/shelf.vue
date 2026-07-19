@@ -9,6 +9,9 @@
         <NuxtLink to="/highlights" class="focus-visible:outline focus-visible:outline-1">
           <MonoLabel>Highlights</MonoLabel>
         </NuxtLink>
+        <NuxtLink to="/good-reads" class="focus-visible:outline focus-visible:outline-1">
+          <MonoLabel>Good reads</MonoLabel>
+        </NuxtLink>
         <MonoLabel>{{ articles.length }} saved</MonoLabel>
       </div>
     </header>
