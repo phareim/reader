@@ -77,7 +77,11 @@
            takes the accent only once marked (same precedent as the Save
            bookmark); brand glyphs render on every width. -->
       <div class="flex items-center justify-center gap-3 pb-24">
-        <ActionLabel accent :disabled="markingRead" @click="markReadAndReturn">
+        <ActionLabel accent :disabled="markingRead" aria-label="Mark as read" @click="markReadAndReturn">
+          <template #icon>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
+          </template>
+          <template #compact>{{ markingRead ? 'Marking…' : 'Read' }}</template>
           {{ markingRead ? 'Marking…' : 'Mark as read' }}
         </ActionLabel>
 

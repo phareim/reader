@@ -12,8 +12,11 @@
     :disabled="disabled"
     @click="emit('click')"
   ><!-- With an icon slot, the glyph carries the button on narrow screens and
-       the text label takes over from sm: up. Without one, text label always. -->
-    <span v-if="$slots.icon" class="flex items-center justify-center sm:hidden" aria-hidden="true"><slot name="icon" /></span>
+       the text label takes over from sm: up. A `compact` slot puts a short
+       text beside the glyph on those narrow screens (e.g. a checkmark +
+       "Read" standing in for "Mark as read"). Without an icon, text label
+       always. -->
+    <span v-if="$slots.icon" class="flex items-center justify-center gap-1 sm:hidden" aria-hidden="true"><slot name="icon" /><span v-if="$slots.compact"><slot name="compact" /></span></span>
     <span :class="$slots.icon ? 'hidden sm:inline' : undefined">&mdash;&nbsp;<slot /></span>
   </button>
 </template>
