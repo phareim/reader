@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — mine ooh.directory categories into Discover
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/ooh-directory-candidates.mjs
+# Auth is read from ~/.config/reader/env (READER_MCP_TOKEN) —
+# no EnvironmentFile needed. State at ~/.config/reader/ooh-state.json.
+Nice=10

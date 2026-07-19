@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — weekly ooh.directory Discover mining
+
+[Timer]
+# Weekly and polite: 3 category pages + ≤20 info pages per run, round-robin
+# cursor so all mapped categories are covered over the weeks. Staggered off
+# the Monday HN miner.
+OnCalendar=Wed 07:15
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
