@@ -5,9 +5,9 @@
     URL-bar collapse creep. Grid mode scrolls inside its own scroller.
   -->
   <main class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pb-16 pt-4">
-    <header class="flex items-baseline justify-between pb-3">
-      <MonoLabel dash>{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
-      <span v-if="!signedOut" class="flex items-baseline gap-3">
+    <header class="flex items-baseline justify-between gap-3 pb-3">
+      <MonoLabel dash class="min-w-0 truncate">{{ props.title ?? props.tag ?? 'The Reader' }}</MonoLabel>
+      <span v-if="!signedOut" class="flex shrink-0 items-baseline gap-3 whitespace-nowrap">
         <ClientOnly>
           <span class="flex items-baseline gap-1.5" role="group" aria-label="View mode">
             <button
@@ -23,7 +23,22 @@
             >Grid</button>
           </span>
         </ClientOnly>
-        <MonoLabel>{{ headerCount }} unread</MonoLabel>
+        <MonoLabel class="inline-flex items-center gap-1" :aria-label="`${headerCount} unread`">
+          {{ headerCount }}
+          <svg
+            class="h-3 w-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+        </MonoLabel>
       </span>
     </header>
     <HairlineRule />
