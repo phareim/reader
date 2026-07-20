@@ -1,5 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
+import { cleanArticleDom } from '~/utils/cleanArticleContent'
 
 /**
  * Utility for processing article HTML content
@@ -11,9 +12,13 @@ import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
  * This ensures external links don't navigate away from the reader and prevents XSS
  *
  * @param content - Raw HTML content from the article
+ * @param opts.title - Article title, used to drop a duplicated title block
  * @returns Sanitized HTML with target="_blank" and rel="noopener noreferrer" on all links
  */
-export function processArticleContent(content: string | null | undefined): string | null {
+export function processArticleContent(
+  content: string | null | undefined,
+  opts: { title?: string } = {}
+): string | null {
   if (!content) return null
 
   // Legacy full-text blobs are tag-less plain text — restore paragraphs
@@ -37,6 +42,11 @@ export function processArticleContent(content: string | null | undefined): strin
   // Create a temporary div to parse the sanitized HTML
   const div = document.createElement('div')
   div.innerHTML = sanitized
+
+  // Deterministic junk removal + meta-text tagging (utils/cleanArticleContent.ts).
+  // Runs on the sanitized DOM so display, RSVP, and read-aloud all see the
+  // cleaned body; the stored article body is never mutated.
+  cleanArticleDom(div, { title: opts.title })
 
   // Find all links and add target="_blank" and rel attributes
   const links = div.querySelectorAll('a')

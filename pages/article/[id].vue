@@ -351,7 +351,7 @@ const relativeDate = computed(() =>
   article.value?.publishedAt ? formatRelativeDate(article.value.publishedAt) : ''
 )
 const sanitizedContent = computed(() =>
-  processArticleContent(article.value?.content) ?? ''
+  processArticleContent(article.value?.content, { title: article.value?.title }) ?? ''
 )
 
 // ── RSVP (speed read) ───────────────────────────────────────────────────────

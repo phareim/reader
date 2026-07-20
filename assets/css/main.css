@@ -40,6 +40,13 @@ html::-webkit-scrollbar {
   overflow-x: auto;
 }
 
+/* Meta text the cleaner kept but demoted — bylines, datelines, image credits,
+   affiliate disclosures (utils/cleanArticleContent.ts tags these). */
+.prose .article-meta {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
 /* The voice's place — the passage read-aloud is currently speaking. Painted
    via the CSS Custom Highlight API (a Range, no DOM mutation, so it never
    disturbs the yellow-pen <mark>s below); browsers without the API simply
