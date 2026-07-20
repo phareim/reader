@@ -52,37 +52,77 @@
       Nothing on the shelf yet — swipe a card right when something touches you.
     </p>
 
-    <ul v-else>
-      <li v-for="a in articles" :key="a.id" class="border-b border-rule py-4">
-        <NuxtLink :to="`/article/${a.id}`" class="block">
-          <div class="flex items-baseline justify-between gap-4">
-            <MonoLabel dash><FeedFavicon :src="a.feedFavicon" class="mr-1" />{{ a.feedTitle }}</MonoLabel>
-            <MonoLabel>{{ a.publishedAt ? formatRelativeDate(a.publishedAt) : '' }}</MonoLabel>
+    <!--
+      Each row is horizontally draggable (drag="x") while touch-action: pan-y
+      leaves vertical pans to the native page scroll — the grid's gesture
+      split. Swipe left = done reading: mark read AND off the shelf, the row
+      flings away with an undo. Right has no verb here (the row is already
+      saved) and springs back. overflow-x: clip so a flinging row never grows
+      the page sideways.
+    -->
+    <TransitionGroup v-else tag="ul" name="shelf-rows" style="overflow-x: clip;">
+      <li v-for="a in articles" :key="a.id" class="border-b border-rule">
+        <motion.div
+          class="relative py-4"
+          style="touch-action: pan-y;"
+          :style="{ x: xFor(a.id) }"
+          :drag="exiting.has(a.id) ? false : 'x'"
+          :drag-elastic="0.9"
+          :drag-momentum="false"
+          @pointerdown="onPointerDown(a)"
+          @drag-start="onDragStart(a)"
+          @drag="(e: PointerEvent, info: PanInfo) => onDrag(a, info)"
+          @drag-end="(e: PointerEvent, info: PanInfo) => onDragEnd(a, info)"
+          @click.capture="onRowClick"
+        >
+          <NuxtLink :to="`/article/${a.id}`" class="block">
+            <div class="flex items-baseline justify-between gap-4">
+              <MonoLabel dash><FeedFavicon :src="a.feedFavicon" class="mr-1" />{{ a.feedTitle }}</MonoLabel>
+              <MonoLabel>{{ a.publishedAt ? formatRelativeDate(a.publishedAt) : '' }}</MonoLabel>
+            </div>
+            <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
+            <p class="mt-1 text-sm text-mute">{{ excerpt(a.content || a.summary, 140) }}</p>
+          </NuxtLink>
+          <div class="mt-2 flex items-center justify-between">
+            <div class="flex flex-wrap gap-x-3">
+              <MonoLabel v-for="t in a.tags || []" :key="t">{{ t }}</MonoLabel>
+            </div>
+            <button
+              class="font-mono uppercase text-mute hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
+              style="font-size: 10px; letter-spacing: 0.16em;"
+              @click="remove(a.id)"
+            >&mdash; Remove</button>
           </div>
-          <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
-          <p class="mt-1 text-sm text-mute">{{ excerpt(a.content || a.summary, 140) }}</p>
-        </NuxtLink>
-        <div class="mt-2 flex items-center justify-between">
-          <div class="flex flex-wrap gap-x-3">
-            <MonoLabel v-for="t in a.tags || []" :key="t">{{ t }}</MonoLabel>
+          <!-- Pending-verb label: the one accent, on the dragged row only -->
+          <div
+            v-if="dragId === a.id && pending"
+            class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+            :style="{ opacity: pendingProgress }"
+          >
+            <ActionLabel accent>Read</ActionLabel>
           </div>
-          <button
-            class="font-mono uppercase text-mute hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
-            style="font-size: 10px; letter-spacing: 0.16em;"
-            @click="remove(a.id)"
-          >&mdash; Remove</button>
-        </div>
+        </motion.div>
       </li>
-    </ul>
+    </TransitionGroup>
+
+    <UndoToast :visible="undoVisible" label="Read" @undo="performUndo" />
   </main>
 </template>
 
 <script setup lang="ts">
+// ref/onMounted/onUnmounted imported explicitly (not relying on Nuxt
+// auto-imports) so the page also resolves under Jest. Harmless under Nuxt.
+import { ref, onMounted, onUnmounted } from 'vue'
+import { motion, motionValue, animate } from 'motion-v'
+import type { MotionValue, PanInfo } from 'motion-v'
 import type { Article } from '~/types'
 import { excerpt } from '~/utils/cardData'
 import { formatRelativeDate } from '~/utils/formatDate'
+import { GRID, resolveGridDirection } from '~/utils/grid'
+import { DECK } from '~/utils/deck'
 
-const { unsaveArticle } = useSavedArticles()
+const { saveArticle, unsaveArticle } = useSavedArticles()
+const { markAsRead } = useArticles()
 const { showError, showSuccess } = useToast()
 
 const articles = ref<Article[]>([])
@@ -122,8 +162,160 @@ async function remove(id: number) {
   }
 }
 
+/* ── Swipe-left = done reading (mark read + off the shelf) ─────────── */
+// Same drag mechanics as ArticleGrid: one MotionValue per row so a
+// committing row flings out on its own value while the next swipe starts
+// immediately; entries dropped after the commit so an undone row re-enters
+// at rest.
+const xMap = new Map<number, MotionValue<number>>()
+function xFor(id: number): MotionValue<number> {
+  let v = xMap.get(id)
+  if (!v) {
+    v = motionValue(0)
+    xMap.set(id, v)
+  }
+  return v
+}
+
+const dragId = ref<number | null>(null)
+const pending = ref(false)
+const pendingProgress = ref(0)
+const exiting = ref<Set<number>>(new Set())
+const movedFar = ref(false)
+
+function onPointerDown(article: Article) {
+  if (exiting.value.has(article.id)) return
+  dragId.value = article.id
+  movedFar.value = false
+}
+
+function onDragStart(article: Article) {
+  if (dragId.value !== article.id) return
+  pending.value = false
+  pendingProgress.value = 0
+}
+
+function onDrag(article: Article, info: PanInfo) {
+  if (dragId.value !== article.id) return
+  const dx = info.offset.x
+  const dy = info.offset.y
+  if (Math.abs(dx) > 8) movedFar.value = true
+  // Accent mirrors the release rule (diagonal = scroll, never a swipe) and
+  // lights only for LEFT — right has no verb on the shelf.
+  if (dx < -4 && Math.abs(dx) >= Math.abs(dy) * GRID.DOMINANCE_RATIO) {
+    pending.value = true
+    pendingProgress.value = Math.min(1, Math.abs(dx) / GRID.DISTANCE_THRESHOLD)
+  } else {
+    pending.value = false
+    pendingProgress.value = 0
+  }
+}
+
+async function onDragEnd(article: Article, info: PanInfo) {
+  if (dragId.value !== article.id) return
+  pending.value = false
+  pendingProgress.value = 0
+  // Defer the tap-guard reset so the click (fired after dragEnd) still sees
+  // movedFar=true and the NuxtLink doesn't navigate.
+  setTimeout(() => { movedFar.value = false }, 0)
+  const dir = resolveGridDirection(info.offset.x, info.offset.y, info.velocity.x)
+  if (dir === 'left') {
+    await commitRow(article, info.velocity.x)
+  } else {
+    if (dragId.value === article.id) dragId.value = null
+    await settleWithin(animate(xFor(article.id), 0, DECK.SPRING))
+  }
+}
+
+function onRowClick(e: Event) {
+  if (movedFar.value) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}
+
+// Same safety net as CardStack/ArticleGrid: motion-dom's JSAnimation never
+// resolves `finished` when stopped, so a bare await could wedge forever.
+const ANIMATION_SAFETY_MS = 1200
+function settleWithin(p: Promise<unknown>, ms = ANIMATION_SAFETY_MS): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    p.then(
+      () => { clearTimeout(t); resolve() },
+      () => { clearTimeout(t); resolve() },
+    )
+  })
+}
+
+/**
+ * Fling the row off left, then perform the archive optimistically: mark read
+ * (only when it wasn't already — a shelf row can hold an already-read
+ * article) and unsave. The history entry keeps the row + its position +
+ * prior read state so undo can restore both exactly. Exposed for tests.
+ */
+async function commitRow(article: Article, vx = 0) {
+  if (exiting.value.has(article.id)) return
+  exiting.value = new Set(exiting.value).add(article.id)
+  if (dragId.value === article.id) dragId.value = null
+  try {
+    const w = typeof window === 'undefined' ? 800 : window.innerWidth
+    await settleWithin(animate(xFor(article.id), -w, { ...GRID.FLING, velocity: vx }))
+    const index = articles.value.findIndex((x) => x.id === article.id)
+    if (index === -1) return
+    articles.value = articles.value.filter((x) => x.id !== article.id)
+    if (!article.isRead) markAsRead(article.id, true).catch(() => showError('Mark-read failed'))
+    unsaveArticle(article.id).catch(() => showError('Could not take it off the shelf'))
+    history.value = [...history.value, { article, index, wasRead: Boolean(article.isRead) }]
+    showUndo()
+  } finally {
+    xMap.delete(article.id)
+    const next = new Set(exiting.value)
+    next.delete(article.id)
+    exiting.value = next
+  }
+}
+
+/* ── Undo ──────────────────────────────────────────────────────────── */
+const history = ref<Array<{ article: Article; index: number; wasRead: boolean }>>([])
+const undoVisible = ref(false)
+let undoTimer: ReturnType<typeof setTimeout> | null = null
+
+function showUndo() {
+  undoVisible.value = true
+  if (undoTimer) clearTimeout(undoTimer)
+  undoTimer = setTimeout(() => { undoVisible.value = false }, 5000)
+}
+
+async function performUndo() {
+  undoVisible.value = false
+  const entry = history.value[history.value.length - 1]
+  if (!entry) return
+  history.value = history.value.slice(0, -1)
+  const arr = [...articles.value]
+  arr.splice(Math.min(entry.index, arr.length), 0, entry.article)
+  articles.value = arr
+  try {
+    await saveArticle(entry.article.id)
+    if (!entry.wasRead) await markAsRead(entry.article.id, false)
+  } catch {
+    showError('Undo could not reach the server')
+  }
+}
+
 onMounted(() => {
   load()
   loadInProgress()
 })
+
+onUnmounted(() => {
+  if (undoTimer) clearTimeout(undoTimer)
+})
+
+defineExpose({ commitRow, performUndo })
 </script>
+
+<style scoped>
+.shelf-rows-move {
+  transition: transform 0.25s ease;
+}
+</style>
