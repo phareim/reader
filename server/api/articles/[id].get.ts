@@ -15,20 +15,45 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const article = await db.prepare(
-    `
-    SELECT
-      a.*,
-      f.id AS feed_id,
-      f.title AS feed_title,
-      f.favicon_url AS feed_favicon_url,
-      f.user_id AS feed_user_id,
-      f.kind AS feed_kind
-    FROM "Article" a
-    JOIN "Feed" f ON f.id = a.feed_id
-    WHERE a.id = ?
-    `
-  ).bind(articleId).first()
+  // One D1 round trip for all four queries, then the R2 reads in parallel —
+  // run sequentially these hops dominated the endpoint's latency.
+  const [articleResult, savedResult, tagsResult, goodReadResult] = await db.batch([
+    db.prepare(
+      `
+      SELECT
+        a.*,
+        f.id AS feed_id,
+        f.title AS feed_title,
+        f.favicon_url AS feed_favicon_url,
+        f.user_id AS feed_user_id,
+        f.kind AS feed_kind
+      FROM "Article" a
+      JOIN "Feed" f ON f.id = a.feed_id
+      WHERE a.id = ?
+      `
+    ).bind(articleId),
+    db.prepare(
+      `
+      SELECT id, saved_at, note_key
+      FROM "SavedArticle"
+      WHERE user_id = ? AND article_id = ?
+      `
+    ).bind(user.id, articleId),
+    db.prepare(
+      `
+      SELECT t.name
+      FROM "SavedArticleTag" sat
+      JOIN "SavedArticle" sa ON sa.id = sat.saved_article_id
+      JOIN "Tag" t ON t.id = sat.tag_id
+      WHERE sa.user_id = ? AND sa.article_id = ?
+      `
+    ).bind(user.id, articleId),
+    db.prepare(
+      'SELECT id FROM "GoodRead" WHERE user_id = ? AND article_id = ?'
+    ).bind(user.id, articleId)
+  ])
+
+  const article: any = articleResult.results?.[0]
 
   if (!article || article.feed_user_id !== user.id) {
     throw createError({
@@ -37,39 +62,14 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // If authenticated, fetch saved article info
-  let savedArticle: any = null
-  let savedTags: string[] = []
+  const savedArticle: any = savedResult.results?.[0] ?? null
+  const savedTags = (tagsResult.results || []).map((row: any) => row.name)
+  const goodRead = goodReadResult.results?.[0]
 
-  if (user) {
-    const saved = await db.prepare(
-      `
-      SELECT id, saved_at, note_key
-      FROM "SavedArticle"
-      WHERE user_id = ? AND article_id = ?
-      `
-    ).bind(user.id, articleId).first()
-
-    if (saved) {
-      savedArticle = saved
-      const tagsResult = await db.prepare(
-        `
-        SELECT t.name
-        FROM "SavedArticleTag" sat
-        JOIN "Tag" t ON t.id = sat.tag_id
-        WHERE sat.saved_article_id = ?
-        `
-      ).bind(saved.id).all()
-      savedTags = (tagsResult.results || []).map((row: any) => row.name)
-    }
-  }
-
-  const goodRead = await db.prepare(
-    'SELECT id FROM "GoodRead" WHERE user_id = ? AND article_id = ?'
-  ).bind(user.id, articleId).first()
-
-  const content = await fetchArticleContent(event, article.content_key)
-  const note = savedArticle ? await fetchSavedArticleNote(event, savedArticle.note_key) : null
+  const [content, note] = await Promise.all([
+    fetchArticleContent(event, article.content_key),
+    savedArticle ? fetchSavedArticleNote(event, savedArticle.note_key) : null
+  ])
 
   return {
     id: article.id,
