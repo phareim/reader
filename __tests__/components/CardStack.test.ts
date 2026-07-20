@@ -18,6 +18,7 @@ const showError = jest.fn()
 ;(globalThis as any).useArticles = () => ({ markAsRead, prefetchArticle })
 ;(globalThis as any).useElevate = () => ({ elevate, unElevate })
 ;(globalThis as any).useToast = () => ({ showError })
+;(globalThis as any).useHaptics = () => ({ tick: jest.fn() })
 ;(globalThis as any).navigateTo = jest.fn()
 
 const stubs = {

@@ -24,9 +24,9 @@ export const DECK = {
   /** Card rotation at full horizontal drag, degrees. */
   MAX_ROTATION: 9,
   /** Spring for snap-back and stack promotion. */
-  SPRING: { type: 'spring' as const, stiffness: 420, damping: 34 },
+  SPRING: { type: 'spring' as const, stiffness: 500, damping: 36 },
   /** Spring for the off-screen fling. */
-  FLING: { type: 'spring' as const, stiffness: 220, damping: 30 },
+  FLING: { type: 'spring' as const, stiffness: 320, damping: 36 },
 } as const
 
 export interface DeckHistoryEntry {

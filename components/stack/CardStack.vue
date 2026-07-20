@@ -89,6 +89,7 @@ const { saveArticle, unsaveArticle } = useSavedArticles()
 const { markAsRead, prefetchArticle } = useArticles()
 const { elevate, unElevate } = useElevate()
 const { showError } = useToast()
+const { tick } = useHaptics()
 
 /* ── Deck state ────────────────────────────────────────────────────── */
 const deckIds = ref<string[]>([])
@@ -199,7 +200,21 @@ async function flingOff(dir: DeckDirection, vx = 0, vy = 0) {
   const target = { left: -w * 1.2, right: w * 1.2, up: -h * 1.1, down: h * 1.1 }[dir]
   const mv = dir === 'left' || dir === 'right' ? x : y
   const velocity = dir === 'left' || dir === 'right' ? vx : vy
-  await settleWithin(animate(mv, target, { ...DECK.FLING, velocity }))
+  const anim = animate(mv, target, { ...DECK.FLING, velocity })
+  // Resolve once the card has visually cleared the viewport — the spring's
+  // mathematical settle happens entirely off-screen and would only delay the
+  // next card's promotion. The animation must be stopped before returning:
+  // the MotionValue is shared, so a still-running tail would drive the card
+  // promoted into the top slot.
+  const gone = Math.abs(target) * 0.85
+  await settleWithin(new Promise<void>((resolve) => {
+    if (Math.abs(mv.get()) >= gone) return resolve()
+    const unsub = mv.on('change', (v: number) => {
+      if (Math.abs(v) >= gone) { unsub(); resolve() }
+    })
+    anim.then(() => { unsub(); resolve() }, () => { unsub(); resolve() })
+  }))
+  anim.stop()
 }
 
 function resetCard() {
@@ -218,6 +233,9 @@ async function commit(dir: DeckDirection, v: { vx: number; vy: number } = { vx: 
   if (busy.value || dragging.value || deckIds.value.length === 0) return
   busy.value = true
   const topId = deckIds.value[0]
+  // Fired synchronously inside the pointerup/keydown user gesture — the iOS
+  // switch hack needs the activation, so it can't wait for the fling.
+  tick()
 
   try {
     if (dir === 'up') {
