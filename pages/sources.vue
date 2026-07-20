@@ -1,22 +1,26 @@
 <template>
   <main class="mx-auto max-w-measure px-5 py-6 pb-24">
     <header class="flex items-baseline justify-between">
-      <MonoLabel dash>Sources</MonoLabel>
-      <div class="flex items-baseline gap-4">
-        <ClientOnly>
-          <div class="flex items-baseline gap-2">
-            <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
-            <MonoLabel>{{ textSize }}%</MonoLabel>
-            <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
-          </div>
-        </ClientOnly>
-        <NuxtLink to="/discover" class="focus-visible:outline focus-visible:outline-1">
-          <MonoLabel>Discover</MonoLabel>
-        </NuxtLink>
-        <MonoLabel>{{ feeds.length }} feeds</MonoLabel>
-      </div>
+      <ClientOnly>
+        <div class="flex items-baseline gap-2">
+          <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
+          <MonoLabel>{{ textSize }}%</MonoLabel>
+          <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
+        </div>
+      </ClientOnly>
+      <MonoLabel class="inline-flex items-center gap-1.5">
+        {{ feeds.length }}
+        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="feeds">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        </svg>
+      </MonoLabel>
     </header>
     <HairlineRule class="mt-3 mb-5" />
+
+    <div class="mb-6">
+      <ActionLabel @click="navigateTo('/discover')">Discover</ActionLabel>
+    </div>
 
     <!-- Add feed -->
     <form class="flex items-end gap-3" @submit.prevent="add">
