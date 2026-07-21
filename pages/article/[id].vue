@@ -215,17 +215,23 @@ import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import { tokenizeWords } from '~/utils/rsvp'
 import { chunkTextForTts, locateChunks, type ChunkSpan } from '~/utils/tts'
+import { nextUnreadId } from '~/utils/grid'
 import type { Highlight } from '~/composables/useHighlights'
+
+// Key by path so navigating article → next article mounts a fresh instance
+// (Vue Router reuses the component on a param-only change, which would leave
+// every ref — body, highlights, progress — pointing at the previous article).
+definePageMeta({ key: (route) => route.fullPath })
 
 const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const { isSaved, saveArticle, unsaveArticle, fetchSavedArticleIds } = useSavedArticles()
+const { isSaved, saveArticle, unsaveArticle, fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { isGoodRead, seedGoodRead, toggleGoodRead } = useGoodReads()
 const { elevate } = useElevate()
 const { personal } = useAuth()
-const { markAsRead } = useArticles()
+const { markAsRead, articles: contextArticles } = useArticles()
 const { fetchHighlights, createHighlight, deleteHighlight } = useHighlights()
 const { showSuccess, showError } = useToast()
 
@@ -678,12 +684,22 @@ async function elevateAction() {
   }
 }
 
+/**
+ * Mark read, then continue to the next unread article in the deck context we
+ * came from (home, tag, or feed — whatever list useArticles last fetched).
+ * `replace: true` keeps history honest: chaining through five articles still
+ * leaves Back pointing at the deck, not a trail of read articles. Opened
+ * outside a deck context (shelf, search, deep link) — or with nothing unread
+ * left — this falls back to plain going back.
+ */
 async function markReadAndReturn() {
   if (markingRead.value) return
   markingRead.value = true
   try {
     await markAsRead(id, true)
-    goBack()
+    const nextId = nextUnreadId(contextArticles.value, savedArticleIds.value, id)
+    if (nextId !== null) navigateTo(`/article/${nextId}`, { replace: true })
+    else goBack()
   } catch {
     showError('Could not mark as read')
     markingRead.value = false

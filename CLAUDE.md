@@ -33,7 +33,7 @@ npx jest -t "name of test"
 
 Tests live in `__tests__/` mirroring the source tree. Current suites:
 - `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `undo`)
-- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge)
+- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId` forward-scan/wraparound/read+saved skipping/no-context null)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
 - `__tests__/server/xRender.test.ts` — X bookmark → Found-item rendering (`server/utils/xRender.ts`): author line/escaping/note_tweet, quoted + replied-to context blocks, media + lead image, link filtering/dedupe, native X Article rendering incl. the heading heuristic
@@ -382,7 +382,7 @@ There is no global shortcut composable — each page owns its handler (with guar
 **Reader (`pages/article/[id].vue`)**:
 - `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
 - `s` - Save/unsave (shelf)
-- `r` - Mark read and go back to where you came from — the same history-back as `Esc`, so a feed- or tag-scoped deck is preserved (also the accent "Mark as read" button at the end of the article)
+- `r` - Mark read and continue to the **next unread article in the current deck context** (home, tag, or feed — `nextUnreadId` in `utils/grid.ts` scans the last-fetched `useArticles` list forward with wraparound, skipping read/saved rows; navigation uses `replace: true` so Back still points at the deck, not a trail of read articles). Opened outside a deck context (shelf, search, deep link) or with nothing unread left, it falls back to the history-back of `Esc` (also the accent "Mark as read" button at the end of the article). The page is keyed by `route.fullPath` (`definePageMeta`) so article→article navigation mounts a fresh instance
 - `e` - Elevate to SFL
 - `v` - Open the original in a new tab
 - `g` - Toggle the good-read star (also the star button beside the share buttons at the end of the article)
@@ -433,7 +433,7 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 
 **Pure logic** (unit-tested, no DOM):
 - `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
-- `utils/grid.ts` — `resolveGridDirection(dx, dy, vx)` (horizontal commit resolution gated on horizontal-over-vertical dominance — a diagonal release is a scroll, never a commit), `nextPageOffset(articles, savedIds, extraOffset)` (pagination under a shrinking unread window), `dedupeAppend(existing, page)`, `GRID` constants (page size 24, 110px distance threshold, 2.0 dominance ratio, sentinel margin)
+- `utils/grid.ts` — `resolveGridDirection(dx, dy, vx)` (horizontal commit resolution gated on horizontal-over-vertical dominance — a diagonal release is a scroll, never a commit), `nextPageOffset(articles, savedIds, extraOffset)` (pagination under a shrinking unread window), `dedupeAppend(existing, page)`, `nextUnreadId(articles, savedIds, currentId)` (the reader's mark-read-and-continue: next unread+unsaved article after the current one, wrapping; null outside a deck context), `GRID` constants (page size 24, 110px distance threshold, 2.0 dominance ratio, sentinel margin)
 - `utils/cardData.ts` — `stripHtml`, `readingTimeMinutes` (220 wpm, null for thin excerpt bodies), `cardImageUrl` (filters legacy Unsplash filler), `excerpt`
 - `utils/rsvp.ts` — RSVP speed-reading math: `tokenizeWords`, `orpIndex` (Spritz-style optimal-recognition-point, leading/trailing punctuation aware), `wordDelayMs` (base beat from wpm; sentence ×2.2, clause ×1.5, long-word ×1.3 dwell), `RSVP` constants (wpm 100–800 step 25, default 300)
 - `utils/tts.ts` — read-aloud chunking: `chunkTextForTts` (sentence-boundary chunks ≤ `TTS.MAX_CHUNK_CHARS` = 1100; over-long sentences hard-split on word boundaries, mid-word only for unbreakable tokens like URLs), `locateChunks` (maps each chunk back to `{start,end}` offsets in the raw source text through the whitespace normalization — powers the read-aloud follow view), `TTS` constants

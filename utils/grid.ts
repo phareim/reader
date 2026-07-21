@@ -71,6 +71,30 @@ export function nextPageOffset(
 }
 
 /**
+ * The article to read next after `currentId`, inside the deck context the
+ * list was fetched for (home, tag, or feed scope — whatever useArticles last
+ * loaded). Scans forward from the current article, wrapping to the top —
+ * cards earlier in the list can still be unread (scrolled or skipped past).
+ * Read and saved articles are passed over (they've left the deck). Returns
+ * null when the current article isn't in the list at all (opened from the
+ * shelf, search, or a deep link — there is no deck context to continue in)
+ * or when nothing unread remains.
+ */
+export function nextUnreadId(
+  articles: readonly Pick<Article, 'id' | 'isRead'>[],
+  savedIds: ReadonlySet<number>,
+  currentId: number,
+): number | null {
+  const idx = articles.findIndex((a) => a.id === currentId)
+  if (idx === -1) return null
+  for (let step = 1; step < articles.length; step++) {
+    const a = articles[(idx + step) % articles.length]
+    if (!a.isRead && !savedIds.has(a.id)) return a.id
+  }
+  return null
+}
+
+/**
  * Append a fetched page onto the existing list, dropping articles we already
  * hold (a shifted window can re-serve rows). Existing object references are
  * preserved so in-place reactivity (isRead flips, imageUrl backfills) keeps
