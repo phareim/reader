@@ -1,6 +1,7 @@
 import { extractFromXml } from '@extractus/feed-extractor'
 import { extractImageUrl } from './feedImage'
 import { decodeFeedBody } from './feedCharset'
+import { rigForUrl } from './feedRigs'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
@@ -175,12 +176,26 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
       })
     )
 
+    // Per-feed rig: bespoke entry cleanup for feeds worth extra work
+    // (server/utils/feedRigs/). Per-item fail-soft — a rig bug never
+    // breaks the sync, the untouched item just flows through.
+    const rig = rigForUrl(url) ?? rigForUrl(siteUrl)
+    const riggedItems = rig?.entry
+      ? items.map((item) => {
+          try {
+            return rig.entry!(item)
+          } catch {
+            return item
+          }
+        })
+      : items
+
     return {
       title,
       description: rawEntryText(feed.description),
       siteUrl,
       faviconUrl,
-      items
+      items: riggedItems
     }
   } catch (error: any) {
     // Provide user-friendly error messages. With our own fetch, network
