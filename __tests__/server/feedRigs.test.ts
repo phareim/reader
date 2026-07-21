@@ -287,9 +287,11 @@ describe('oatmealRig.extract', () => {
     '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/1.png" alt="" />' +
     '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/2.png" alt="" />' +
     '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/3.png" alt="" />' +
+    // Recirculation from OTHER comics also lives under /comics/ — must be excluded.
+    '<img src="https://s3.amazonaws.com/theoatmeal-img/comics/naked_mole_rats/poll.png" alt="" />' +
     '<img style="width: 40%;" class="border2" src="https://s3.amazonaws.com/theoatmeal-img/thumbnails/creativity_erasers_big.png" alt="" />'
 
-  it('collects the panel sequence and skips thumbnails', async () => {
+  it('collects the panel sequence and skips thumbnails and other comics’ recirc images', async () => {
     const result = await oatmealRig.extract!({
       url: 'https://theoatmeal.com/comics/creativity_things',
       html: page,
