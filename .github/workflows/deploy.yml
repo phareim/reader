@@ -19,6 +19,15 @@ jobs:
 
       - run: npm run build
 
+      # Apply pending D1 migrations before the Worker ships, so code never
+      # runs ahead of schema. Applied ones are tracked in d1_migrations
+      # (backfilled 2026-07-21 for the manually-applied 003–018).
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply reader-service --remote
+
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

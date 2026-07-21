@@ -10,6 +10,7 @@ bucket = ".output/public"
 binding = "DB"
 database_name = "reader-service"
 database_id = "2ccea3e6-cd78-45f5-9395-1094f964b273"
+migrations_dir = "database/migrations"
 
 [[routes]]
 pattern = "reader.phareim.no"
