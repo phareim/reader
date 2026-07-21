@@ -18,6 +18,11 @@ type ArticleInsert = {
   // the guid gets recorded (so sync paging sees the item as known) but the
   // card never surfaces as unread.
   markRead?: boolean
+  // The feed body IS the article (set by per-feed rigs for link-blogs like
+  // Daring Fireball, where the article URL points at the *linked* page and a
+  // full-text fetch would overwrite the author's commentary with it). Inserts
+  // with full_text_status='skipped' so the fetch never fires.
+  fullTextComplete?: boolean
 }
 
 export const insertArticleWithContent = async (event: any, feedId: number, item: ArticleInsert) => {
@@ -40,8 +45,9 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
       source,
       url_norm,
       is_read,
-      read_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      read_at,
+      full_text_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).bind(
     feedId,
@@ -55,7 +61,8 @@ export const insertArticleWithContent = async (event: any, feedId: number, item:
     item.source || null,
     normalizeUrl(item.url),
     item.markRead ? 1 : 0,
-    item.markRead ? new Date().toISOString() : null
+    item.markRead ? new Date().toISOString() : null,
+    item.fullTextComplete ? 'skipped' : 'pending'
   ).run()
 
   const articleId = lastRowId(insert)

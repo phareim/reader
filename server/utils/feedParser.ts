@@ -22,6 +22,12 @@ export interface ParsedArticle {
   summary?: string
   imageUrl?: string
   publishedAt?: Date
+  /**
+   * The feed body IS the article — set by per-feed rigs (feedRigs/) for
+   * link-blogs and self-contained comic feeds; inserts with
+   * full_text_status='skipped' so the full-text fetch never fires.
+   */
+  fullTextComplete?: boolean
 }
 
 /**

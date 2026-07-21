@@ -90,7 +90,8 @@ export async function addFeedForUser(event: H3Event, userId: number, url: string
           content: item.content,
           summary: item.summary,
           imageUrl: item.imageUrl,
-          publishedAt: item.publishedAt
+          publishedAt: item.publishedAt,
+          fullTextComplete: item.fullTextComplete
         })
         if (result.inserted) {
           articlesAdded += 1

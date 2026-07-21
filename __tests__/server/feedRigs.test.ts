@@ -1,6 +1,10 @@
 import { rigForUrl } from '~/server/utils/feedRigs'
 import { smbcRig } from '~/server/utils/feedRigs/smbc'
 import { oglafRig } from '~/server/utils/feedRigs/oglaf'
+import { daringFireballRig } from '~/server/utils/feedRigs/daringfireball'
+import { xkcdRig } from '~/server/utils/feedRigs/xkcd'
+import { oatmealRig } from '~/server/utils/feedRigs/oatmeal'
+import { pluralisticRig, trimPluralisticBody } from '~/server/utils/feedRigs/pluralistic'
 import type { ParsedArticle } from '~/server/utils/feedParser'
 
 const baseItem = (overrides: Partial<ParsedArticle>): ParsedArticle => ({
@@ -15,6 +19,10 @@ describe('rigForUrl', () => {
     expect(rigForUrl('https://www.oglaf.com/feeds/rss/')?.id).toBe('oglaf')
     expect(rigForUrl('https://oglaf.com/disengagement/')?.id).toBe('oglaf')
     expect(rigForUrl('https://www.smbc-comics.com/comic/rss')?.id).toBe('smbc')
+    expect(rigForUrl('https://daringfireball.net/feeds/main')?.id).toBe('daringfireball')
+    expect(rigForUrl('https://xkcd.com/rss.xml')?.id).toBe('xkcd')
+    expect(rigForUrl('https://theoatmeal.com/feed/rss')?.id).toBe('oatmeal')
+    expect(rigForUrl('https://pluralistic.net/feed/')?.id).toBe('pluralistic')
   })
 
   it('returns null for unknown hosts and unparsable URLs', () => {
@@ -196,5 +204,144 @@ describe('oglafRig.extract', () => {
       fetchPage: async () => null
     })
     expect(result).toBeNull()
+  })
+})
+
+describe('daringFireballRig.entry', () => {
+  it('marks every entry complete-as-delivered and keeps the body untouched', () => {
+    const item = baseItem({
+      title: 'Paper',
+      url: 'https://paper.design/',
+      content: '<p>Commentary from Gruber about Paper.</p>'
+    })
+    const rigged = daringFireballRig.entry!(item)
+    expect(rigged.fullTextComplete).toBe(true)
+    expect(rigged.content).toBe(item.content)
+    expect(rigged.title).toBe('Paper')
+  })
+})
+
+describe('xkcdRig.entry', () => {
+  // Real shape from the xkcd RSS description.
+  const rssContent =
+    '<img src="https://imgs.xkcd.com/comics/arthurian_connector.png" ' +
+    'title="Most coffee shops have a descendant of Sophia of Hanover on staff." ' +
+    'alt="Most coffee shops" />'
+
+  it('renders image + caption from the title attribute and marks complete', () => {
+    const rigged = xkcdRig.entry!(baseItem({ title: 'Arthurian Connector', content: rssContent }))
+    expect(rigged.content).toContain('src="https://imgs.xkcd.com/comics/arthurian_connector.png"')
+    expect(rigged.content).toContain('<em>Most coffee shops have a descendant of Sophia of Hanover on staff.</em>')
+    expect(rigged.summary).toBe('Most coffee shops have a descendant of Sophia of Hanover on staff.')
+    expect(rigged.imageUrl).toBe('https://imgs.xkcd.com/comics/arthurian_connector.png')
+    expect(rigged.fullTextComplete).toBe(true)
+  })
+
+  it('leaves an imageless body untouched', () => {
+    const item = baseItem({ content: '<p>Announcement post, no comic.</p>' })
+    expect(xkcdRig.entry!(item)).toBe(item)
+  })
+})
+
+describe('xkcdRig.extract', () => {
+  it('pulls the comic + caption from #comic, resolving the protocol-relative src', async () => {
+    const html =
+      '<div id="topContainer">chrome</div>' +
+      '<div id="comic"><img src="//imgs.xkcd.com/comics/arthurian_connector.png" title="The joke." alt="alt"/></div>' +
+      '<div id="bottom">footer chrome with <img src="//imgs.xkcd.com/s/a899e84.jpg"></div>'
+    const result = await xkcdRig.extract!({ url: 'https://xkcd.com/3274/', html, fetchPage: async () => null })
+    expect(result!.html).toContain('src="https://imgs.xkcd.com/comics/arthurian_connector.png"')
+    expect(result!.html).toContain('<em>The joke.</em>')
+    expect(result!.html).not.toContain('a899e84')
+    expect(result!.imageUrl).toBe('https://imgs.xkcd.com/comics/arthurian_connector.png')
+  })
+
+  it('returns null when the page has no #comic (falls back to the generic path)', async () => {
+    const result = await xkcdRig.extract!({ url: 'https://xkcd.com/', html: '<p>news</p>', fetchPage: async () => null })
+    expect(result).toBeNull()
+  })
+})
+
+describe('oatmealRig.entry', () => {
+  it('drops the "View on my website" link and trailing breaks', () => {
+    const content =
+      '<a href="http://theoatmeal.com/blog/jimothy?no_popup=1"><img width="600" src="https://s3.amazonaws.com/theoatmeal-img/thumbnails/jimothy_big.png" alt="Jimothy" class="border0" /></a>' +
+      '<p>I drew a raccoon and other important updates.</p>' +
+      '<a href="http://theoatmeal.com/blog/jimothy?no_popup=1">View on my website</a><br /><br />'
+    const rigged = oatmealRig.entry!(baseItem({ content }))
+    expect(rigged.content).toContain('jimothy_big.png')
+    expect(rigged.content).toContain('I drew a raccoon')
+    expect(rigged.content).not.toContain('View on my website')
+    expect(rigged.content).not.toMatch(/<br\s*\/?>\s*$/)
+  })
+
+  it('returns the item untouched without the link', () => {
+    const item = baseItem({ content: '<p>plain</p>' })
+    expect(oatmealRig.entry!(item)).toBe(item)
+  })
+})
+
+describe('oatmealRig.extract', () => {
+  const page =
+    '<img src="https://s3.amazonaws.com/theoatmeal-img/thumbnails/creativity_things_big.png" alt="" />' +
+    '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/1.png" alt="" />' +
+    '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/2.png" alt="" />' +
+    '<img class="faint_border" src="https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/3.png" alt="" />' +
+    '<img style="width: 40%;" class="border2" src="https://s3.amazonaws.com/theoatmeal-img/thumbnails/creativity_erasers_big.png" alt="" />'
+
+  it('collects the panel sequence and skips thumbnails', async () => {
+    const result = await oatmealRig.extract!({
+      url: 'https://theoatmeal.com/comics/creativity_things',
+      html: page,
+      fetchPage: async () => null
+    })
+    const srcs = [...result!.html.matchAll(/src="([^"]+)"/g)].map((m) => m[1])
+    expect(srcs).toEqual([
+      'https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/1.png',
+      'https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/2.png',
+      'https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/3.png'
+    ])
+    expect(result!.imageUrl).toBe('https://s3.amazonaws.com/theoatmeal-img/comics/creativity_things/1.png')
+  })
+
+  it('returns null on a page without panels (blog posts fall back to Readability)', async () => {
+    const result = await oatmealRig.extract!({
+      url: 'https://theoatmeal.com/blog/jimothy',
+      html: '<p>blog post</p><img src="https://s3.amazonaws.com/theoatmeal-img/thumbnails/x.png">',
+      fetchPage: async () => null
+    })
+    expect(result).toBeNull()
+  })
+})
+
+describe('pluralisticRig (trimPluralisticBody)', () => {
+  const body =
+    '<!--\nTags:\nkill sticky, dark patterns\n\nSummary:\nDealing with dickovers\n-->\n' +
+    '<p><a href="https://pluralistic.net/2026/07/21/dickovers/"><img class="xmasthead_link" src="https://i0.wp.com/craphound.com/images/21Jul2026.jpg"/></a></p>\n' +
+    '<h1 class="toch1">Today\'s links</h1>\n' +
+    '<ul class="toc">\n<li class="xToC"><a href="#block-element">Dealing with dickovers</a></li>\n<li class="xToC"><a href="#upcoming">Upcoming appearances</a></li>\n</ul>\n' +
+    '<hr/>\n<a name="block-element">\n<h1>Dealing with dickovers (<a href="#block-element">permalink</a>)</h1>\n<p>The essay itself.</p>\n' +
+    '<hr/>\n<a name="linkdump">\n<h1 heds="0">Hey look at this (<a href="#linkdump">permalink</a>)</h1>\n<p>Delights to delectate.</p>\n' +
+    '<hr/>\n<a name="retro">\n<h1 heds="0">Object permanence (<a href="#retro">permalink</a>)</h1>\n<p>This day in history.</p>\n' +
+    '<hr/>\n<a name="upcoming">\n<h1 heds="0">Upcoming appearances (<a href="#upcoming">permalink</a>)</h1>\n<p>Edinburgh, Sydney.</p>\n' +
+    '<hr/>\n<a name="bragsheet">\n<h1 heds="0">Colophon</h1>\n<p>ISSN: 3066-764X</p>'
+
+  it('keeps the essay, linkdump, and retro; drops comment, ToC, and the boilerplate tail', () => {
+    const trimmed = trimPluralisticBody(body)
+    expect(trimmed).toContain('The essay itself.')
+    expect(trimmed).toContain('Delights to delectate.')
+    expect(trimmed).toContain('This day in history.')
+    expect(trimmed).toContain('xmasthead_link')
+    expect(trimmed).not.toContain('Tags:')
+    expect(trimmed).not.toContain("Today's links")
+    expect(trimmed).not.toContain('Upcoming appearances')
+    expect(trimmed).not.toContain('ISSN')
+  })
+
+  it('entry applies the trim and falls back untouched without the anchor', () => {
+    const rigged = pluralisticRig.entry!(baseItem({ content: body }))
+    expect(rigged.content).not.toContain('ISSN')
+    const plain = baseItem({ content: '<p>A one-off post with no sections.</p>' })
+    expect(pluralisticRig.entry!(plain)).toBe(plain)
   })
 })
