@@ -23,10 +23,13 @@ export const DECK = {
   DOMINANCE_RATIO: 1.4,
   /** Card rotation at full horizontal drag, degrees. */
   MAX_ROTATION: 9,
-  /** Spring for snap-back and stack promotion. */
+  /** Spring for snap-back (failed elevate, guest elevate). */
   SPRING: { type: 'spring' as const, stiffness: 500, damping: 36 },
-  /** Spring for the off-screen fling. */
-  FLING: { type: 'spring' as const, stiffness: 320, damping: 36 },
+  /** Spring for the stack-slot offset (promotion into the top slot). */
+  PROMOTE: { type: 'spring' as const, stiffness: 600, damping: 42 },
+  /** Spring for the off-screen fling — the next card promotes only once the
+   *  flung card clears the viewport, so this sets the pace of the whole beat. */
+  FLING: { type: 'spring' as const, stiffness: 420, damping: 38 },
 } as const
 
 export interface DeckHistoryEntry {

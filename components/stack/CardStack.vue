@@ -2,11 +2,13 @@
   <div class="relative h-full w-full" style="touch-action: none;">
     <!--
       All visible cards render through this ONE branch, keyed by article id,
-      so a card promoted from i=1 to i=0 keeps its component instance and
-      springs (scale/opacity) into place instead of popping. The top card's y
-      is owned by the y MotionValue (style), so its animate target carries
-      scale/opacity only — mixing animate-y with the style MotionValue on the
-      same axis would conflict.
+      so a card promoted from i=1 to i=0 keeps its component instance. The
+      outer motion.div owns the drag MotionValues (x/y/rotate) for the top
+      card only; the INNER motion.div owns the per-slot stack offset
+      (scale/y/opacity). Keeping the two on separate elements is what makes
+      promotion smooth — if the slot offset animated the outer y, promotion
+      would hand that axis to the drag MotionValue (0) and the card would
+      snap 12px instead of springing into place.
     -->
     <motion.div
       v-for="(article, i) in visibleCards"
@@ -17,11 +19,6 @@
         { 'pointer-events-none': i !== 0 || busy },
       ]"
       :style="i === 0 ? { x, y, rotate } : undefined"
-      :initial="false"
-      :animate="i === 0
-        ? { scale: 1, opacity: 1 }
-        : { scale: 1 - i * 0.03, y: i * 12, opacity: 1 - i * 0.18 }"
-      :transition="DECK.SPRING"
       :drag="i === 0 && !busy"
       drag-snap-to-origin
       :drag-elastic="0.9"
@@ -33,7 +30,14 @@
       @drag-end="(e: PointerEvent, info: PanInfo) => onDragEnd(i, e, info)"
       @click="onTap(i, article)"
     >
-      <ArticleCard :article="article" class="h-full" />
+      <motion.div
+        class="h-full"
+        :initial="false"
+        :animate="{ scale: 1 - i * 0.03, y: i * 12, opacity: 1 - i * 0.18 }"
+        :transition="DECK.PROMOTE"
+      >
+        <ArticleCard :article="article" class="h-full" />
+      </motion.div>
     </motion.div>
 
     <!-- Pending-verb labels: the one accent, fading in toward commit -->
