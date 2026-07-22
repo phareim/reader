@@ -1,47 +1,49 @@
 <template>
-  <main class="mx-auto max-w-measure px-5 py-6 pb-20">
-    <header class="flex items-baseline justify-between">
-      <MonoLabel dash>Discover</MonoLabel>
-      <MonoLabel>{{ rows.length ? `${rows.length} recommended` : '' }}</MonoLabel>
-    </header>
-    <HairlineRule class="mt-3" />
-    <p class="mt-3 text-sm italic text-mute">Blogs your sources link to.</p>
+  <main class="fixed inset-0 overflow-y-auto overscroll-none">
+    <div class="mx-auto max-w-measure px-5 py-6 pb-20">
+      <header class="flex items-baseline justify-between">
+        <MonoLabel dash>Discover</MonoLabel>
+        <MonoLabel>{{ rows.length ? `${rows.length} recommended` : '' }}</MonoLabel>
+      </header>
+      <HairlineRule class="mt-3" />
+      <p class="mt-3 text-sm italic text-mute">Blogs your sources link to.</p>
 
-    <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
-    <div v-else-if="rows.length === 0" class="mt-8">
-      <p class="italic text-mute">
-        Nothing new yet — the crawl visits your sources' blogrolls a few times a day.
-      </p>
-      <ActionLabel class="mt-5" :disabled="refreshing" @click="lookNow">
-        {{ refreshing ? 'Looking…' : 'Look now' }}
-      </ActionLabel>
+      <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
+      <div v-else-if="rows.length === 0" class="mt-8">
+        <p class="italic text-mute">
+          Nothing new yet — the crawl visits your sources' blogrolls a few times a day.
+        </p>
+        <ActionLabel class="mt-5" :disabled="refreshing" @click="lookNow">
+          {{ refreshing ? 'Looking…' : 'Look now' }}
+        </ActionLabel>
+      </div>
+
+      <TransitionGroup v-else tag="ul" name="disc">
+        <li v-for="row in rows" :key="row.id" class="border-b border-rule py-5">
+          <div class="flex items-baseline justify-between gap-4">
+            <a
+              v-if="row.siteUrl || row.feedUrl"
+              :href="row.siteUrl || row.feedUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="min-w-0 text-lg text-ink focus-visible:outline focus-visible:outline-1"
+            >{{ row.title }}</a>
+            <span v-else class="min-w-0 text-lg text-ink">{{ row.title }}</span>
+            <MonoLabel class="shrink-0">{{ row.siteHost }}</MonoLabel>
+          </div>
+          <p class="mt-1.5"><MonoLabel dash>{{ viaLine(row) }}</MonoLabel></p>
+          <p v-if="row.description" class="description mt-2 text-sm text-mute">{{ row.description }}</p>
+          <p v-if="quietNote(row)" class="mt-1.5 text-sm italic text-mute">{{ quietNote(row) }}</p>
+          <div class="mt-3 flex items-baseline gap-5">
+            <MonoLabel v-if="added[row.id]" dash>Added</MonoLabel>
+            <ActionLabel v-else accent :disabled="busy[row.id]" @click="add(row)">
+              {{ busy[row.id] ? 'Adding…' : 'Add' }}
+            </ActionLabel>
+            <button v-if="!added[row.id]" class="disc-dismiss" @click="dismiss(row)">&mdash; Dismiss</button>
+          </div>
+        </li>
+      </TransitionGroup>
     </div>
-
-    <TransitionGroup v-else tag="ul" name="disc">
-      <li v-for="row in rows" :key="row.id" class="border-b border-rule py-5">
-        <div class="flex items-baseline justify-between gap-4">
-          <a
-            v-if="row.siteUrl || row.feedUrl"
-            :href="row.siteUrl || row.feedUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="min-w-0 text-lg text-ink focus-visible:outline focus-visible:outline-1"
-          >{{ row.title }}</a>
-          <span v-else class="min-w-0 text-lg text-ink">{{ row.title }}</span>
-          <MonoLabel class="shrink-0">{{ row.siteHost }}</MonoLabel>
-        </div>
-        <p class="mt-1.5"><MonoLabel dash>{{ viaLine(row) }}</MonoLabel></p>
-        <p v-if="row.description" class="description mt-2 text-sm text-mute">{{ row.description }}</p>
-        <p v-if="quietNote(row)" class="mt-1.5 text-sm italic text-mute">{{ quietNote(row) }}</p>
-        <div class="mt-3 flex items-baseline gap-5">
-          <MonoLabel v-if="added[row.id]" dash>Added</MonoLabel>
-          <ActionLabel v-else accent :disabled="busy[row.id]" @click="add(row)">
-            {{ busy[row.id] ? 'Adding…' : 'Add' }}
-          </ActionLabel>
-          <button v-if="!added[row.id]" class="disc-dismiss" @click="dismiss(row)">&mdash; Dismiss</button>
-        </div>
-      </li>
-    </TransitionGroup>
   </main>
 </template>
 

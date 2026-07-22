@@ -1,162 +1,164 @@
 <template>
-  <main class="mx-auto max-w-measure px-5 py-6 pb-24">
-    <header class="flex items-baseline justify-between">
-      <ClientOnly>
-        <div class="flex items-baseline gap-2">
-          <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
-          <MonoLabel>{{ textSize }}%</MonoLabel>
-          <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
+  <main class="fixed inset-0 overflow-y-auto overscroll-none">
+    <div class="mx-auto max-w-measure px-5 py-6 pb-24">
+      <header class="flex items-baseline justify-between">
+        <ClientOnly>
+          <div class="flex items-baseline gap-2">
+            <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
+            <MonoLabel>{{ textSize }}%</MonoLabel>
+            <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
+          </div>
+        </ClientOnly>
+        <MonoLabel class="inline-flex items-center gap-1.5">
+          {{ feeds.length }}
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="feeds">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+        </MonoLabel>
+      </header>
+      <HairlineRule class="mt-3 mb-5" />
+
+      <div class="mb-6">
+        <ActionLabel @click="navigateTo('/discover')">Discover</ActionLabel>
+      </div>
+
+      <!-- Add feed -->
+      <form class="flex items-end gap-3" @submit.prevent="add">
+        <div class="flex-1">
+          <MonoLabel>Add a feed</MonoLabel>
+          <input
+            v-model="newUrl" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"
+            placeholder="vg.no or https://…/feed.xml"
+            class="w-full border-0 border-b border-rule bg-transparent py-1.5 text-ink outline-none focus:border-accent"
+          />
         </div>
-      </ClientOnly>
-      <MonoLabel class="inline-flex items-center gap-1.5">
-        {{ feeds.length }}
-        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="feeds">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-        </svg>
-      </MonoLabel>
-    </header>
-    <HairlineRule class="mt-3 mb-5" />
+        <ActionLabel accent :disabled="adding || !newUrl" @click="add">
+          {{ adding ? 'Adding…' : 'Add' }}
+        </ActionLabel>
+      </form>
 
-    <div class="mb-6">
-      <ActionLabel @click="navigateTo('/discover')">Discover</ActionLabel>
-    </div>
-
-    <!-- Add feed -->
-    <form class="flex items-end gap-3" @submit.prevent="add">
-      <div class="flex-1">
-        <MonoLabel>Add a feed</MonoLabel>
-        <input
-          v-model="newUrl" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false"
-          placeholder="vg.no or https://…/feed.xml"
-          class="w-full border-0 border-b border-rule bg-transparent py-1.5 text-ink outline-none focus:border-accent"
-        />
-      </div>
-      <ActionLabel accent :disabled="adding || !newUrl" @click="add">
-        {{ adding ? 'Adding…' : 'Add' }}
-      </ActionLabel>
-    </form>
-
-    <!-- Grouped feed list -->
-    <section v-for="(group, tag) in feedsByTag" :key="tag" class="mt-8">
-      <NuxtLink
-        v-if="tag !== '__inbox__' && !RESERVED.has(String(tag))"
-        :to="`/${encodeURIComponent(String(tag))}`"
-        class="focus-visible:outline focus-visible:outline-1"
-      ><MonoLabel dash>{{ tag }}</MonoLabel></NuxtLink>
-      <MonoLabel v-else dash>{{ tag === '__inbox__' ? 'Inbox' : String(tag) }}</MonoLabel>
-      <TransitionGroup tag="ul" name="feed-row" class="mt-1">
-        <li v-for="feed in group" :key="feed.id" class="feed-row border-b border-rule py-3">
-          <div class="flex items-baseline justify-between gap-3">
-            <NuxtLink
-              :to="`/feed/${feed.id}`"
-              class="flex min-w-0 items-center gap-2 text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
-            >
-              <FeedFavicon :src="feed.faviconUrl" :size="14" />
-              <span class="truncate">{{ feed.title }}</span>
-            </NuxtLink>
-            <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
-          </div>
-          <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">
-            {{ feedHealthNote(feed) }}
-          </p>
-          <div class="mt-1.5 flex gap-4">
-            <button
-              v-if="(feed.kind ?? 'rss') === 'rss'"
-              class="src-action"
-              @click="syncFeed(feed)"
-            >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
-            <button class="src-action" @click="markRead(feed.id)">Mark read</button>
-            <button class="src-action" @click="editTags(feed)">Tags</button>
-            <button class="src-action hover:text-accent-ink" @click="confirmDelete(feed)">Delete</button>
-          </div>
-        </li>
-      </TransitionGroup>
-    </section>
-
-    <!-- Linked sources (X / Reddit / Hacker News → Found). Rows for
-         unconfigured OAuth clients are hidden by `available`. -->
-    <section v-if="visibleLinks.length" class="mt-10">
-      <MonoLabel dash>Linked sources</MonoLabel>
-      <div
-        v-for="link in visibleLinks" :key="link.source"
-        class="mt-3 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3"
-      >
-        <template v-if="link.linked">
-          <div class="min-w-0">
-            <span class="text-lg text-ink">{{ SOURCE_META[link.source].prefix }}{{ link.handle }}</span>
-            <MonoLabel class="ml-2">{{ SOURCE_META[link.source].name }}</MonoLabel>
-            <p class="mt-1 text-sm text-mute">
-              <template v-if="link.lastError">Sync failing — try relinking.</template>
-              <template v-else-if="link.lastSyncAt">{{ SOURCE_META[link.source].things }} synced {{ formatRelativeDate(link.lastSyncAt) }}.</template>
-              <template v-else>Linked — {{ SOURCE_META[link.source].things.toLowerCase() }} land in Found on the next sync.</template>
+      <!-- Grouped feed list -->
+      <section v-for="(group, tag) in feedsByTag" :key="tag" class="mt-8">
+        <NuxtLink
+          v-if="tag !== '__inbox__' && !RESERVED.has(String(tag))"
+          :to="`/${encodeURIComponent(String(tag))}`"
+          class="focus-visible:outline focus-visible:outline-1"
+        ><MonoLabel dash>{{ tag }}</MonoLabel></NuxtLink>
+        <MonoLabel v-else dash>{{ tag === '__inbox__' ? 'Inbox' : String(tag) }}</MonoLabel>
+        <TransitionGroup tag="ul" name="feed-row" class="mt-1">
+          <li v-for="feed in group" :key="feed.id" class="feed-row border-b border-rule py-3">
+            <div class="flex items-baseline justify-between gap-3">
+              <NuxtLink
+                :to="`/feed/${feed.id}`"
+                class="flex min-w-0 items-center gap-2 text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
+              >
+                <FeedFavicon :src="feed.faviconUrl" :size="14" />
+                <span class="truncate">{{ feed.title }}</span>
+              </NuxtLink>
+              <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
+            </div>
+            <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">
+              {{ feedHealthNote(feed) }}
             </p>
-          </div>
-          <div class="flex items-center gap-4">
-            <ActionLabel v-if="link.lastError && !isUsernameSource(link.source)" accent @click="linkSource(link.source)">Relink</ActionLabel>
-            <button class="src-action" @click="unlinkSource(link.source)">Unlink</button>
-          </div>
-        </template>
-        <template v-else-if="isUsernameSource(link.source)">
-          <div class="min-w-0 flex-1">
+            <div class="mt-1.5 flex gap-4">
+              <button
+                v-if="(feed.kind ?? 'rss') === 'rss'"
+                class="src-action"
+                @click="syncFeed(feed)"
+              >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
+              <button class="src-action" @click="markRead(feed.id)">Mark read</button>
+              <button class="src-action" @click="editTags(feed)">Tags</button>
+              <button class="src-action hover:text-accent-ink" @click="confirmDelete(feed)">Delete</button>
+            </div>
+          </li>
+        </TransitionGroup>
+      </section>
+
+      <!-- Linked sources (X / Reddit / Hacker News → Found). Rows for
+           unconfigured OAuth clients are hidden by `available`. -->
+      <section v-if="visibleLinks.length" class="mt-10">
+        <MonoLabel dash>Linked sources</MonoLabel>
+        <div
+          v-for="link in visibleLinks" :key="link.source"
+          class="mt-3 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3"
+        >
+          <template v-if="link.linked">
+            <div class="min-w-0">
+              <span class="text-lg text-ink">{{ SOURCE_META[link.source].prefix }}{{ link.handle }}</span>
+              <MonoLabel class="ml-2">{{ SOURCE_META[link.source].name }}</MonoLabel>
+              <p class="mt-1 text-sm text-mute">
+                <template v-if="link.lastError">Sync failing — try relinking.</template>
+                <template v-else-if="link.lastSyncAt">{{ SOURCE_META[link.source].things }} synced {{ formatRelativeDate(link.lastSyncAt) }}.</template>
+                <template v-else>Linked — {{ SOURCE_META[link.source].things.toLowerCase() }} land in Found on the next sync.</template>
+              </p>
+            </div>
+            <div class="flex items-center gap-4">
+              <ActionLabel v-if="link.lastError && !isUsernameSource(link.source)" accent @click="linkSource(link.source)">Relink</ActionLabel>
+              <button class="src-action" @click="unlinkSource(link.source)">Unlink</button>
+            </div>
+          </template>
+          <template v-else-if="isUsernameSource(link.source)">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
+              <form class="mt-1 flex items-end gap-3" @submit.prevent="linkByUsername(link.source)">
+                <input
+                  v-model="usernames[link.source]" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"
+                  :placeholder="SOURCE_META[link.source].placeholder"
+                  class="w-44 border-0 border-b border-rule bg-transparent py-1 text-ink outline-none focus:border-accent"
+                />
+                <ActionLabel :disabled="linkingUsername === link.source || !usernames[link.source]?.trim()" @click="linkByUsername(link.source)">
+                  {{ linkingUsername === link.source ? 'Linking…' : 'Link' }}
+                </ActionLabel>
+              </form>
+            </div>
+          </template>
+          <template v-else>
             <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
-            <form class="mt-1 flex items-end gap-3" @submit.prevent="linkByUsername(link.source)">
-              <input
-                v-model="usernames[link.source]" type="text" autocapitalize="off" autocorrect="off" spellcheck="false"
-                :placeholder="SOURCE_META[link.source].placeholder"
-                class="w-44 border-0 border-b border-rule bg-transparent py-1 text-ink outline-none focus:border-accent"
-              />
-              <ActionLabel :disabled="linkingUsername === link.source || !usernames[link.source]?.trim()" @click="linkByUsername(link.source)">
-                {{ linkingUsername === link.source ? 'Linking…' : 'Link' }}
-              </ActionLabel>
-            </form>
-          </div>
-        </template>
-        <template v-else>
-          <p class="text-sm text-mute">{{ SOURCE_META[link.source].pitch }}</p>
-          <ActionLabel @click="linkSource(link.source)">Link {{ SOURCE_META[link.source].name }}</ActionLabel>
-        </template>
-      </div>
-    </section>
+            <ActionLabel @click="linkSource(link.source)">Link {{ SOURCE_META[link.source].name }}</ActionLabel>
+          </template>
+        </div>
+      </section>
 
-    <!-- Footer -->
-    <HairlineRule class="mt-10" />
-    <footer class="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <ActionLabel :disabled="syncing" @click="sync">{{ syncing ? 'Syncing…' : 'Sync all' }}</ActionLabel>
-      <div class="flex items-center gap-4">
-        <NuxtLink to="/mcp-settings"><MonoLabel>MCP</MonoLabel></NuxtLink>
-        <template v-if="user">
-          <MonoLabel>{{ user.email }}</MonoLabel>
-          <button class="src-action" @click="signOutAction">Sign out</button>
-        </template>
-        <NuxtLink v-else to="/login"><MonoLabel accent>Sign in</MonoLabel></NuxtLink>
-      </div>
-    </footer>
+      <!-- Footer -->
+      <HairlineRule class="mt-10" />
+      <footer class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <ActionLabel :disabled="syncing" @click="sync">{{ syncing ? 'Syncing…' : 'Sync all' }}</ActionLabel>
+        <div class="flex items-center gap-4">
+          <NuxtLink to="/mcp-settings"><MonoLabel>MCP</MonoLabel></NuxtLink>
+          <template v-if="user">
+            <MonoLabel>{{ user.email }}</MonoLabel>
+            <button class="src-action" @click="signOutAction">Sign out</button>
+          </template>
+          <NuxtLink v-else to="/login"><MonoLabel accent>Sign in</MonoLabel></NuxtLink>
+        </div>
+      </footer>
 
-    <TagEditorOverlay
-      v-if="tagEditorFeed"
-      :feed="tagEditorFeed"
-      :all-tags="allTags"
-      @close="tagEditorFeed = null"
-      @save="saveTags"
-    />
+      <TagEditorOverlay
+        v-if="tagEditorFeed"
+        :feed="tagEditorFeed"
+        :all-tags="allTags"
+        @close="tagEditorFeed = null"
+        @save="saveTags"
+      />
 
-    <FeedPickerOverlay
-      v-if="discovered"
-      :feeds="discovered"
-      :added-urls="addedUrls"
-      :busy-url="busyUrl"
-      @add="addDiscovered"
-      @close="closePicker"
-    />
+      <FeedPickerOverlay
+        v-if="discovered"
+        :feeds="discovered"
+        :added-urls="addedUrls"
+        :busy-url="busyUrl"
+        @add="addDiscovered"
+        @close="closePicker"
+      />
 
-    <SaveArticleOverlay
-      v-if="detectedArticle"
-      :article="detectedArticle"
-      :saving="savingArticle"
-      @save="saveDetectedArticle"
-      @close="detectedArticle = null"
-    />
+      <SaveArticleOverlay
+        v-if="detectedArticle"
+        :article="detectedArticle"
+        :saving="savingArticle"
+        @save="saveDetectedArticle"
+        @close="detectedArticle = null"
+      />
+    </div>
   </main>
 </template>
 

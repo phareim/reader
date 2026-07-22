@@ -1,43 +1,45 @@
 <template>
-  <main class="mx-auto max-w-measure px-5 py-6 pb-20">
-    <header class="flex items-baseline justify-between">
-      <MonoLabel dash>Search</MonoLabel>
-      <MonoLabel v-if="results.length">{{ results.length }} found</MonoLabel>
-    </header>
-    <HairlineRule class="mt-3" />
+  <main class="fixed inset-0 overflow-y-auto overscroll-none">
+    <div class="mx-auto max-w-measure px-5 py-6 pb-20">
+      <header class="flex items-baseline justify-between">
+        <MonoLabel dash>Search</MonoLabel>
+        <MonoLabel v-if="results.length">{{ results.length }} found</MonoLabel>
+      </header>
+      <HairlineRule class="mt-3" />
 
-    <input
-      ref="inputEl"
-      v-model="q"
-      type="search"
-      placeholder="Search everything you subscribe to…"
-      autocapitalize="off"
-      autocorrect="off"
-      spellcheck="false"
-      class="mt-5 w-full border-0 border-b border-rule bg-transparent py-1.5 text-lg text-ink outline-none focus:border-accent"
-    />
+      <input
+        ref="inputEl"
+        v-model="q"
+        type="search"
+        placeholder="Search everything you subscribe to…"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        class="mt-5 w-full border-0 border-b border-rule bg-transparent py-1.5 text-lg text-ink outline-none focus:border-accent"
+      />
 
-    <p v-if="searching" class="mt-8 italic text-mute">Searching…</p>
-    <p v-else-if="settled && q.trim().length >= 2 && results.length === 0" class="mt-8 italic text-mute">
-      Nothing matches “{{ q.trim() }}”.
-    </p>
+      <p v-if="searching" class="mt-8 italic text-mute">Searching…</p>
+      <p v-else-if="settled && q.trim().length >= 2 && results.length === 0" class="mt-8 italic text-mute">
+        Nothing matches “{{ q.trim() }}”.
+      </p>
 
-    <ul v-else class="mt-2">
-      <li v-for="r in results" :key="r.id" class="border-b border-rule py-4">
-        <NuxtLink :to="`/article/${r.id}`" class="block">
-          <div class="flex items-baseline justify-between gap-4">
-            <MonoLabel dash>{{ r.feedTitle }}</MonoLabel>
-            <MonoLabel>{{ r.publishedAt ? formatRelativeDate(r.publishedAt) : '' }}</MonoLabel>
-          </div>
-          <h2 class="mt-1 text-xl leading-snug text-ink">{{ r.title }}</h2>
-          <p
-            v-if="r.snippet"
-            class="mt-1 text-sm text-mute"
-            v-html="renderSnippetHtml(r.snippet)"
-          />
-        </NuxtLink>
-      </li>
-    </ul>
+      <ul v-else class="mt-2">
+        <li v-for="r in results" :key="r.id" class="border-b border-rule py-4">
+          <NuxtLink :to="`/article/${r.id}`" class="block">
+            <div class="flex items-baseline justify-between gap-4">
+              <MonoLabel dash>{{ r.feedTitle }}</MonoLabel>
+              <MonoLabel>{{ r.publishedAt ? formatRelativeDate(r.publishedAt) : '' }}</MonoLabel>
+            </div>
+            <h2 class="mt-1 text-xl leading-snug text-ink">{{ r.title }}</h2>
+            <p
+              v-if="r.snippet"
+              class="mt-1 text-sm text-mute"
+              v-html="renderSnippetHtml(r.snippet)"
+            />
+          </NuxtLink>
+        </li>
+      </ul>
+    </div>
   </main>
 </template>
 
