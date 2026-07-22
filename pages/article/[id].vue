@@ -56,6 +56,29 @@
     <HairlineRule class="mt-4" />
 
     <template v-if="article">
+      <!--
+        The article itself is a swipe surface: a decisive leftward drag flings
+        it away — mark read + continue to the next unread, the touch analog of
+        the `r` key. drag="x" + touch-action: pan-y leaves vertical pans to
+        the native scroller (the grid's gesture split); the deliberately picky
+        commit rule (3:1 dominance, long distance, edge-navigation guard)
+        lives in utils/readerSwipe.ts. Coarse pointers only — a mouse drag
+        over text is a selection, never a swipe. Rightward is constrained to a
+        faint elastic give: there is no right verb here.
+      -->
+      <motion.div
+        :style="{ x: swipeX, opacity: swipeOpacity }"
+        style="touch-action: pan-y;"
+        :drag="swipeDragEnabled ? 'x' : false"
+        :drag-constraints="{ right: 0 }"
+        :drag-elastic="0.15"
+        :drag-momentum="false"
+        drag-snap-to-origin
+        @pointerdown="onSwipePointerDown"
+        @drag="(e: PointerEvent, info: PanInfo) => onSwipeDrag(info)"
+        @drag-end="(e: PointerEvent, info: PanInfo) => onSwipeDragEnd(info)"
+        @click.capture="onSwipeClickCapture"
+      >
       <header class="mt-8">
         <div class="flex items-baseline justify-between">
           <MonoLabel dash>{{ article.feedTitle }}</MonoLabel>
@@ -110,6 +133,17 @@
             Threads
           </ActionLabel>
         </template>
+      </div>
+      </motion.div>
+
+      <!-- Pending-verb label: the deck's left-swipe accent language — fixed
+           so it holds still while the article slides out from under it. -->
+      <div
+        v-if="swipeProgress > 0"
+        class="pointer-events-none fixed left-4 top-1/2 z-40 -translate-y-1/2"
+        :style="{ opacity: swipeProgress }"
+      >
+        <ActionLabel accent>Read</ActionLabel>
       </div>
     </template>
 
@@ -205,7 +239,11 @@
 </template>
 
 <script setup lang="ts">
+import { motion, useMotionValue, useTransform, animate } from 'motion-v'
+import type { PanInfo } from 'motion-v'
 import { formatRelativeDate } from '~/utils/formatDate'
+import { DECK } from '~/utils/deck'
+import { READER_SWIPE, resolveReaderSwipe, readerSwipeProgress } from '~/utils/readerSwipe'
 import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
 import { looksLikePlainText } from '~/utils/paragraphize'
@@ -234,6 +272,7 @@ const { personal } = useAuth()
 const { markAsRead, articles: contextArticles } = useArticles()
 const { fetchHighlights, createHighlight, deleteHighlight } = useHighlights()
 const { showSuccess, showError } = useToast()
+const { tick } = useHaptics()
 
 const article = ref<any>(null)
 const error = ref<string | null>(null)
@@ -347,6 +386,87 @@ async function removeHighlight() {
   } finally {
     popover.value = null
   }
+}
+
+// ── Swipe away (mark read + continue) ───────────────────────────────────────
+// The whole article slides on one MotionValue with a gentle fade, exactly the
+// deck's card feel. Commit resolution is the picky utils/readerSwipe.ts rule;
+// a non-commit release is sprung home by drag-snap-to-origin.
+const swipeX = useMotionValue(0)
+const swipeOpacity = useTransform(swipeX, [-500, 0], [0.55, 1])
+const swipeProgress = ref(0)
+const swipeExiting = ref(false)
+const coarsePointer = ref(false)
+let swipeStartX = 0
+let swipeMoved = false
+
+// Touch only, and never while another surface owns the gesture space: the
+// voice player's bottom bar, an overlay, a text selection (the pill), or an
+// in-flight mark-read.
+const swipeDragEnabled = computed(() =>
+  coarsePointer.value &&
+  !swipeExiting.value &&
+  !markingRead.value &&
+  readAloud.value === 'idle' &&
+  !noteOverlay.value && !rsvpOpen.value && !popover.value && !pill.value
+)
+
+function onSwipePointerDown(e: PointerEvent) {
+  swipeStartX = e.clientX
+  swipeMoved = false
+}
+
+function onSwipeDrag(info: PanInfo) {
+  if (Math.abs(info.offset.x) > 8) swipeMoved = true
+  const edgeGuarded =
+    swipeStartX < READER_SWIPE.EDGE_GUARD ||
+    swipeStartX > window.innerWidth - READER_SWIPE.EDGE_GUARD
+  swipeProgress.value = edgeGuarded ? 0 : readerSwipeProgress(info.offset.x, info.offset.y)
+}
+
+async function onSwipeDragEnd(info: PanInfo) {
+  swipeProgress.value = 0
+  // Defer the tap-guard reset so the click event (which fires after dragEnd)
+  // still sees swipeMoved=true and is swallowed — a drag released over a link
+  // must not follow it.
+  setTimeout(() => { swipeMoved = false }, 0)
+  if (!resolveReaderSwipe(
+    info.offset.x, info.offset.y, info.velocity.x, swipeStartX, window.innerWidth,
+  )) return
+  await swipeAway(info.velocity.x)
+}
+
+function onSwipeClickCapture(e: MouseEvent) {
+  if (swipeMoved) { e.preventDefault(); e.stopPropagation() }
+}
+
+// Same safety net as CardStack: motion-dom's JSAnimation never resolves
+// `finished` when stopped, so a bare await could hang past the fling.
+function settleWithin(p: Promise<unknown>, ms = 1200): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    p.then(
+      () => { clearTimeout(t); resolve() },
+      () => { clearTimeout(t); resolve() },
+    )
+  })
+}
+
+/**
+ * Fling the article off-screen left, mark it read (optimistic, like the
+ * deck's left swipe), and continue to the next unread in the deck context —
+ * the same continuation as `markReadAndReturn`, with the card physics.
+ */
+async function swipeAway(vx = 0) {
+  if (swipeExiting.value || markingRead.value) return
+  swipeExiting.value = true
+  markingRead.value = true
+  tick()
+  markAsRead(id, true).catch(() => showError('Mark-read failed'))
+  await settleWithin(animate(swipeX, -window.innerWidth * 1.1, { ...DECK.FLING, velocity: vx }))
+  const nextId = nextUnreadId(contextArticles.value, savedArticleIds.value, id)
+  if (nextId !== null) navigateTo(`/article/${nextId}`, { replace: true })
+  else goBack()
 }
 
 const saved = computed(() => isSaved(id))
@@ -777,6 +897,7 @@ onMounted(() => {
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', updateProgress)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  coarsePointer.value = window.matchMedia('(pointer: coarse)').matches
   updateProgress()
 })
 onUnmounted(() => {
