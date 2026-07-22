@@ -78,6 +78,16 @@ describe('extractImageUrl', () => {
     expect(extractImageUrl({}, html)).toBe('https://example.com/inline.jpg')
   })
 
+  it('decodes HTML entities in a content <img> src (WordPress &#038;)', () => {
+    const html = '<img src="https://cdn.example.com/pic.jpg?quality=90&#038;strip=all&#038;w=1200">'
+    expect(extractImageUrl({}, html)).toBe('https://cdn.example.com/pic.jpg?quality=90&strip=all&w=1200')
+  })
+
+  it('decodes &amp; in a content <img> src', () => {
+    const html = '<img src="https://cdn.example.com/pic.jpg?w=800&amp;h=600">'
+    expect(extractImageUrl({}, html)).toBe('https://cdn.example.com/pic.jpg?w=800&h=600')
+  })
+
   it('prefers media metadata over the content <img>', () => {
     const item = { mediaThumbnail: { '@_url': 'https://example.com/thumb.jpg' } }
     const html = '<img src="https://example.com/inline.jpg">'

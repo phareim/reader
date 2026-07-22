@@ -7,6 +7,8 @@
  * xml2js `$.url` shape rss-parser used. Repeated elements arrive as arrays.
  */
 
+import { decodeEntities } from './htmlEntities'
+
 function asArray(value: any): any[] {
   if (value === undefined || value === null) return []
   return Array.isArray(value) ? value : [value]
@@ -67,11 +69,15 @@ export function extractImageUrl(item: any, rawContent?: string): string | undefi
     return item.itunes.image
   }
 
-  // 4. First <img> tag in the HTML content
+  // 4. First <img> tag in the HTML content. The src comes out of raw HTML,
+  // where `&` is entity-encoded (`&amp;` / WordPress's `&#038;`) — stored
+  // verbatim it mangles every query param after the first, and CDNs then
+  // serve the un-resized master asset (11k×7.5k px from The Verge — enough
+  // decoded RAM to crash iOS Safari).
   if (rawContent) {
     const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i)
     if (imgMatch?.[1]) {
-      return imgMatch[1]
+      return decodeEntities(imgMatch[1])
     }
   }
 
