@@ -16,6 +16,13 @@ jobs:
         with:
           node-version: 20
 
+      # The Worker's sender-auth alignment logic (email-worker/src/authResults.ts)
+      # is covered by the ROOT suite, __tests__/server/emailIngest.test.ts — so
+      # gate this deploy on it too.
+      - run: npm install
+
+      - run: npm test
+
       - run: npm install
         working-directory: email-worker
 

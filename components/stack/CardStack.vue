@@ -80,6 +80,7 @@ import {
   type DeckDirection,
   type DeckHistoryEntry,
 } from '~/utils/deck'
+import { settleWithin } from '~/utils/settleWithin'
 
 // Vue casts absent boolean props to false — canElevate must default TRUE
 // or the verb dies everywhere the prop isn't threaded through.
@@ -185,18 +186,9 @@ function onTap(i: number, article: Article) {
 
 // Safety net for `busy`: motion-dom's JSAnimation never resolves `finished`
 // when stopped (e.g. a pointer re-grab calling MotionValue.stop()), so a bare
-// await on animate() could wedge `busy` forever. Race against a timeout and
-// swallow rejections — commit's finally always restores the deck either way.
-const ANIMATION_SAFETY_MS = 1200
-function settleWithin(p: Promise<unknown>, ms = ANIMATION_SAFETY_MS): Promise<void> {
-  return new Promise((resolve) => {
-    const t = setTimeout(resolve, ms)
-    p.then(
-      () => { clearTimeout(t); resolve() },
-      () => { clearTimeout(t); resolve() },
-    )
-  })
-}
+// await on animate() could wedge `busy` forever. `settleWithin` races against a
+// timeout and swallows rejections — commit's finally always restores the deck
+// either way. Shared with the reader's swipe-away (utils/settleWithin.ts).
 
 async function flingOff(dir: DeckDirection, vx = 0, vy = 0) {
   const w = typeof window === 'undefined' ? 800 : window.innerWidth

@@ -1,7 +1,7 @@
 {
-  "name": "the-librarian",
+  "name": "reader",
   "version": "1.0.0",
-  "description": "Your friendly librarian for organizing and curating the web's knowledge",
+  "description": "The Reader — a calm, self-hosted RSS reader on Nuxt 3 + Cloudflare (Workers, D1, R2)",
   "main": "index.js",
   "scripts": {
     "dev": "nuxt dev",
@@ -9,7 +9,6 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "patch-package && nuxt prepare",
-    "vercel-build": "nuxt build",
     "mcp": "tsx mcp-server/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -20,7 +19,7 @@
     "url": "git+https://github.com/phareim/reader.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "phareim",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/phareim/reader/issues"

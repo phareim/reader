@@ -239,22 +239,15 @@
 </template>
 
 <script setup lang="ts">
-import { motion, useMotionValue, useTransform, animate } from 'motion-v'
-import type { PanInfo } from 'motion-v'
+import { motion } from 'motion-v'
 import { formatRelativeDate } from '~/utils/formatDate'
-import { DECK } from '~/utils/deck'
-import { READER_SWIPE, resolveReaderSwipe, readerSwipeProgress } from '~/utils/readerSwipe'
 import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
 import { looksLikePlainText } from '~/utils/paragraphize'
 import { looksTruncated } from '~/utils/truncation'
-import { getSelectionOffsets, paintHighlight, unpaint, clearHighlights, rangeForOffsets } from '~/utils/highlightDom'
-import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/utils/readingPosition'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import { tokenizeWords } from '~/utils/rsvp'
-import { chunkTextForTts, locateChunks, type ChunkSpan } from '~/utils/tts'
 import { nextUnreadId } from '~/utils/grid'
-import type { Highlight } from '~/composables/useHighlights'
 
 // Key by path so navigating article → next article mounts a fresh instance
 // (Vue Router reuses the component on a param-only change, which would leave
@@ -270,7 +263,6 @@ const { isGoodRead, seedGoodRead, toggleGoodRead } = useGoodReads()
 const { elevate } = useElevate()
 const { personal } = useAuth()
 const { markAsRead, articles: contextArticles } = useArticles()
-const { fetchHighlights, createHighlight, deleteHighlight } = useHighlights()
 const { showSuccess, showError } = useToast()
 const { tick } = useHaptics()
 
@@ -280,194 +272,7 @@ const fetchingFullText = ref(false)
 const elevating = ref(false)
 const markingRead = ref(false)
 
-// ── Highlights ──────────────────────────────────────────────────────────────
 const articleEl = ref<HTMLElement | null>(null)
-const highlights = ref<Highlight[]>([])
-const pendingSel = ref<{ startOffset: number; endOffset: number; quote: string } | null>(null)
-const pill = ref<{ side: 'bottom' | 'below'; x: number; y: number } | null>(null)
-const noteOverlay = ref<{ quote: string } | null>(null)
-const savingNote = ref(false)
-const popover = ref<{ highlight: Highlight; x: number; y: number } | null>(null)
-
-/** Re-paint every stored highlight onto the (re-rendered) article body. */
-function repaintHighlights() {
-  const el = articleEl.value
-  if (!el) return
-  clearHighlights(el)
-  for (const h of highlights.value) {
-    paintHighlight(el, { id: h.id, startOffset: h.startOffset, endOffset: h.endOffset, quote: h.quote })
-  }
-}
-
-async function loadHighlights() {
-  highlights.value = await fetchHighlights(id).catch(() => [])
-  await nextTick()
-  repaintHighlights()
-}
-
-function onSelect() {
-  const el = articleEl.value
-  if (!el || noteOverlay.value || popover.value) return
-  const offsets = getSelectionOffsets(el)
-  if (!offsets) { pill.value = null; pendingSel.value = null; return }
-  pendingSel.value = offsets
-  const rect = window.getSelection()?.getRangeAt(0).getBoundingClientRect()
-  if (rect && rect.width) {
-    if (window.matchMedia('(pointer: coarse)').matches) {
-      // Touch: a fixed pill low on the screen — never positioned relative to
-      // the selection, because touches on selected text belong to the OS
-      // (selection handles + callout sit above all web content).
-      pill.value = { side: 'bottom', x: 0, y: 0 }
-    } else {
-      // Mouse: below the selection center. Clamp so a selection ending at
-      // the bottom of the viewport keeps the pill on-screen.
-      pill.value = {
-        side: 'below',
-        x: rect.left + rect.width / 2,
-        y: Math.min(rect.bottom, window.innerHeight - 64),
-      }
-    }
-  }
-}
-
-function startHighlight() {
-  if (!pendingSel.value) return
-  noteOverlay.value = { quote: pendingSel.value.quote }
-  pill.value = null
-}
-
-async function saveHighlight(note: string) {
-  const sel = pendingSel.value
-  if (!sel || savingNote.value) return
-  savingNote.value = true
-  try {
-    const h = await createHighlight(id, {
-      quote: sel.quote, note, startOffset: sel.startOffset, endOffset: sel.endOffset,
-    })
-    highlights.value = [...highlights.value, h]
-    await nextTick()
-    if (articleEl.value) {
-      paintHighlight(articleEl.value, {
-        id: h.id, startOffset: h.startOffset, endOffset: h.endOffset, quote: h.quote,
-      })
-    }
-    showSuccess('Highlighted')
-    noteOverlay.value = null
-    pendingSel.value = null
-    window.getSelection()?.removeAllRanges()
-  } catch {
-    showError('Could not save the highlight')
-  } finally {
-    savingNote.value = false
-  }
-}
-
-function onArticleClick(e: MouseEvent) {
-  const mark = (e.target as HTMLElement)?.closest?.('[data-hl-id]')
-  if (!mark) return
-  const hid = Number(mark.getAttribute('data-hl-id'))
-  const h = highlights.value.find((x) => x.id === hid)
-  if (!h) return
-  e.preventDefault()
-  const rect = mark.getBoundingClientRect()
-  popover.value = { highlight: h, x: rect.left, y: rect.bottom }
-}
-
-async function removeHighlight() {
-  const h = popover.value?.highlight
-  if (!h) return
-  try {
-    await deleteHighlight(h.id)
-    highlights.value = highlights.value.filter((x) => x.id !== h.id)
-    if (articleEl.value) unpaint(articleEl.value, h.id)
-    showSuccess('Removed')
-  } catch {
-    showError('Could not remove the highlight')
-  } finally {
-    popover.value = null
-  }
-}
-
-// ── Swipe away (mark read + continue) ───────────────────────────────────────
-// The whole article slides on one MotionValue with a gentle fade, exactly the
-// deck's card feel. Commit resolution is the picky utils/readerSwipe.ts rule;
-// a non-commit release is sprung home by drag-snap-to-origin.
-const swipeX = useMotionValue(0)
-const swipeOpacity = useTransform(swipeX, [-500, 0], [0.55, 1])
-const swipeProgress = ref(0)
-const swipeExiting = ref(false)
-const coarsePointer = ref(false)
-let swipeStartX = 0
-let swipeMoved = false
-
-// Touch only, and never while another surface owns the gesture space: the
-// voice player's bottom bar, an overlay, a text selection (the pill), or an
-// in-flight mark-read.
-const swipeDragEnabled = computed(() =>
-  coarsePointer.value &&
-  !swipeExiting.value &&
-  !markingRead.value &&
-  readAloud.value === 'idle' &&
-  !noteOverlay.value && !rsvpOpen.value && !popover.value && !pill.value
-)
-
-function onSwipePointerDown(e: PointerEvent) {
-  swipeStartX = e.clientX
-  swipeMoved = false
-}
-
-function onSwipeDrag(info: PanInfo) {
-  if (Math.abs(info.offset.x) > 8) swipeMoved = true
-  const edgeGuarded =
-    swipeStartX < READER_SWIPE.EDGE_GUARD ||
-    swipeStartX > window.innerWidth - READER_SWIPE.EDGE_GUARD
-  swipeProgress.value = edgeGuarded ? 0 : readerSwipeProgress(info.offset.x, info.offset.y)
-}
-
-async function onSwipeDragEnd(info: PanInfo) {
-  swipeProgress.value = 0
-  // Defer the tap-guard reset so the click event (which fires after dragEnd)
-  // still sees swipeMoved=true and is swallowed — a drag released over a link
-  // must not follow it.
-  setTimeout(() => { swipeMoved = false }, 0)
-  if (!resolveReaderSwipe(
-    info.offset.x, info.offset.y, info.velocity.x, swipeStartX, window.innerWidth,
-  )) return
-  await swipeAway(info.velocity.x)
-}
-
-function onSwipeClickCapture(e: MouseEvent) {
-  if (swipeMoved) { e.preventDefault(); e.stopPropagation() }
-}
-
-// Same safety net as CardStack: motion-dom's JSAnimation never resolves
-// `finished` when stopped, so a bare await could hang past the fling.
-function settleWithin(p: Promise<unknown>, ms = 1200): Promise<void> {
-  return new Promise((resolve) => {
-    const t = setTimeout(resolve, ms)
-    p.then(
-      () => { clearTimeout(t); resolve() },
-      () => { clearTimeout(t); resolve() },
-    )
-  })
-}
-
-/**
- * Fling the article off-screen left, mark it read (optimistic, like the
- * deck's left swipe), and continue to the next unread in the deck context —
- * the same continuation as `markReadAndReturn`, with the card physics.
- */
-async function swipeAway(vx = 0) {
-  if (swipeExiting.value || markingRead.value) return
-  swipeExiting.value = true
-  markingRead.value = true
-  tick()
-  markAsRead(id, true).catch(() => showError('Mark-read failed'))
-  await settleWithin(animate(swipeX, -window.innerWidth * 1.1, { ...DECK.FLING, velocity: vx }))
-  const nextId = nextUnreadId(contextArticles.value, savedArticleIds.value, id)
-  if (nextId !== null) navigateTo(`/article/${nextId}`, { replace: true })
-  else goBack()
-}
 
 const saved = computed(() => isSaved(id))
 const goodRead = computed(() => isGoodRead(id))
@@ -487,197 +292,61 @@ function openRsvp() {
   rsvpOpen.value = true
 }
 
-// ── Read aloud ──────────────────────────────────────────────────────────────
-// The body is spoken in sentence-boundary chunks via `POST /api/tts` (NVIDIA
-// Magpie on Sleeper): chunk 0 plays as soon as it lands while chunk 1 warms
-// in the background. One reused <audio> element keeps iOS's gesture unlock
-// valid across chunk transitions. `ttsToken` invalidates the whole in-flight
-// session on stop/skip/unmount so a stale onended can't restart playback.
-//
-// The text is taken from the live article element's textContent (not
-// stripHtml) so `locateChunks` can map every chunk back to exact character
-// offsets — the currently-spoken passage is painted with a crimson wash via
-// the CSS Custom Highlight API and gently kept in view. A fixed bottom bar
-// carries the controls: pause/resume, skip a passage back/forward, stop, and
-// a char-weighted progress rail. The Media Session API mirrors the controls
-// onto the lock screen / hardware keys (the iOS PWA case).
-const readAloud = ref<'idle' | 'loading' | 'playing' | 'paused'>('idle')
-const ttsIndex = ref(0)
-const ttsCount = ref(0)
-const ttsChunkFraction = ref(0) // 0..1 through the current chunk's audio
-let ttsAudio: HTMLAudioElement | null = null
-let ttsChunks: string[] = []
-let ttsSpans: (ChunkSpan | null)[] = []
-let ttsFetches: (Promise<Blob> | null)[] = []
-let ttsToken = 0
-let ttsUrl: string | null = null
-let ttsCharsBefore: number[] = []
-let ttsCharsTotal = 0
+// ── The four surfaces the reader owns ───────────────────────────────────────
+// Each is a per-instance composable created and torn down with this page. The
+// page keeps only the wiring: which one is allowed to act, and what happens
+// after it does.
+const {
+  pill, noteOverlay, savingNote, popover,
+  repaintHighlights, loadHighlights, onSelect, startHighlight, saveHighlight,
+  onArticleClick, removeHighlight,
+} = useArticleHighlights(id, articleEl)
 
-const ttsProgress = computed(() => {
-  if (!ttsCount.value || !ttsCharsTotal) return 0
-  const len = ttsChunks[ttsIndex.value]?.length ?? 0
-  const done = (ttsCharsBefore[ttsIndex.value] ?? 0) + ttsChunkFraction.value * len
-  return Math.min(100, (done / ttsCharsTotal) * 100)
+const {
+  readAloud, ttsIndex, ttsCount, ttsProgress,
+  toggleReadAloud, pauseResumeReadAloud, skipTtsChunk, stopReadAloud,
+} = useReadAloud({ articleEl, article })
+
+const {
+  scrollPercent, updateProgress, persistProgress, scheduleProgressSave,
+  restoreReadingPosition, onVisibilityChange,
+} = useReadingProgress(id, article)
+
+// The swipe surface is disabled while anything else owns the gesture space:
+// the voice player's bottom bar, an overlay, a text selection (the pill), or
+// an in-flight mark-read.
+const {
+  swipeX, swipeOpacity, swipeProgress, swipeExiting, dragEnabled: swipeDragEnabled,
+  onSwipePointerDown, onSwipeDrag, onSwipeDragEnd, onSwipeClickCapture, fling,
+} = useReaderSwipe({
+  enabled: computed(() =>
+    !markingRead.value &&
+    readAloud.value === 'idle' &&
+    !noteOverlay.value && !rsvpOpen.value && !popover.value && !pill.value
+  ),
+  onCommit: (vx) => swipeAway(vx),
 })
 
-function ttsFetch(i: number): Promise<Blob> {
-  if (!ttsFetches[i]) {
-    ttsFetches[i] = $fetch<Blob>('/api/tts', {
-      method: 'POST',
-      body: { text: ttsChunks[i] },
-      responseType: 'blob',
-    })
-  }
-  return ttsFetches[i]!
+/**
+ * Fling the article off-screen left, mark it read (optimistic, like the
+ * deck's left swipe), and continue to the next unread in the deck context —
+ * the same continuation as `markReadAndReturn`, with the card physics.
+ */
+async function swipeAway(vx = 0) {
+  if (swipeExiting.value || markingRead.value) return
+  markingRead.value = true
+  tick()
+  markAsRead(id, true).catch(() => showError('Mark-read failed'))
+  await fling(vx)
+  const nextId = nextUnreadId(contextArticles.value, savedArticleIds.value, id)
+  if (nextId !== null) navigateTo(`/article/${nextId}`, { replace: true })
+  else goBack()
 }
 
-function clearTtsHighlight() {
-  ;(globalThis as any).CSS?.highlights?.delete('tts-reading')
-}
-
-/** Paint the passage the voice is speaking and gently keep it in view. */
-function followTtsChunk(i: number) {
-  const root = articleEl.value
-  const span = ttsSpans[i]
-  if (!root || !span) { clearTtsHighlight(); return }
-  const range = rangeForOffsets(root, span.start, span.end)
-  if (!range) { clearTtsHighlight(); return }
-  const cssAny = (globalThis as any).CSS
-  const HighlightCtor = (globalThis as any).Highlight
-  if (cssAny?.highlights && HighlightCtor) {
-    cssAny.highlights.set('tts-reading', new HighlightCtor(range))
-  }
-  // Follow only when the passage's top has drifted out of the reading band —
-  // bring it back to about a quarter down the viewport.
-  const rect = range.getBoundingClientRect()
-  if (rect.height && (rect.top < 72 || rect.top > window.innerHeight * 0.6)) {
-    window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight * 0.25, behavior: 'smooth' })
-  }
-}
-
-async function playTtsChunk(i: number, token: number) {
-  const blob = await ttsFetch(i)
-  if (token !== ttsToken) return
-  if (i + 1 < ttsChunks.length) ttsFetch(i + 1).catch(() => {})
-  if (ttsUrl) URL.revokeObjectURL(ttsUrl)
-  ttsUrl = URL.createObjectURL(blob)
-  if (!ttsAudio) ttsAudio = new Audio()
-  const audio = ttsAudio
-  audio.src = ttsUrl
-  audio.onended = () => {
-    if (token !== ttsToken) return
-    if (i + 1 < ttsChunks.length) {
-      playTtsChunk(i + 1, token).catch(() => {
-        if (token === ttsToken) { stopReadAloud(); showError('The reading voice dropped out') }
-      })
-    } else {
-      stopReadAloud()
-    }
-  }
-  audio.ontimeupdate = () => {
-    if (token !== ttsToken) return
-    const d = audio.duration
-    ttsChunkFraction.value = Number.isFinite(d) && d > 0 ? audio.currentTime / d : 0
-  }
-  // The lock screen / hardware keys can pause the element directly — keep
-  // the player state honest either way.
-  audio.onpause = () => {
-    if (token === ttsToken && readAloud.value === 'playing' && !audio.ended) readAloud.value = 'paused'
-  }
-  audio.onplay = () => {
-    if (token === ttsToken && readAloud.value === 'paused') readAloud.value = 'playing'
-  }
-  ttsIndex.value = i
-  ttsChunkFraction.value = 0
-  followTtsChunk(i)
-  await audio.play()
-  if (token === ttsToken) readAloud.value = 'playing'
-}
-
-async function toggleReadAloud() {
-  if (readAloud.value !== 'idle') { stopReadAloud(); return }
-  const raw = articleEl.value?.textContent || ''
-  const chunks = chunkTextForTts(raw)
-  if (!chunks.length) return
-  const token = ++ttsToken
-  ttsChunks = chunks
-  ttsSpans = locateChunks(raw, chunks)
-  ttsFetches = chunks.map(() => null)
-  ttsCharsBefore = []
-  ttsCharsTotal = 0
-  for (const c of chunks) { ttsCharsBefore.push(ttsCharsTotal); ttsCharsTotal += c.length }
-  ttsCount.value = chunks.length
-  ttsIndex.value = 0
-  ttsChunkFraction.value = 0
-  readAloud.value = 'loading'
-  setupMediaSession()
-  try {
-    await playTtsChunk(0, token)
-  } catch {
-    if (token === ttsToken) { stopReadAloud(); showError('Could not reach the reading voice') }
-  }
-}
-
-function pauseResumeReadAloud() {
-  if (!ttsAudio) return
-  if (readAloud.value === 'playing') { ttsAudio.pause(); readAloud.value = 'paused' }
-  else if (readAloud.value === 'paused') { ttsAudio.play().catch(() => {}); readAloud.value = 'playing' }
-}
-
-function skipTtsChunk(delta: number) {
-  if (readAloud.value !== 'playing' && readAloud.value !== 'paused') return
-  const next = ttsIndex.value + delta
-  if (next < 0 || next >= ttsChunks.length) return
-  const token = ++ttsToken
-  ttsAudio?.pause()
-  readAloud.value = 'loading'
-  playTtsChunk(next, token).catch(() => {
-    if (token === ttsToken) { stopReadAloud(); showError('The reading voice dropped out') }
-  })
-}
-
-function stopReadAloud() {
-  ttsToken++
-  if (ttsAudio) { ttsAudio.pause(); ttsAudio.removeAttribute('src') }
-  if (ttsUrl) { URL.revokeObjectURL(ttsUrl); ttsUrl = null }
-  clearTtsHighlight()
-  teardownMediaSession()
-  readAloud.value = 'idle'
-  ttsChunkFraction.value = 0
-}
-
-// Lock-screen / hardware-key control (best-effort — not every browser ships
-// the Media Session API, and metadata assignment can throw on old WebKit).
-function setupMediaSession() {
-  const ms = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined
-  if (!ms) return
-  try {
-    ms.metadata = new MediaMetadata({
-      title: article.value?.title || 'Article',
-      artist: article.value?.feedTitle || 'The Reader',
-    })
-    ms.setActionHandler('play', () => { if (readAloud.value === 'paused') pauseResumeReadAloud() })
-    ms.setActionHandler('pause', () => { if (readAloud.value === 'playing') pauseResumeReadAloud() })
-    ms.setActionHandler('stop', () => stopReadAloud())
-    ms.setActionHandler('previoustrack', () => skipTtsChunk(-1))
-    ms.setActionHandler('nexttrack', () => skipTtsChunk(1))
-  } catch { /* best-effort */ }
-}
-
-function teardownMediaSession() {
-  const ms = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined
-  if (!ms) return
-  try {
-    for (const a of ['play', 'pause', 'stop', 'previoustrack', 'nexttrack'] as const) {
-      ms.setActionHandler(a, null)
-    }
-    ms.metadata = null
-  } catch { /* best-effort */ }
-}
-
-// The body can re-render once (thin-RSS full-text upgrade); re-anchor after.
+// The body can re-render once (thin-RSS full-text upgrade); re-anchor the
+// highlights and re-measure the rail after.
 watch(sanitizedContent, () => nextTick().then(repaintHighlights))
+watch(sanitizedContent, () => nextTick().then(updateProgress))
 
 /**
  * RSS bodies under ~1200 visible chars are treated as excerpts → fetch full
@@ -734,41 +403,6 @@ onMounted(async () => {
   await loadHighlights()
   await restoreReadingPosition()
 })
-
-// ── Reading position ────────────────────────────────────────────────────────
-// The place in the article survives leaving it: saved server-side (debounced)
-// as a fraction of the scrollable height, restored when the article reopens.
-let lastSavedProgress = 0
-let progressSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-function persistProgress() {
-  if (progressSaveTimer) { clearTimeout(progressSaveTimer); progressSaveTimer = null }
-  if (!article.value) return
-  const p = Math.min(1, Math.max(0, scrollPercent.value / 100))
-  if (!progressWorthSaving(p, lastSavedProgress)) return
-  lastSavedProgress = p
-  $fetch(`/api/articles/${id}/progress`, { method: 'PATCH', body: { progress: p } }).catch(() => {})
-}
-
-function scheduleProgressSave() {
-  if (progressSaveTimer) clearTimeout(progressSaveTimer)
-  progressSaveTimer = setTimeout(persistProgress, 1500)
-}
-
-async function restoreReadingPosition() {
-  const stored = Number(article.value?.readProgress) || 0
-  lastSavedProgress = stored
-  if (!shouldRestorePosition(stored)) return
-  await nextTick()
-  const doc = document.documentElement
-  const scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight)
-  window.scrollTo({ top: restoreScrollTop(stored, scrollHeight, window.innerHeight) })
-}
-
-// Backgrounding the (PWA) app may be the last signal we get — flush then.
-function onVisibilityChange() {
-  if (document.visibilityState === 'hidden') persistProgress()
-}
 
 function goBack() {
   if (window.history.length > 1) router.back()
@@ -867,19 +501,6 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'l') toggleReadAloud()
 }
 
-// Reading progress (0–100), driven by how far the page has scrolled.
-const scrollPercent = ref(0)
-function updateProgress() {
-  // Read the scroll position defensively: normally the viewport scrolls
-  // (window.scrollY), but a stray overflow on html/body can move the scroll
-  // onto documentElement or body instead — so fall back across all three.
-  const doc = document.documentElement
-  const scrollTop = window.scrollY || doc.scrollTop || document.body.scrollTop || 0
-  const scrollHeight = Math.max(doc.scrollHeight, document.body.scrollHeight)
-  const max = scrollHeight - window.innerHeight
-  scrollPercent.value = max > 0 ? Math.min(100, Math.max(0, (scrollTop / max) * 100)) : 0
-}
-
 // Hide the selection pill once the viewport shifts under it, advance the
 // rail, and note the new place for the (debounced) position save.
 function onScroll() {
@@ -888,16 +509,12 @@ function onScroll() {
   scheduleProgressSave()
 }
 
-// The body height changes when the full-text upgrade re-renders — re-measure.
-watch(sanitizedContent, () => nextTick().then(updateProgress))
-
 onMounted(() => {
   window.addEventListener('keydown', onKey)
   document.addEventListener('selectionchange', onSelect)
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', updateProgress)
   document.addEventListener('visibilitychange', onVisibilityChange)
-  coarsePointer.value = window.matchMedia('(pointer: coarse)').matches
   updateProgress()
 })
 onUnmounted(() => {
