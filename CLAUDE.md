@@ -129,6 +129,38 @@ Two Workers **secrets** must exist: `npx wrangler secret put NUXT_SFL_API_KEY` (
 
 **PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`): `registerType: 'prompt'` — a new SW waits until the user taps Reload in `PwaUpdatePrompt.vue` (which is built for prompt mode), so a deploy never yanks the running build's chunks out of the precache mid-session. The precached app shell `'/'` is stamped with a **per-build revision** (`buildRevision` at the top of `nuxt.config.ts`); never set it back to `revision: null` — Workbox then pins the first-ever cached shell forever while each deploy purges the hashed `_nuxt/*` chunks it references, and the app boots a shell pointing at 404'd JS and goes dead (bit us 2026-07-02, felt like "the app is unresponsive"). Workbox tests `runtimeCaching` regexes against the **full URL**, so path-anchored `/^\/api\/…/` patterns silently never match — the API routes use `({ url }) => url.pathname.startsWith(…)` functions instead (NetworkFirst, 5s network timeout, for offline reads). Recovery for a device stuck on a dead shell: open the app once so the fixed SW installs in the background, force-quit, reopen (worst case: Safari → Settings → clear website data for the domain and re-add the PWA).
 
+## Dependency pins (read before touching package.json)
+
+Four constraints are load-bearing and **not** obvious from the manifest. A plain
+`npm update` will re-break every one of them, so re-read this before accepting a
+Dependabot PR or running an update.
+
+- **`brace-expansion: ^5.0.8` + `minimatch: ^10.2.5` (overrides, together).**
+  brace-expansion 5.x is a breaking API change shipped without a major signal to
+  consumers — 2.x was `module.exports = expand`, 5.x is `{ expand, … }` with **no
+  default**. Only `minimatch >= 10.2.0` speaks the new shape. Bumping
+  brace-expansion alone does not fail the build: it degrades to
+  `An error occurred when globbing for files` in a warning, and the **workbox
+  precache silently drops from 55 entries to 4** — shipping a service worker that
+  precaches nothing. Always check the `precache N entries` line in build output
+  after touching either.
+- **`linkedom: 0.18.12` (exact).** 0.18.13 moved its `css-select` dep from `^5.1.0`
+  to `^7.0.0` in a *patch* release; css-select 7 is ESM-only, which breaks
+  linkedom's own CJS build — the one `jest.config.js` maps `linkedom/worker` to.
+  Both extraction suites fail to parse. Unpin only together with a Jest ESM story.
+- **`typescript: ^5.9.3` (devDependency).** TypeScript was never declared, so it
+  drifted in transitively; `npm update` jumped it to 6.0, whose `rootDir`
+  enforcement failed all 45 suites at once (`TS5011`). Declared so the toolchain is
+  deterministic.
+- **`@hono/node-server: ^2.0.11` (override).** Patches a path-traversal advisory
+  that the current `@modelcontextprotocol/sdk` still ships un-fixed. Not reachable
+  here — our MCP server is `StdioServerTransport` only, and the flaw is Windows
+  `serve-static` — but the override is free and clears the alert.
+
+**Jest is held at 29** because `@vue/vue3-jest@29.2.6` hard-pins `jest: 29.x` and
+`babel-jest: 29.x` in its peers, and it is the newest release (no 30.x exists). It
+transforms every SFC component test, so Jest 30 needs that resolved upstream first.
+
 ## Coding Style
 
 2-space indentation, TypeScript everywhere Nuxt allows (`<script setup lang="ts">`).
