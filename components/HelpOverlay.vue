@@ -1,16 +1,21 @@
 <template>
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-5" @click.self="emit('close')">
-      <CardFrame class="w-full max-w-sm p-6">
+      <!-- The table outgrew a short screen once the reader keys joined it, and
+           CardFrame clips its overflow — let the list scroll inside the card
+           rather than lose its last rows off the bottom edge. -->
+      <CardFrame class="flex max-h-[85dvh] w-full max-w-sm flex-col p-6">
         <MonoLabel dash>Keys</MonoLabel>
-        <table class="mt-4 w-full text-sm">
-          <tbody>
-            <tr v-for="row in keys" :key="row[0]" class="border-b border-rule last:border-0">
-              <td class="py-1.5 pr-4 font-mono text-mute" style="font-size: 11px;">{{ row[0] }}</td>
-              <td class="py-1.5 text-body">{{ row[1] }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <table class="w-full text-sm">
+            <tbody>
+              <tr v-for="row in keys" :key="row[0]" class="border-b border-rule last:border-0">
+                <td class="py-1.5 pr-4 font-mono text-mute" style="font-size: 11px;">{{ row[0] }}</td>
+                <td class="py-1.5 text-body">{{ row[1] }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div class="mt-5 text-right">
           <ActionLabel @click="emit('close')">Close</ActionLabel>
         </div>
@@ -27,6 +32,18 @@ const props = withDefaults(defineProps<{ open: boolean; mode?: 'deck' | 'grid' }
 })
 const emit = defineEmits<{ close: [] }>()
 
+// The reader's own keys, shared by both tables. Kept in one place so a key
+// added to pages/article/[id].vue can't go on being undiscoverable in half
+// the card (r, g, w and l all shipped without ever reaching this list).
+const readerKeys = [
+  ['esc (reader)', 'Back'],
+  ['r (reader)', 'Mark read, on to the next'],
+  ['s / e / v (reader)', 'Save · Elevate · Original'],
+  ['h (reader)', 'Highlight selection'],
+  ['g (reader)', 'Mark a good read'],
+  ['w / l (reader)', 'Speed-read · Read aloud'],
+]
+
 const deckKeys = [
   ['←', 'Mark read'],
   ['→', 'Save to the shelf'],
@@ -36,9 +53,7 @@ const deckKeys = [
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
-  ['esc (reader)', 'Back'],
-  ['s / e / v (reader)', 'Save · Elevate · Original'],
-  ['h (reader)', 'Highlight selection'],
+  ...readerKeys,
   ['?', 'This card'],
 ]
 
@@ -51,9 +66,7 @@ const gridKeys = [
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
-  ['esc (reader)', 'Back'],
-  ['s / e / v (reader)', 'Save · Elevate · Original'],
-  ['h (reader)', 'Highlight selection'],
+  ...readerKeys,
   ['?', 'This card'],
 ]
 

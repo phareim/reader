@@ -7,19 +7,19 @@
              the mono text label takes over. items-center (not baseline) so the
              14px glyphs sit level with the 10px mono labels. -->
         <div class="flex items-center gap-4">
-          <NuxtLink to="/search" aria-label="Search" class="focus-visible:outline focus-visible:outline-1">
+          <NuxtLink to="/search" aria-label="Search" class="tap-pad focus-visible:outline focus-visible:outline-1">
             <span class="flex text-mute sm:hidden" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></svg>
             </span>
             <MonoLabel class="hidden sm:inline">Search</MonoLabel>
           </NuxtLink>
-          <NuxtLink to="/highlights" aria-label="Highlights" class="focus-visible:outline focus-visible:outline-1">
+          <NuxtLink to="/highlights" aria-label="Highlights" class="tap-pad focus-visible:outline focus-visible:outline-1">
             <span class="flex text-mute sm:hidden" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" /></svg>
             </span>
             <MonoLabel class="hidden sm:inline">Highlights</MonoLabel>
           </NuxtLink>
-          <NuxtLink to="/good-reads" aria-label="Good reads" class="focus-visible:outline focus-visible:outline-1">
+          <NuxtLink to="/good-reads" aria-label="Good reads" class="tap-pad focus-visible:outline focus-visible:outline-1">
             <span class="flex text-mute sm:hidden" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4L12 17.8l-5.8 3 1.1-6.4L2.6 9.8l6.5-.9z" /></svg>
             </span>
@@ -84,13 +84,14 @@
               <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
               <p class="mt-1 text-sm text-mute">{{ excerpt(a.content || a.summary, 140) }}</p>
             </NuxtLink>
-            <div class="mt-2 flex items-center justify-between">
+            <!-- mt-3 clears the touch pad `.mono-button` puts above Remove,
+                 so it can't overlap the row link's own hit area. -->
+            <div class="mt-3 flex items-center justify-between">
               <div class="flex flex-wrap gap-x-3">
                 <MonoLabel v-for="t in a.tags || []" :key="t">{{ t }}</MonoLabel>
               </div>
               <button
-                class="font-mono uppercase text-mute hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
-                style="font-size: 10px; letter-spacing: 0.16em;"
+                class="mono-button mono-button--danger"
                 @click="remove(a.id)"
               >&mdash; Remove</button>
             </div>

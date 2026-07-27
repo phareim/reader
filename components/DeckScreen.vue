@@ -14,13 +14,13 @@
         <ClientOnly>
           <span class="flex items-baseline gap-1.5" role="group" aria-label="View mode">
             <button
-              class="view-toggle font-mono uppercase"
+              class="view-toggle tap-pad--y font-mono uppercase"
               :class="viewMode === 'deck' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
               @click="setViewMode('deck')"
             >Deck</button>
             <span class="view-toggle text-mute">/</span>
             <button
-              class="view-toggle font-mono uppercase"
+              class="view-toggle tap-pad--y font-mono uppercase"
               :class="viewMode === 'grid' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
               @click="setViewMode('grid')"
             >Grid</button>
@@ -266,6 +266,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <style scoped>
+/* `tap-pad--y` in the template grows the pressable box vertically only — the
+   two words sit 6px apart, so a sideways pad would make them fight for taps. */
 .view-toggle {
   font-size: 10px;
   letter-spacing: 0.16em;

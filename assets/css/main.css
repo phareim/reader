@@ -22,6 +22,75 @@ html::-webkit-scrollbar {
   display: none; /* WebKit/Blink */
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Touch targets.
+
+   10px mono type gives a hit area about 12px tall — far under a thumb's
+   reach, and most of this app's secondary verbs are 10px mono type. Both
+   helpers below grow the *pressable* box with an absolutely-positioned
+   ::after, so nothing moves by a single pixel of layout.
+
+   Two rules when adding one. Grow vertically only where neighbours sit
+   closer than ~12px sideways (the reader's action row is 6px apart). And
+   leave enough margin that two pads never overlap — an overlap means taps
+   land on the wrong control, which is worse than a small target. A few
+   `mt-*` values in the pages exist to buy exactly that clearance.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Hit area on its own, for controls that already own their type and colour
+   (the deck's Deck/Grid toggle, the Shelf header's glyph links). */
+.tap-pad,
+.tap-pad--y {
+  position: relative;
+}
+.tap-pad::after,
+.tap-pad--y::after {
+  content: '';
+  position: absolute;
+  inset: -10px -6px;
+}
+/* Vertical only — for controls whose neighbours sit closer than 12px sideways. */
+.tap-pad--y::after {
+  inset: -10px 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The quiet mono text-button — the Tufte "verb without a box".
+
+   ActionLabel is the bordered button; this is its unframed sibling, used for
+   secondary row verbs (Remove, Dismiss, Sync, Tags, Sign out, …). It lived as
+   five near-identical scoped copies (`src-action`, `hl-remove`, `gr-remove`,
+   `disc-dismiss`, plus inline styles on the shelf and login), two of which had
+   drifted and lost their focus ring. One definition now, so a change to the
+   hover or focus language lands everywhere at once. Pages keep their semantic
+   hook class beside it — the component tests select on those names.
+   ─────────────────────────────────────────────────────────────────────────── */
+.mono-button {
+  position: relative;
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.15s ease;
+}
+.mono-button::after {
+  content: '';
+  position: absolute;
+  inset: -10px -6px;
+}
+/* For buttons that sit in a wrapping row (the highlights hashtag chips): half
+   the pad, so two chips on consecutive lines meet without their hit areas
+   overlapping — an overlap there means a tap lands on the wrong tag. */
+.mono-button--tight::after {
+  inset: -6px -6px;
+}
+.mono-button:hover { color: var(--text-strong); }
+.mono-button:focus-visible { outline: 1px solid var(--tufte-accent); }
+.mono-button:disabled { opacity: 0.35; pointer-events: none; }
+/* Destructive verbs answer in crimson rather than ink. */
+.mono-button--danger:hover { color: var(--text-accent); }
+
 .prose {
   overflow-wrap: break-word;
   word-break: break-word;
@@ -33,6 +102,22 @@ html::-webkit-scrollbar {
 .prose table {
   max-width: 100%;
   height: auto;
+}
+
+/* A hairline at the edge of every article image. Photographs arrive with
+   arbitrary borders — a pale sky bleeds straight into the paper and the image
+   loses its edge. The outline (not a border: no layout shift, no interaction
+   with the prose plugin's margins) is pure black / pure white at 10%, never a
+   warm neutral: a tinted line picks up the paper underneath and reads as dirt
+   along the edge. */
+.prose img {
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+@media (prefers-color-scheme: dark) {
+  .prose img {
+    outline-color: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .prose pre {
@@ -55,6 +140,46 @@ html::-webkit-scrollbar {
    is for where the voice is now. */
 ::highlight(tts-reading) {
   background-color: var(--accent-wash);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Line breaking. The measure is narrow (65ch) and the type is ET Book, so a
+   ragged last line shows badly: `balance` evens out the two or three lines of
+   a headline instead of leaving one word stranded, and `pretty` keeps body
+   paragraphs from ending on an orphan. Both degrade to nothing where the
+   browser doesn't support them.
+   ─────────────────────────────────────────────────────────────────────────── */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+.prose p,
+.prose li,
+.prose blockquote {
+  text-wrap: pretty;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Reduced motion. The deck's drag physics are JS-driven MotionValues (inline
+   transforms), so they are unaffected here by design — a card must still
+   follow the thumb. What this stills is the decorative layer: row reflows,
+   toast slides, feed-row collapses, and the cross-document view transition.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 /* The yellow pen — passages the reader marked. Tappable to read the note. */

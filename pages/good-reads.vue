@@ -22,9 +22,9 @@
             <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
             <p class="mt-1 text-sm text-mute">{{ excerpt(a.summary, 140) }}</p>
           </NuxtLink>
-          <div class="mt-2 flex justify-end">
+          <div class="mt-3 flex justify-end">
             <button
-              class="gr-remove"
+              class="gr-remove mono-button mono-button--danger"
               @click="remove(a.id)"
             >&mdash; Remove</button>
           </div>
@@ -79,14 +79,3 @@ async function remove(id: number) {
 onMounted(() => load())
 </script>
 
-<style scoped>
-.gr-remove {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.gr-remove:hover { color: var(--text-strong); }
-.gr-remove:focus-visible { outline: 1px solid var(--tufte-accent); }
-</style>

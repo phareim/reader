@@ -39,7 +39,7 @@
             <ActionLabel v-else accent :disabled="busy[row.id]" @click="add(row)">
               {{ busy[row.id] ? 'Adding…' : 'Add' }}
             </ActionLabel>
-            <button v-if="!added[row.id]" class="disc-dismiss" @click="dismiss(row)">&mdash; Dismiss</button>
+            <button v-if="!added[row.id]" class="disc-dismiss mono-button" @click="dismiss(row)">&mdash; Dismiss</button>
           </div>
         </li>
       </TransitionGroup>
@@ -154,15 +154,7 @@ onMounted(() => load())
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.disc-dismiss {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.disc-dismiss:hover { color: var(--text-strong); }
-.disc-dismiss:focus-visible { outline: 1px solid var(--tufte-accent); }
+/* Dismiss is `.mono-button` (assets/css/main.css). */
 .disc-leave-active { transition: opacity 0.15s ease; }
 .disc-leave-to { opacity: 0; }
 </style>

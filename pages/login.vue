@@ -1,5 +1,8 @@
 <template>
-  <main class="flex min-h-screen items-center justify-center px-5">
+  <!-- dvh, not vh: on iOS Safari `100vh` is the URL-bar-collapsed height, so a
+       vh-centred form sits low and the sign-in button can start below the
+       fold on first paint. -->
+  <main class="flex min-h-dvh items-center justify-center px-5">
     <div class="w-full max-w-sm">
       <MonoLabel dash>The Reader</MonoLabel>
       <h1 class="mt-2 text-3xl">{{ isSignUp ? 'Create account' : 'Sign in' }}</h1>
@@ -35,8 +38,7 @@
           <ActionLabel accent :disabled="loading" @click="handleSubmit">
             {{ loading ? 'Working…' : isSignUp ? 'Sign up' : 'Sign in' }}
           </ActionLabel>
-          <button type="button" class="font-mono uppercase text-mute"
-            style="font-size: 10px; letter-spacing: 0.16em;"
+          <button type="button" class="mono-button"
             @click="isSignUp = !isSignUp; error = null">
             {{ isSignUp ? 'Have an account?' : 'New here?' }}
           </button>

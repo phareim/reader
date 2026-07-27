@@ -4,9 +4,9 @@
       <header class="flex items-baseline justify-between">
         <ClientOnly>
           <div class="flex items-baseline gap-2">
-            <button class="src-action" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
+            <button class="mono-button" :disabled="atMin" aria-label="Smaller text" @click="decrease">A−</button>
             <MonoLabel>{{ textSize }}%</MonoLabel>
-            <button class="src-action" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
+            <button class="mono-button" :disabled="atMax" aria-label="Larger text" @click="increase">A+</button>
           </div>
         </ClientOnly>
         <MonoLabel class="inline-flex items-center gap-1.5">
@@ -61,15 +61,18 @@
             <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">
               {{ feedHealthNote(feed) }}
             </p>
-            <div class="mt-1.5 flex gap-4">
+            <!-- mt-2.5, not mt-1.5: the row verbs carry a 10px pad above them
+                 (.mono-button) so a thumb can reach them, and at 6px that pad
+                 would reach up into the feed title's own hit area. -->
+            <div class="mt-2.5 flex gap-4">
               <button
                 v-if="(feed.kind ?? 'rss') === 'rss'"
-                class="src-action"
+                class="mono-button"
                 @click="syncFeed(feed)"
               >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
-              <button class="src-action" @click="markRead(feed.id)">Mark read</button>
-              <button class="src-action" @click="editTags(feed)">Tags</button>
-              <button class="src-action hover:text-accent-ink" @click="confirmDelete(feed)">Delete</button>
+              <button class="mono-button" @click="markRead(feed.id)">Mark read</button>
+              <button class="mono-button" @click="editTags(feed)">Tags</button>
+              <button class="mono-button mono-button--danger" @click="confirmDelete(feed)">Delete</button>
             </div>
           </li>
         </TransitionGroup>
@@ -95,7 +98,7 @@
             </div>
             <div class="flex items-center gap-4">
               <ActionLabel v-if="link.lastError && !isUsernameSource(link.source)" accent @click="linkSource(link.source)">Relink</ActionLabel>
-              <button class="src-action" @click="unlinkSource(link.source)">Unlink</button>
+              <button class="mono-button" @click="unlinkSource(link.source)">Unlink</button>
             </div>
           </template>
           <template v-else-if="isUsernameSource(link.source)">
@@ -128,7 +131,7 @@
           <NuxtLink to="/mcp-settings"><MonoLabel>MCP</MonoLabel></NuxtLink>
           <template v-if="user">
             <MonoLabel>{{ user.email }}</MonoLabel>
-            <button class="src-action" @click="signOutAction">Sign out</button>
+            <button class="mono-button" @click="signOutAction">Sign out</button>
           </template>
           <NuxtLink v-else to="/login"><MonoLabel accent>Sign in</MonoLabel></NuxtLink>
         </div>
@@ -414,16 +417,9 @@ async function signOutAction() {
 </script>
 
 <style scoped>
-.src-action {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.src-action:hover { color: var(--text-strong); }
-.src-action:focus-visible { outline: 1px solid var(--tufte-accent); }
-.src-action:disabled { opacity: 0.35; pointer-events: none; }
+/* The row verbs (Sync / Mark read / Tags / Delete, A−/A+, Unlink, Sign out)
+   are `.mono-button` from assets/css/main.css — type, hover, focus ring and
+   touch pad in one place, shared with the other rooms. */
 
 /* Feed row removal: fade + collapse so a deleted feed leaves the list cleanly */
 .feed-row { transition: opacity .28s ease, transform .28s ease; }

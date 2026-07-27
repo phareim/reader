@@ -8,11 +8,11 @@
       <HairlineRule class="mt-3" />
 
       <!-- Hashtag filter — derived from #tags in the notes; one active at a time -->
-      <div v-if="allTags.length" class="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+      <div v-if="allTags.length" class="mt-4 flex flex-wrap gap-x-4 gap-y-3">
         <button
           v-for="t in allTags"
           :key="t"
-          class="tag-chip"
+          class="tag-chip mono-button mono-button--tight"
           :class="{ 'tag-chip-active': t === activeTag }"
           @click="toggleTag(t)"
         >#{{ t }}</button>
@@ -44,7 +44,7 @@
             <div class="flex items-baseline gap-4">
               <MonoLabel v-if="hl.sflIdeaId">In SFL</MonoLabel>
               <MonoLabel>{{ hl.createdAt ? formatRelativeDate(hl.createdAt) : '' }}</MonoLabel>
-              <button class="hl-remove" @click="remove(hl.id)">&mdash; Remove</button>
+              <button class="hl-remove mono-button mono-button--danger" @click="remove(hl.id)">&mdash; Remove</button>
             </div>
           </div>
         </li>
@@ -136,26 +136,11 @@ onMounted(() => load())
   -webkit-box-decoration-break: clone;
   padding: 0.05em 0.15em;
 }
-.tag-chip {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.tag-chip:hover { color: var(--text-strong); }
-.tag-chip:focus-visible { outline: 1px solid var(--tufte-accent); }
-.tag-chip-active {
+/* The chips and Remove are `.mono-button` (assets/css/main.css); the active
+   chip is this room's single accent. */
+.tag-chip-active,
+.tag-chip-active:hover {
   color: var(--tufte-accent);
   border-bottom: 1px solid var(--tufte-accent);
 }
-.hl-remove {
-  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.hl-remove:hover { color: var(--text-strong); }
-.hl-remove:focus-visible { outline: 1px solid var(--tufte-accent); }
 </style>
