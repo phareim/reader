@@ -78,7 +78,9 @@ const normHard = (text: string) => norm(text).replace(/[^\p{L}\p{N} ]/gu, '')
 const BLOCK_SELECTOR = 'p, div, h1, h2, h3, h4, h5, h6, li, figure, figcaption, blockquote'
 
 const blockText = (el: Element) => norm(el.textContent || '')
-const hasMedia = (el: Element) => !!el.querySelector('img')
+// Media keeps an otherwise text-less block alive through the empty-block sweep.
+// <video> counts: an X video card is a <p> whose only child is the player.
+const hasMedia = (el: Element) => !!el.querySelector('img, video')
 /** Blocks with visible text, in document order — the unit all rules work in. */
 const textBlocks = (root: HTMLElement) =>
   Array.from(root.querySelectorAll(BLOCK_SELECTOR)).filter((el) => blockText(el).length > 0)

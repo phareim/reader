@@ -46,7 +46,37 @@ const looksHeading = (s: string) =>
 const articleBody = (t: string) =>
   String(t || '').split(/\n+/).map((l) => l.trim()).filter(Boolean)
     .map((l) => (looksHeading(l) ? `<h2>${esc(l)}</h2>` : `<p>${esc(l)}</p>`)).join('\n')
-const mediaUrl = (m: any) => (m ? m.url || m.preview_image_url : null)
+// A still for lead/cover images — never an mp4. Raw X media objects carry `url`
+// only for photos; video/animated_gif carry `preview_image_url` + `variants`.
+const mediaUrl = (m: any) =>
+  m ? (m.type === 'photo' ? m.url : m.preview_image_url || m.url) || null : null
+
+// Highest-bitrate progressive mp4 from a video/animated_gif's `variants`.
+// Returns null when `variants` wasn't requested or holds only HLS.
+const bestMp4 = (m: any): string | null => {
+  const mp4s = (m?.variants || []).filter(
+    (v: any) => v?.content_type === 'video/mp4' && v.url
+  )
+  if (!mp4s.length) return null
+  mp4s.sort((a: any, b: any) => (b.bit_rate ?? 0) - (a.bit_rate ?? 0))
+  return mp4s[0].url
+}
+
+// One media entity → an HTML block: photos as <img>, video/gif as a real
+// <video> when an mp4 variant is available, else the still as a fallback.
+const mediaBlock = (m: any): string => {
+  if (!m) return ''
+  const alt = esc(m.alt_text || '')
+  if (m.type === 'video' || m.type === 'animated_gif') {
+    const mp4 = bestMp4(m)
+    if (mp4) {
+      const poster = m.preview_image_url ? ` poster="${esc(m.preview_image_url)}"` : ''
+      return `<p><video controls playsinline preload="metadata"${poster} src="${esc(mp4)}"></video></p>`
+    }
+    return m.preview_image_url ? `<p><img src="${esc(m.preview_image_url)}" alt="${alt}"></p>` : ''
+  }
+  return m.url ? `<p><img src="${esc(m.url)}" alt="${alt}"></p>` : ''
+}
 
 // Render a native X Article bookmark (long-form) from the `article` field.
 function renderArticle(t: any, { usersById, mediaByKey }: XIncludeMaps): FoundItem {
@@ -107,10 +137,8 @@ export function renderTweet(t: any, maps: XIncludeMaps): FoundItem {
 
   const mediaImgs = (t.attachments?.media_keys || [])
     .map((k: string) => mediaByKey.get(k)).filter(Boolean)
-    .map((m: any) => {
-      const u = m.url || m.preview_image_url
-      return u ? `<p><img src="${esc(u)}" alt="${esc(m.alt_text || '')}"></p>` : ''
-    })
+    .map(mediaBlock)
+    .filter(Boolean)
     .join('\n')
 
   const ctxBlock = (ref: any, labelPrefix: string) => {
@@ -149,7 +177,7 @@ export function renderTweet(t: any, maps: XIncludeMaps): FoundItem {
   const leadImg =
     (t.attachments?.media_keys || [])
       .map((k: string) => mediaByKey.get(k)).filter(Boolean)
-      .map((m: any) => m.url || m.preview_image_url).find(Boolean) || null
+      .map(mediaUrl).find(Boolean) || null
 
   return {
     source: 'x-bookmark',

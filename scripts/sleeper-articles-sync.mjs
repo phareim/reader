@@ -63,6 +63,7 @@ const args = process.argv.slice(2);
 const DRY = args.includes('--dry-run');
 const SEED = args.includes('--seed');
 const VERBOSE = args.includes('--verbose') || DRY;
+const SHOW_HTML = args.includes('--show-html');
 const PAGE_SIZE = Math.min(numFlag('--page-size', 50), 100);
 const MAX_PAGES = numFlag('--max-pages', 8);
 const MAX_ITEMS = numFlag('--max-items', 60);
@@ -196,13 +197,39 @@ function fmtDuration(sec) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
 }
 
+// One XMedia (doc.post_data.media[]) → an HTML block. `m.url` is the direct
+// image for photos but the highest-bitrate **mp4** for video/animated_gif, so
+// branching on m.type is mandatory — rendering a video's url as <img> yields a
+// permanently broken image.
+function mediaBlock(m) {
+  const alt = esc(m.alt_text || '');
+  if (m.type === 'video' || m.type === 'animated_gif') {
+    if (m.url) {
+      const poster = m.poster_url ? ` poster="${esc(m.poster_url)}"` : '';
+      return `<p><video controls playsinline preload="metadata"${poster} src="${esc(m.url)}"></video></p>`;
+    }
+    // No mp4 variant survived upstream — fall back to the still.
+    return m.poster_url ? `<p><img src="${esc(m.poster_url)}" alt="${alt}"></p>` : '';
+  }
+  return m.url ? `<p><img src="${esc(m.url)}" alt="${alt}"></p>` : '';
+}
+
+// Card lead image: a still, never an mp4. Photos give their url directly;
+// video/gif only ever contribute their poster.
+function postLeadImage(media) {
+  for (const m of media || []) {
+    const still = m.type === 'photo' ? m.url : m.poster_url;
+    if (still) return still;
+  }
+  return undefined;
+}
+
 function renderPostData(pd, url) {
   const a = pd.author || {};
   const handle = a.handle ? `@${a.handle}` : '';
   const date = pd.created_at ? new Date(pd.created_at).toISOString().slice(0, 10) : '';
   const text = pd.note_text || pd.text || '';
-  const media = (pd.media || []).map(m => m.url || m.poster_url).filter(Boolean)
-    .map(u => `<p><img src="${esc(u)}" alt=""></p>`).join('\n');
+  const media = (pd.media || []).map(mediaBlock).filter(Boolean).join('\n');
   const q = pd.quoted;
   const quoted = q
     ? `<blockquote><p><strong>❝ Quoting ${esc(q.author?.handle ? '@' + q.author.handle : '')}</strong></p>\n${paras(q.text || '')}</blockquote>`
@@ -214,7 +241,7 @@ function renderPostData(pd, url) {
     quoted,
     isHttp(url) ? `<p><a href="${esc(url)}">View on X →</a></p>` : '',
   ].filter(Boolean).join('\n');
-  return { html, imageUrl: (pd.media || []).map(m => m.url || m.poster_url).find(Boolean) };
+  return { html, imageUrl: postLeadImage(pd.media) };
 }
 
 // article row (from GET /:id) → Reader ingest item, or null to skip.
@@ -316,7 +343,14 @@ for (const id of freshIds.slice().reverse()) {
     failed++; console.error(`  ✗ fetch ${id}: ${e.message}`); continue;
   }
   if (!item) { skipped++; seen.add(String(id)); continue; }
-  if (DRY) { log(`  • [${item.source}] ${item.title}`); seen.add(String(id)); continue; }
+  if (DRY) {
+    log(`  • [${item.source}] ${item.title}`);
+    // --dry-run --show-html prints the body we would POST, so a rendering
+    // change (media blocks, lead image) can be eyeballed before it ships.
+    if (SHOW_HTML) log(`    imageUrl: ${item.imageUrl || '—'}\n${item.content}\n`);
+    seen.add(String(id));
+    continue;
+  }
   try {
     const r = await postIngest(item);
     if (r.ingested) ingested++; else dup++;

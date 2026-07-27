@@ -50,4 +50,44 @@ describe('processArticleContent', () => {
     expect(result).not.toContain('<script>')
     expect(result).toContain('x')
   })
+
+  it('keeps <video> playback markup (X video in the Found feed)', () => {
+    const html =
+      '<p><video controls playsinline preload="metadata" poster="https://a.example/p.jpg" src="https://a.example/v.mp4"></video></p>'
+    const result = processArticleContent(html)!
+    expect(result).toContain('<video')
+    expect(result).toContain('controls')
+    expect(result).toContain('playsinline')
+    expect(result).toContain('preload="metadata"')
+    expect(result).toContain('poster="https://a.example/p.jpg"')
+    expect(result).toContain('src="https://a.example/v.mp4"')
+  })
+
+  it('keeps <source> inside a video but drops autoplay', () => {
+    const html =
+      '<video controls autoplay><source src="https://a.example/v.mp4" type="video/mp4"></video>'
+    const result = processArticleContent(html)!
+    expect(result).toContain('<source')
+    expect(result).toContain('type="video/mp4"')
+    expect(result).toContain('controls')
+    expect(result).not.toContain('autoplay')
+  })
+
+  it('still strips iframes — the allowlist is video-only, not embed-wide', () => {
+    const result = processArticleContent(
+      '<p>before</p><iframe src="https://evil.example/frame"></iframe><p>after</p>'
+    )!
+    expect(result).not.toContain('<iframe')
+    expect(result).not.toContain('evil.example')
+    expect(result).toContain('before')
+    expect(result).toContain('after')
+  })
+
+  it('strips event handlers on video elements', () => {
+    const result = processArticleContent(
+      '<video controls onerror="evil()" src="https://a.example/v.mp4"></video>'
+    )!
+    expect(result).not.toContain('onerror')
+    expect(result).toContain('<video')
+  })
 })

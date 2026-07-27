@@ -33,10 +33,19 @@ export function processArticleContent(
       'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'hr',
       'blockquote', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'img', 'figure', 'figcaption',
+      // Self-hosted playback only (X video, mainly — see server/utils/xRender.ts
+      // and scripts/sleeper-articles-sync.mjs). Deliberately NOT <iframe>: this
+      // is the only sanitization layer and Reader ingests arbitrary RSS, so an
+      // iframe allowance would open every feed to third-party frames. Also no
+      // 'autoplay' — 'controls' means playback is always user-initiated.
+      'video', 'source',
       'table', 'thead', 'tbody', 'tr', 'th', 'td', 'caption',
       'div', 'span'
     ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'srcset', 'sizes', 'loading']
+    ALLOWED_ATTR: [
+      'href', 'src', 'alt', 'title', 'class', 'srcset', 'sizes', 'loading',
+      'controls', 'poster', 'playsinline', 'preload', 'muted', 'type'
+    ]
   })
 
   // Create a temporary div to parse the sanitized HTML

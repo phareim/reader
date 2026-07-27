@@ -39,8 +39,14 @@ export function readingTimeMinutes(html: string | null | undefined): number | nu
   return Math.ceil(words / WPM)
 }
 
+// A card lead image is an <img src>. Video renditions (X used to leak the mp4
+// of a bookmarked video in here) can never render, so treat them as "no image"
+// and let the typographic card head take over. Guards the pre-fix backlog,
+// whose rows are idempotent on guid and so never re-ingested.
+const VIDEO_URL = /\.(mp4|m3u8|webm|mov)(\?|#|$)/i
+
 export function cardImageUrl(url: string | null | undefined): string | null {
-  if (!url || FILLER_IMAGE.test(url)) return null
+  if (!url || FILLER_IMAGE.test(url) || VIDEO_URL.test(url)) return null
   // Legacy rows stored the src straight out of raw feed HTML, where `&` is
   // entity-encoded (`&amp;` / WordPress's `&#038;`). That mangles every query
   // param after the first, so CDNs serve the un-resized master asset — big

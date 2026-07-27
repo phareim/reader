@@ -35,6 +35,19 @@ describe('cardImageUrl', () => {
     expect(cardImageUrl(undefined)).toBeNull()
   })
 
+  it.each([
+    'https://video.twimg.com/ext_tw_video/1/pu/vid/720x1280/abc.mp4',
+    'https://video.twimg.com/ext_tw_video/1/pu/pl/abc.m3u8?tag=12',
+    'https://cdn.example.com/clip.webm',
+  ])('rejects video renditions that can never render as <img>: %s', (url) => {
+    expect(cardImageUrl(url)).toBeNull()
+  })
+
+  it('does not mistake a still whose path merely mentions a video format', () => {
+    expect(cardImageUrl('https://cdn.example.com/mp4-poster/lead.jpg'))
+      .toBe('https://cdn.example.com/mp4-poster/lead.jpg')
+  })
+
   it('repairs legacy entity-encoded ampersands (broken query params serve the master asset)', () => {
     expect(cardImageUrl('https://cdn.example.com/pic.jpg?quality=90&#038;strip=all&#038;w=1200'))
       .toBe('https://cdn.example.com/pic.jpg?quality=90&strip=all&w=1200')

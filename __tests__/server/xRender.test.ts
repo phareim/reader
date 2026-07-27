@@ -95,6 +95,57 @@ describe('renderTweet', () => {
     expect(item.content).toContain('src="https://img.example/b.jpg"')
   })
 
+  it('renders a video as <video> with the highest-bitrate mp4 and a poster', () => {
+    const item = renderTweet(
+      {
+        id: '105',
+        author_id: 'u1',
+        text: 'clip',
+        attachments: { media_keys: ['v1'] },
+      },
+      maps({
+        media: [
+          {
+            media_key: 'v1',
+            type: 'video',
+            preview_image_url: 'https://img.example/poster.jpg',
+            variants: [
+              { content_type: 'application/x-mpegURL', url: 'https://vid.example/x.m3u8' },
+              { content_type: 'video/mp4', bit_rate: 832000, url: 'https://vid.example/low.mp4' },
+              { content_type: 'video/mp4', bit_rate: 2176000, url: 'https://vid.example/hi.mp4' },
+            ],
+          },
+        ],
+      })
+    )
+    expect(item.content).toContain('<video controls playsinline preload="metadata"')
+    expect(item.content).toContain('poster="https://img.example/poster.jpg"')
+    expect(item.content).toContain('src="https://vid.example/hi.mp4"')
+    expect(item.content).not.toContain('low.mp4')
+    expect(item.content).not.toContain('.m3u8')
+    // the card lead image is a still, never the mp4
+    expect(item.imageUrl).toBe('https://img.example/poster.jpg')
+  })
+
+  it('falls back to the still when a video carries no mp4 variant', () => {
+    const item = renderTweet(
+      { id: '106', author_id: 'u1', text: 'gif', attachments: { media_keys: ['g1'] } },
+      maps({
+        media: [
+          {
+            media_key: 'g1',
+            type: 'animated_gif',
+            preview_image_url: 'https://img.example/gif.jpg',
+            variants: [{ content_type: 'application/x-mpegURL', url: 'https://vid.example/x.m3u8' }],
+          },
+        ],
+      })
+    )
+    expect(item.content).toContain('<img src="https://img.example/gif.jpg"')
+    expect(item.content).not.toContain('<video')
+    expect(item.imageUrl).toBe('https://img.example/gif.jpg')
+  })
+
   it('keeps external links but drops media/status self-links, deduped', () => {
     const item = renderTweet(
       {

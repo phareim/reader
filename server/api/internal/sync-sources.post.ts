@@ -164,7 +164,9 @@ const X_PARAMS = {
   'tweet.fields':
     'id,text,note_tweet,article,created_at,lang,entities,referenced_tweets,attachments,conversation_id',
   'user.fields': 'id,name,username',
-  'media.fields': 'media_key,type,url,preview_image_url,alt_text',
+  // `variants` carries the progressive mp4 renditions — without it a bookmarked
+  // video can only ever render as its still (see mediaBlock in utils/xRender.ts).
+  'media.fields': 'media_key,type,url,preview_image_url,alt_text,duration_ms,variants',
 }
 
 async function syncX(event: any, row: LinkedSourceRow): Promise<number> {
