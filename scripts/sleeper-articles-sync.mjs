@@ -145,6 +145,9 @@ function inline(raw) {
   s = esc(s);
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, alt, url) => `<img src="${url}" alt="${alt}">`);
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, t, url) => `<a href="${url}">${t}</a>`);
+  // Autolink bare URLs (LLM-composed digests often paste them raw). Skips
+  // URLs already inside an <a>/<img> emitted above via the href/src quote.
+  s = s.replace(/(^|[^">])(https?:\/\/[^\s<>"]+?)(?=[.,;:!?)]*(?:\s|$))/g, (_, pre, url) => `${pre}<a href="${url}">${url}</a>`);
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
   // _underscore emphasis_, but only when whitespace-flanked — snake_case
