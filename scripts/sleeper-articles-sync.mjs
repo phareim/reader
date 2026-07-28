@@ -14,7 +14,8 @@
  *      PAGE_SIZE / MAX_PAGES / MAX_ITEMS),
  *   2. fetches each new article's full doc (GET /:id — the list view strips
  *      content_md/embed_html), renders it to HTML by kind (Markdown→HTML for
- *      articles/digests, a media card for videos, a post card for X posts),
+ *      articles/digests, a media card for videos, a post card for X posts;
+ *      digests re-push with `replace: true` since they are rewritten upstream),
  *   3. POSTs each to the Reader's generic /api/ingest seam as
  *      source=sleeper-articles, externalId=<article id> (guid idempotent).
  *
@@ -146,6 +147,10 @@ function inline(raw) {
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_, t, url) => `<a href="${url}">${t}</a>`);
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/__([^_]+)__/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+  // _underscore emphasis_, but only when whitespace-flanked — snake_case
+  // identifiers and the underscores inside an already-rewritten <a href="…">
+  // never are, so they survive untouched.
+  s = s.replace(/(^|\s)_([^_\n]+)_(?=[\s.,!?;:)]|$)/g, '$1<em>$2</em>');
   s = s.replace(/(\d+)/g, (_, i) => `<code>${esc(codes[i])}</code>`);
   return s;
 }
@@ -288,6 +293,11 @@ function renderArticle(a) {
     summary,
     imageUrl: isHttp(imageUrl) ? imageUrl : undefined,
     publishedAt,
+    // A digest is upserted upstream (POST /digest is idempotent per week), so a
+    // re-push carries a *rewritten* essay under an id the Reader already knows.
+    // Rebuild that card in place and return it to unread, like ai-digest does;
+    // every other kind is immutable once ready, so a re-send stays a no-op.
+    ...(a.kind === 'digest' ? { replace: true } : {}),
   };
 }
 
@@ -332,7 +342,7 @@ if (SEED) {
 
 log(`\n${freshIds.length} new article(s) to ingest${DRY ? ' (dry-run)' : ''}`);
 
-let ingested = 0, dup = 0, failed = 0, skipped = 0;
+let ingested = 0, dup = 0, failed = 0, skipped = 0, replaced = 0;
 // oldest-first so, if a run is truncated, the newest stay pending for next time.
 for (const id of freshIds.slice().reverse()) {
   let item;
@@ -353,7 +363,7 @@ for (const id of freshIds.slice().reverse()) {
   }
   try {
     const r = await postIngest(item);
-    if (r.ingested) ingested++; else dup++;
+    if (r.ingested) ingested++; else if (r.replaced) replaced++; else dup++;
     seen.add(String(id));
   } catch (e) {
     failed++; console.error(`  ✗ ingest ${id}: ${e.message}`);
@@ -368,4 +378,4 @@ if (!DRY) {
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 
-console.error(`done — ingested ${ingested}, already-known ${dup}, unrenderable ${skipped}, failed ${failed}, pages ${page}`);
+console.error(`done — ingested ${ingested}, rebuilt ${replaced}, already-known ${dup}, unrenderable ${skipped}, failed ${failed}, pages ${page}`);
