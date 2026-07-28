@@ -2,8 +2,35 @@ import { extractFromXml } from '@extractus/feed-extractor'
 import { extractImageUrl } from './feedImage'
 import { decodeFeedBody } from './feedCharset'
 import { rigForUrl } from './feedRigs'
+import { bridgeSectionForUrl, buildBridgeXml } from './anthropicBridge'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
+
+/**
+ * The feed XML for a URL. Our own Anthropic bridge feeds are built
+ * in-process — a Cloudflare Worker cannot fetch its own hostname, so an
+ * HTTP round-trip to /api/bridge/… would fail from inside feed sync.
+ */
+async function fetchFeedXml(url: string): Promise<string> {
+  const bridgeSection = bridgeSectionForUrl(url)
+  if (bridgeSection) return buildBridgeXml(bridgeSection)
+
+  // Fetch + decode ourselves instead of letting feed-extractor do it: its
+  // charset parsing chokes on malformed Content-Type headers like The
+  // Oatmeal's `…; charset=ISO-8859-1; filename=feed.xml`.
+  const res = await fetch(url, {
+    headers: {
+      Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+      'User-Agent': 'Mozilla/5.0 (compatible; TheReader/1.0; +https://reader.phareim.no)'
+    },
+    signal: AbortSignal.timeout(fetchTimeout)
+  })
+  if (!res.ok) {
+    // Keep feed-extractor's historical message shape (stored in Feed.last_error).
+    throw new Error(`Request failed with error code ${res.status}`)
+  }
+  return decodeFeedBody(await res.arrayBuffer(), res.headers.get('content-type'))
+}
 
 export interface ParsedFeed {
   title: string
@@ -105,21 +132,7 @@ function normalizeDate(dateStr: string | undefined): Date | undefined {
  */
 export async function parseFeed(url: string): Promise<ParsedFeed> {
   try {
-    // Fetch + decode ourselves instead of letting feed-extractor do it: its
-    // charset parsing chokes on malformed Content-Type headers like The
-    // Oatmeal's `…; charset=ISO-8859-1; filename=feed.xml`.
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-        'User-Agent': 'Mozilla/5.0 (compatible; TheReader/1.0; +https://reader.phareim.no)'
-      },
-      signal: AbortSignal.timeout(fetchTimeout)
-    })
-    if (!res.ok) {
-      // Keep feed-extractor's historical message shape (stored in Feed.last_error).
-      throw new Error(`Request failed with error code ${res.status}`)
-    }
-    const xml = decodeFeedBody(await res.arrayBuffer(), res.headers.get('content-type'))
+    const xml = await fetchFeedXml(url)
 
     const feed = extractFromXml(xml, {
       normalization: true,

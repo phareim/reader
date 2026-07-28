@@ -5,8 +5,24 @@ import {
   parseAlignmentHome,
   renderBridgeRss,
   decodeFlightPayload,
+  bridgeSectionForUrl,
   BRIDGE_ITEM_CAP
 } from '~/server/utils/anthropicBridge'
+
+describe('bridgeSectionForUrl', () => {
+  it('recognizes our own bridge feed URLs (a Worker cannot fetch itself)', () => {
+    expect(bridgeSectionForUrl('https://reader.phareim.no/api/bridge/anthropic/news')).toBe('news')
+    expect(bridgeSectionForUrl('https://reader.phareim.no/api/bridge/anthropic/engineering/')).toBe('engineering')
+    expect(bridgeSectionForUrl('http://localhost:3000/api/bridge/anthropic/alignment')).toBe('alignment')
+  })
+
+  it('ignores foreign hosts, unknown sections, and junk', () => {
+    expect(bridgeSectionForUrl('https://example.com/api/bridge/anthropic/news')).toBeNull()
+    expect(bridgeSectionForUrl('https://reader.phareim.no/api/bridge/anthropic/red')).toBeNull()
+    expect(bridgeSectionForUrl('https://transformer-circuits.pub/feed.xml')).toBeNull()
+    expect(bridgeSectionForUrl('not a url')).toBeNull()
+  })
+})
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../fixtures', name), 'utf8')
 

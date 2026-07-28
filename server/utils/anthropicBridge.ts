@@ -200,6 +200,68 @@ function resolveHttp(value: string, base: string): string | null {
   }
 }
 
+export type BridgeSection = 'news' | 'engineering' | 'alignment'
+
+export const BRIDGE_SECTIONS: Record<BridgeSection, { url: string; title: string; parse: (html: string) => BridgeItem[] }> = {
+  news: {
+    url: 'https://www.anthropic.com/news',
+    title: 'Anthropic News',
+    parse: (html) => parseAnthropicListing(html, 'news')
+  },
+  engineering: {
+    url: 'https://www.anthropic.com/engineering',
+    title: 'Anthropic Engineering',
+    parse: (html) => parseAnthropicListing(html, 'engineering')
+  },
+  alignment: {
+    url: 'https://alignment.anthropic.com/',
+    title: 'Anthropic Alignment Science',
+    parse: (html) => parseAlignmentHome(html)
+  }
+}
+
+// Hosts on which a bridge feed URL points back at THIS app. A Cloudflare
+// Worker cannot fetch its own hostname (self-subrequests are blocked), so
+// feed sync must recognize these URLs and build the XML in-process instead.
+const OWN_HOSTS = new Set(['reader.phareim.no', 'localhost', '127.0.0.1'])
+
+/** The bridge section a subscribed feed URL refers to, when it is ours. */
+export function bridgeSectionForUrl(feedUrl: string): BridgeSection | null {
+  try {
+    const url = new URL(feedUrl)
+    if (!OWN_HOSTS.has(url.hostname.toLowerCase())) return null
+    const m = url.pathname.match(/^\/api\/bridge\/anthropic\/(news|engineering|alignment)\/?$/)
+    return (m?.[1] as BridgeSection) ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetch the section's upstream listing and render it as RSS. Throws on
+ * upstream failure or an empty parse (markup drift) so both the route and
+ * feed sync surface the error instead of silently serving nothing.
+ */
+export async function buildBridgeXml(section: BridgeSection): Promise<string> {
+  const config = BRIDGE_SECTIONS[section]
+  const response = await fetch(config.url, {
+    signal: AbortSignal.timeout(Number(process.env.FETCH_TIMEOUT) || 30000),
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; TheLibrarian/1.0; RSS Reader)',
+      Accept: 'text/html'
+    }
+  })
+  if (!response.ok) throw new Error(`Upstream ${response.status} from ${config.url}`)
+
+  const items = config.parse(await response.text())
+  if (items.length === 0) throw new Error(`No items parsed from ${config.url}`)
+
+  return renderBridgeRss(
+    { title: config.title, link: config.url, description: `${config.title} (bridged by The Librarian)` },
+    items
+  )
+}
+
 export interface BridgeChannel {
   title: string
   link: string
