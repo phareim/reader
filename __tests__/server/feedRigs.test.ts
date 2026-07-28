@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { rigForUrl } from '~/server/utils/feedRigs'
+import { anthropicRig } from '~/server/utils/feedRigs/anthropic'
 import { smbcRig } from '~/server/utils/feedRigs/smbc'
 import { oglafRig } from '~/server/utils/feedRigs/oglaf'
 import { daringFireballRig } from '~/server/utils/feedRigs/daringfireball'
@@ -345,5 +348,57 @@ describe('pluralisticRig (trimPluralisticBody)', () => {
     expect(rigged.content).not.toContain('ISSN')
     const plain = baseItem({ content: '<p>A one-off post with no sections.</p>' })
     expect(pluralisticRig.entry!(plain)).toBe(plain)
+  })
+})
+
+describe('anthropicRig', () => {
+  const pageHtml = readFileSync(join(__dirname, '../fixtures/anthropic-news-article.html'), 'utf8')
+  const pageUrl = 'https://www.anthropic.com/news/redeploying-fable-5'
+  const extract = (html: string, url = pageUrl) =>
+    anthropicRig.extract!({ url, html, fetchPage: async () => null })
+
+  it('matches anthropic.com with and without www', () => {
+    expect(rigForUrl('https://www.anthropic.com/news/claude-opus-5')?.id).toBe('anthropic')
+    expect(rigForUrl('https://anthropic.com/engineering/managed-agents')?.id).toBe('anthropic')
+  })
+
+  it('keeps the prose and drops the related-content tail', async () => {
+    const result = await extract(pageHtml)
+    expect(result).toBeTruthy()
+    expect(result!.html).toContain('the US government applied export controls')
+    expect(result!.html).not.toContain('Related content')
+    expect(result!.html).not.toContain('<svg')
+  })
+
+  it('rewrites the update banner as prose', async () => {
+    const result = await extract(pageHtml)
+    expect(result!.html).toContain('<p><em>Update (Jul 1, 2026):')
+    expect(result!.html).toContain('now restored')
+    expect(result!.html).not.toContain('LatestUpdates')
+  })
+
+  it('re-attaches the footnotes from outside the article', async () => {
+    const result = await extract(pageHtml)
+    expect(result!.html).toContain('<h2>Footnotes</h2>')
+    expect(result!.html).toContain('For standard Enterprise seats')
+    // in-text markers still present
+    expect(result!.html).toMatch(/<sup>1<\/sup>/)
+  })
+
+  it('unwraps /_next/image proxies and strips presentation attributes', async () => {
+    const result = await extract(pageHtml)
+    expect(result!.html).not.toContain('/_next/image')
+    expect(result!.html).not.toContain('srcset')
+    expect(result!.html).not.toContain('class="')
+  })
+
+  it('takes the lead image from og:image', async () => {
+    const result = await extract(pageHtml)
+    expect(result!.imageUrl).toMatch(/^https:\/\/cdn\.sanity\.io\//)
+  })
+
+  it('fails soft on pages without an article element or with a thin one', async () => {
+    expect(await extract('<html><body><main>marketing page</main></body></html>')).toBeNull()
+    expect(await extract('<html><body><article><p>thin</p></article></body></html>')).toBeNull()
   })
 })
