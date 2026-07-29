@@ -76,6 +76,7 @@ import {
   DECK,
   resolveDirection,
   advance,
+  retreat,
   undo as undoDeck,
   type DeckDirection,
   type DeckHistoryEntry,
@@ -327,11 +328,17 @@ async function performUndo() {
   }
 }
 
-/** Open the reader for the current top card (keyboard `o` / `Enter`). */
+/** Open the reader for the current top card (keyboard `o` / `e` / `Enter`). */
 function openTop() {
   const id = deckIds.value[0]
   if (id && !busy.value) navigateTo(`/article/${id}`)
 }
 
-defineExpose({ commit, undo: performUndo, openTop })
+/** Bring the back card to the front (keyboard `k` — the inverse of skip). */
+function retreatTop() {
+  if (busy.value || dragging.value) return
+  deckIds.value = retreat(deckIds.value)
+}
+
+defineExpose({ commit, undo: performUndo, openTop, retreat: retreatTop })
 </script>

@@ -19,8 +19,8 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 
 ## Current suites
 
-- `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `undo`)
-- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId` forward-scan/wraparound/read+saved skipping/no-context null)
+- `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `retreat` skip-inverse rotation, `undo`)
+- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId`/`prevUnreadId` forward/backward-scan/wraparound/read+saved skipping/no-context null)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
 - `__tests__/server/xRender.test.ts` — X bookmark → Found-item rendering (`server/utils/xRender.ts`): author line/escaping/note_tweet, quoted + replied-to context blocks, media + lead image, video rendering (`<video>` off the highest-bitrate mp4 variant, HLS ignored, still-only fallback, poster-not-mp4 lead image), link filtering/dedupe, native X Article rendering incl. the heading heuristic

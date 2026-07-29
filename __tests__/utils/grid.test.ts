@@ -1,4 +1,4 @@
-import { GRID, resolveGridDirection, nextPageOffset, nextUnreadId, dedupeAppend } from '~/utils/grid'
+import { GRID, resolveGridDirection, nextPageOffset, nextUnreadId, prevUnreadId, dedupeAppend } from '~/utils/grid'
 import type { Article } from '~/types'
 
 describe('resolveGridDirection', () => {
@@ -136,5 +136,41 @@ describe('nextUnreadId', () => {
   it('returns null when the current article is not in the list (no deck context)', () => {
     expect(nextUnreadId([row(1), row(2)], new Set(), 99)).toBeNull()
     expect(nextUnreadId([], new Set(), 1)).toBeNull()
+  })
+})
+
+describe('prevUnreadId', () => {
+  it('returns the unread article before the current one', () => {
+    expect(prevUnreadId([row(1), row(2), row(3, true)], new Set(), 2)).toBe(1)
+  })
+
+  it('skips read articles on the way backward', () => {
+    expect(prevUnreadId([row(1), row(2, true), row(3, true), row(4)], new Set(), 4)).toBe(1)
+  })
+
+  it('skips saved articles — they have left the deck', () => {
+    expect(prevUnreadId([row(1), row(2), row(3)], new Set([2]), 3)).toBe(1)
+  })
+
+  it('wraps past the top when the current article is first', () => {
+    expect(prevUnreadId([row(1), row(2, true), row(3)], new Set(), 1)).toBe(3)
+  })
+
+  it('never returns the current article itself', () => {
+    expect(prevUnreadId([row(1, true), row(2)], new Set(), 2)).toBeNull()
+  })
+
+  it('returns null when nothing unread and unsaved remains', () => {
+    expect(prevUnreadId([row(1, true), row(2, true), row(3)], new Set([3]), 1)).toBeNull()
+  })
+
+  it('returns null when the current article is not in the list (no deck context)', () => {
+    expect(prevUnreadId([row(1), row(2)], new Set(), 99)).toBeNull()
+    expect(prevUnreadId([], new Set(), 1)).toBeNull()
+  })
+
+  it('is nextUnreadId\'s inverse on an all-unread deck', () => {
+    const deck = [row(1), row(2), row(3)]
+    expect(prevUnreadId(deck, new Set(), nextUnreadId(deck, new Set(), 2)!)).toBe(2)
   })
 })

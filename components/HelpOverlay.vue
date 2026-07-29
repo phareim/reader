@@ -37,7 +37,8 @@ const emit = defineEmits<{ close: [] }>()
 // the card (r, g, w and l all shipped without ever reaching this list).
 const readerKeys = [
   ['esc (reader)', 'Back'],
-  ['r (reader)', 'Mark read, on to the next'],
+  ['r / x (reader)', 'Mark read, on to the next'],
+  ['j / k (reader)', 'Next · previous unread'],
   ['s / e / v (reader)', 'Save · Elevate · Original'],
   ['h (reader)', 'Highlight selection'],
   ['g (reader)', 'Mark a good read'],
@@ -45,11 +46,12 @@ const readerKeys = [
 ]
 
 const deckKeys = [
-  ['←', 'Mark read'],
+  ['← / x', 'Mark read'],
   ['→', 'Save to the shelf'],
   ['↑', 'Elevate to SFL'],
-  ['↓', 'Skip — back of the deck'],
-  ['o / Enter / tap', 'Open the reader'],
+  ['↓ / j', 'Skip — back of the deck'],
+  ['k', 'Bring the previous card back'],
+  ['o / e / Enter / tap', 'Open the reader'],
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],

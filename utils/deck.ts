@@ -93,6 +93,17 @@ export function advance(
 }
 
 /**
+ * Rotate the back card to the front — the inverse of a skip (`k` on the
+ * deck). Pure navigation: no verb happens, so no history entry; undo entries
+ * reference cards by id and survive any rotation. A deck of 0 or 1 cards is
+ * returned unchanged.
+ */
+export function retreat(deck: readonly string[]): string[] {
+  if (deck.length < 2) return [...deck]
+  return [deck[deck.length - 1], ...deck.slice(0, -1)]
+}
+
+/**
  * Undo the most recent entry: the card returns to the top of the deck (for
  * skips the back-copy is removed first so it never appears twice). Callers
  * reverse the corresponding API effect using the returned entry.

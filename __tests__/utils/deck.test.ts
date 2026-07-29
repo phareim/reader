@@ -1,6 +1,7 @@
 import {
   resolveDirection,
   advance,
+  retreat,
   undo,
   DECK,
   type DeckHistoryEntry,
@@ -65,6 +66,22 @@ describe('advance', () => {
     const { deck: next, entry } = advance([], 'right')
     expect(next).toEqual([])
     expect(entry).toBeNull()
+  })
+})
+
+describe('retreat', () => {
+  it('rotates the back card to the front', () => {
+    expect(retreat(['a', 'b', 'c'])).toEqual(['c', 'a', 'b'])
+  })
+
+  it('is the inverse of a skip', () => {
+    const { deck: skipped } = advance(['a', 'b', 'c'], 'down')
+    expect(retreat(skipped)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('is a no-op on decks of 0 or 1 cards', () => {
+    expect(retreat([])).toEqual([])
+    expect(retreat(['a'])).toEqual(['a'])
   })
 })
 

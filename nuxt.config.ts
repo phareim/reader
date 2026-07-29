@@ -96,8 +96,14 @@ export default defineNuxtConfig({
       ]
     },
     workbox: {
-      navigateFallback: '/',
-      navigateFallbackDenylist: [/^\/auth\//, /^\/api\//],
+      // NO navigateFallback: with `'/'` the SW answered EVERY hard navigation
+      // (refresh, deep link) with the precached home shell — whose SSR payload
+      // says path '/' — and Nuxt initializes the router from payload.path, so
+      // /comics, /shelf, or /article/… rendered the bare home deck instead.
+      // Navigations go NetworkFirst below: online gets the real SSR page,
+      // offline falls back to the last cached copy of that URL. '/' itself
+      // stays precached, so a cold offline PWA launch still boots.
+      navigateFallback: null,
       // The SSR'd shell changes every deploy — see buildRevision above.
       additionalManifestEntries: [
         { url: '/', revision: buildRevision }
@@ -106,6 +112,24 @@ export default defineNuxtConfig({
       // Workbox tests urlPattern regexes against the FULL request URL
       // (https://…), so path-anchored /^\/api\/…/ patterns never match.
       runtimeCaching: [
+        {
+          // Page navigations (the precache route claims '/' first). /api/ is
+          // excluded so OAuth redirect dances are never cached.
+          urlPattern: ({ request, url }: { request: Request; url: URL }) =>
+            request.mode === 'navigate' && !url.pathname.startsWith('/api/'),
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'pages-cache',
+            networkTimeoutSeconds: 5,
+            expiration: {
+              maxEntries: 50,
+              maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+            },
+            cacheableResponse: {
+              statuses: [0, 200]
+            }
+          }
+        },
         {
           urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/api/articles'),
           handler: 'NetworkFirst',

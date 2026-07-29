@@ -17,7 +17,7 @@ logic behind them in [`../utils/CLAUDE.md`](../utils/CLAUDE.md).
 - `FeedFavicon.vue` - a feed's tiny favicon (`Feed.favicon_url`, Google S2) beside its name — quiet per-feed differentiation on Sources rows, deck/grid cards, and shelf rows; renders nothing when the URL is missing or fails to load (`size` prop, default 12px)
 
 **Card deck** (`components/stack/`) — the reading entrance:
-- `CardStack.vue` - owns the deck state + motion-v physics, performs the five verbs, exposes `commit(direction)`, `undo()`, and `openTop()` to the page
+- `CardStack.vue` - owns the deck state + motion-v physics, performs the five verbs, exposes `commit(direction)`, `undo()`, `openTop()`, and `retreat()` (the skip-inverse rotation, keyboard `k`) to the page
 - `ArticleCard.vue` - a single card (`CardFrame`): full-bleed hero with overlaid headline when an image exists, typographic head otherwise; excerpt + reading time
 - `DeckEmptyState.vue` - "all caught up" + Sync all
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
@@ -54,7 +54,7 @@ Components communicate via:
 - **Props** - Parent to child data flow
 - **Emits** - Child to parent events (e.g. CardStack's `@sync` / `@count`)
 - **Composables** - Shared global state (preferred over prop drilling)
-- **`defineExpose`** - The page drives CardStack imperatively (`commit` / `undo` / `openTop`) so keys and gestures share one path
+- **`defineExpose`** - The page drives CardStack imperatively (`commit` / `undo` / `openTop` / `retreat`) so keys and gestures share one path
 
 ## Styling notes
 
@@ -86,11 +86,11 @@ The entire UX is a ground-up build in the **Tufte Viz design system** (warm pape
 
 | Gesture / key | Verb | Implementation |
 |---|---|---|
-| swipe ← / `←` | **Mark read** | optimistic: fling, advance, `markAsRead(id, true).catch(toast)` |
+| swipe ← / `←` / `x` | **Mark read** | optimistic: fling, advance, `markAsRead(id, true).catch(toast)` |
 | swipe → / `→` | **Save** (shelf) | optimistic: fling, advance, `saveArticle().catch(toast)` |
 | swipe ↑ / `↑` | **Elevate** to SFL | **non-optimistic**: card holds mid-air awaiting SFL, springs back on failure; on success also marks read |
-| swipe ↓ / `↓` | **Skip** | `advance` rotates the id to the back of the deck (no API call) |
-| tap / `o` / `Enter` | **Open** the reader | navigate `/article/:id` (non-destructive, card stays) |
+| swipe ↓ / `↓` / `j` | **Skip** | `advance` rotates the id to the back of the deck (no API call) |
+| tap / `o` / `e` / `Enter` | **Open** the reader | navigate `/article/:id` (non-destructive, card stays) |
 
 `u` / the `— UNDO` toast reverses the last destructive verb: unsave, mark-unread, or un-elevate (which deletes the SFL idea **only** when the elevate created it — `ideaExisting` entries are left alone — then marks unread).
 

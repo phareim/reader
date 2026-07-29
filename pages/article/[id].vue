@@ -247,7 +247,7 @@ import { looksLikePlainText } from '~/utils/paragraphize'
 import { looksTruncated } from '~/utils/truncation'
 import { xShareUrl, threadsShareUrl } from '~/utils/share'
 import { tokenizeWords } from '~/utils/rsvp'
-import { nextUnreadId } from '~/utils/grid'
+import { nextUnreadId, prevUnreadId } from '~/utils/grid'
 
 // Key by path so navigating article → next article mounts a fresh instance
 // (Vue Router reuses the component on a param-only change, which would leave
@@ -460,6 +460,18 @@ async function markReadAndReturn() {
   }
 }
 
+/**
+ * j / k step to the next / previous unread article in the deck context
+ * without marking anything read. Same `replace: true` rule as `r`: browsing
+ * five articles still leaves Back pointing at the deck. Quiet no-op outside
+ * a deck context or with nothing else unread.
+ */
+function goToAdjacent(dir: 1 | -1) {
+  const find = dir === 1 ? nextUnreadId : prevUnreadId
+  const targetId = find(contextArticles.value, savedArticleIds.value, id)
+  if (targetId !== null) navigateTo(`/article/${targetId}`, { replace: true })
+}
+
 function openOriginal() {
   if (article.value?.url) window.open(article.value.url, '_blank', 'noopener')
 }
@@ -492,7 +504,9 @@ function onKey(e: KeyboardEvent) {
   }
   if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); goBack() }
   else if (e.key === 's') toggleSaveAction()
-  else if (e.key === 'r') markReadAndReturn()
+  else if (e.key === 'r' || e.key === 'x') markReadAndReturn()
+  else if (e.key === 'j') goToAdjacent(1)
+  else if (e.key === 'k') goToAdjacent(-1)
   else if (e.key === 'e') elevateAction()
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'g') toggleGoodReadAction()

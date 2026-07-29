@@ -26,12 +26,13 @@ Pure logic: [`../utils/CLAUDE.md`](../utils/CLAUDE.md).
 
 There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable).
 
-**Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes:
-- `←` - Mark the top card read
+**Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes; `x`/`j`/`k`/`e` are the mail-reader-idiom aliases (added 2026-07-29):
+- `←` / `x` - Mark the top card read
 - `→` - Save (shelf) the top card
 - `↑` - Elevate to SFL
-- `↓` - Skip (move card to back of deck)
-- `o` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
+- `↓` / `j` - Skip (move card to back of deck)
+- `k` - Bring the previous card back (`CardStack.retreat()` — the pure inverse rotation of skip, `utils/deck.ts retreat`; no history entry, undo entries are id-keyed so rotation is safe)
+- `o` / `e` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
 - `u` - Undo the last verb
 - `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it — takes a `mode` prop so the key table matches the active view)
 - `shift+r` - Sync all feeds (on a feed-scoped deck — `/feed/:id` — this syncs just that feed when it's a pull feed; the push-only Found feed falls back to sync-all)
@@ -42,7 +43,8 @@ There is no global shortcut composable — each page owns its handler (with guar
 **Reader (`pages/article/[id].vue`)**:
 - `Esc` / `Backspace` - Back (or close the highlight popover when one is open)
 - `s` - Save/unsave (shelf)
-- `r` - Mark read and continue to the **next unread article in the current deck context** (home, tag, or feed — `nextUnreadId` in `utils/grid.ts` scans the last-fetched `useArticles` list forward with wraparound, skipping read/saved rows; navigation uses `replace: true` so Back still points at the deck, not a trail of read articles). Opened outside a deck context (shelf, search, deep link) or with nothing unread left, it falls back to the history-back of `Esc` (also the accent "Mark as read" button at the end of the article). The page is keyed by `route.fullPath` (`definePageMeta`) so article→article navigation mounts a fresh instance
+- `j` / `k` - Step to the **next / previous unread article** in the deck context *without* marking anything read (`nextUnreadId` / `prevUnreadId` in `utils/grid.ts`, both with wraparound; `replace: true` navigation like `r`; quiet no-op outside a deck context). Note `e` here stays **Elevate**, not open — the article is already open
+- `r` / `x` - Mark read and continue to the **next unread article in the current deck context** (home, tag, or feed — `nextUnreadId` in `utils/grid.ts` scans the last-fetched `useArticles` list forward with wraparound, skipping read/saved rows; navigation uses `replace: true` so Back still points at the deck, not a trail of read articles). Opened outside a deck context (shelf, search, deep link) or with nothing unread left, it falls back to the history-back of `Esc` (also the accent "Mark as read" button at the end of the article). The page is keyed by `route.fullPath` (`definePageMeta`) so article→article navigation mounts a fresh instance
 - `e` - Elevate to SFL
 - `v` - Open the original in a new tab
 - `g` - Toggle the good-read star (also the star button beside the share buttons at the end of the article)

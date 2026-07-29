@@ -95,6 +95,26 @@ export function nextUnreadId(
 }
 
 /**
+ * The article before `currentId` in the deck context — nextUnreadId's mirror
+ * (`k` in the reader). Scans backward from the current article, wrapping past
+ * the top, passing over read and saved rows. Same null cases: current article
+ * not in the list, or nothing unread besides it.
+ */
+export function prevUnreadId(
+  articles: readonly Pick<Article, 'id' | 'isRead'>[],
+  savedIds: ReadonlySet<number>,
+  currentId: number,
+): number | null {
+  const idx = articles.findIndex((a) => a.id === currentId)
+  if (idx === -1) return null
+  for (let step = 1; step < articles.length; step++) {
+    const a = articles[(idx - step + articles.length) % articles.length]
+    if (!a.isRead && !savedIds.has(a.id)) return a.id
+  }
+  return null
+}
+
+/**
  * Append a fetched page onto the existing list, dropping articles we already
  * hold (a shifted window can re-serve rows). Existing object references are
  * preserved so in-place reactivity (isRead flips, imageUrl backfills) keeps
