@@ -96,7 +96,7 @@ const gridUndo = jest.fn()
 
 const stubs = {
   CardStack: defineComponent({
-    props: ['articles', 'syncing'],
+    props: ['articles'],
     setup: (p: any, { expose }: any) => {
       expose({ commit: stackCommit, undo: stackUndo, openTop: jest.fn() })
       return () =>
@@ -104,7 +104,7 @@ const stubs = {
     },
   }),
   ArticleGrid: defineComponent({
-    props: ['articles', 'hasMore', 'loadingMore', 'syncing'],
+    props: ['articles', 'hasMore', 'loadingMore'],
     setup: (p: any, { expose }: any) => {
       expose({ undo: gridUndo })
       return () =>

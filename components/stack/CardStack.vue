@@ -58,7 +58,7 @@
 
     <!-- Empty -->
     <div v-if="deckIds.length === 0" class="absolute inset-0 z-0 flex items-center justify-center">
-      <DeckEmptyState :syncing="syncing" :no-feeds="noFeeds" @sync="emit('sync')" />
+      <DeckEmptyState :no-feeds="noFeeds" />
     </div>
 
     <UndoToast :visible="undoVisible" :label="undoLabel" @undo="performUndo" />
@@ -86,10 +86,10 @@ import { settleWithin } from '~/utils/settleWithin'
 // Vue casts absent boolean props to false — canElevate must default TRUE
 // or the verb dies everywhere the prop isn't threaded through.
 const props = withDefaults(
-  defineProps<{ articles: Article[]; syncing?: boolean; canElevate?: boolean; noFeeds?: boolean }>(),
+  defineProps<{ articles: Article[]; canElevate?: boolean; noFeeds?: boolean }>(),
   { canElevate: true }
 )
-const emit = defineEmits<{ sync: []; count: [n: number] }>()
+const emit = defineEmits<{ count: [n: number] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
 const { markAsRead, prefetchArticle } = useArticles()

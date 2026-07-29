@@ -56,7 +56,7 @@
       </div>
 
       <div v-if="articles.length === 0" class="flex h-full items-center justify-center">
-        <DeckEmptyState :syncing="syncing" @sync="emit('sync')" />
+        <DeckEmptyState />
       </div>
     </div>
 
@@ -78,10 +78,9 @@ const props = defineProps<{
   articles: Article[]
   hasMore: boolean
   loadingMore: boolean
-  syncing?: boolean
   markingAll?: boolean
 }>()
-const emit = defineEmits<{ loadMore: []; sync: []; markAllRead: [] }>()
+const emit = defineEmits<{ loadMore: []; markAllRead: [] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
 const { markAsRead } = useArticles()

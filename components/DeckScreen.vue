@@ -61,10 +61,8 @@
             v-if="viewMode === 'deck'"
             ref="stack"
             :articles="deckArticles"
-            :syncing="syncing"
             :can-elevate="personal"
             :no-feeds="!props.tag && !props.feedId && feedsLoaded && feeds.length === 0"
-            @sync="syncAll"
             @count="unreadCount = $event"
           />
           <ArticleGrid
@@ -73,10 +71,8 @@
             :articles="gridArticles"
             :has-more="hasMore"
             :loading-more="loadingMore"
-            :syncing="syncing"
             :marking-all="markingAll"
             @load-more="loadMoreArticles"
-            @sync="syncAll"
             @mark-all-read="markAllRead"
           />
         </template>
@@ -179,6 +175,7 @@ const scopedSyncFeed = computed(() => {
 })
 
 async function syncAll() {
+  if (syncing.value) return
   syncing.value = true
   const scoped = scopedSyncFeed.value
   try {

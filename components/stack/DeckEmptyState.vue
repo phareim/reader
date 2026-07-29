@@ -13,14 +13,10 @@
       <p class="max-w-xs text-lg italic text-mute">
         All caught up. The next good thing will arrive on its own time.
       </p>
-      <ActionLabel :disabled="syncing" @click="emit('sync')">
-        {{ syncing ? 'Syncing…' : 'Sync all' }}
-      </ActionLabel>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{ syncing?: boolean; noFeeds?: boolean }>()
-const emit = defineEmits<{ sync: [] }>()
+defineProps<{ noFeeds?: boolean }>()
 </script>

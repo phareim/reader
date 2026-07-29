@@ -19,7 +19,7 @@ logic behind them in [`../utils/CLAUDE.md`](../utils/CLAUDE.md).
 **Card deck** (`components/stack/`) — the reading entrance:
 - `CardStack.vue` - owns the deck state + motion-v physics, performs the five verbs, exposes `commit(direction)`, `undo()`, `openTop()`, and `retreat()` (the skip-inverse rotation, keyboard `k`) to the page
 - `ArticleCard.vue` - a single card (`CardFrame`): full-bleed hero with overlaid headline when an image exists, typographic head otherwise; excerpt + reading time
-- `DeckEmptyState.vue` - "all caught up" + Sync all
+- `DeckEmptyState.vue` - "all caught up" (or "add a source" for a feedless account); no sync button — shift+R still syncs
 - `UndoToast.vue` - brief `— UNDO <verb>` affordance after save/read/elevate
 
 **Grid survey view** (`components/grid/`) — the deck's scrollable alternate, toggled from the deck header (see "Grid view" below):
