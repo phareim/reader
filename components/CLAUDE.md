@@ -72,6 +72,8 @@ Components communicate via:
 
 The entire UX is a ground-up build in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one accent). Build plan: `docs/superpowers/plans/2026-06-09-tufte-reader-rebuild.md`. Canonical system: the `tufte-viz` skill at `~/github/skill-tufte-viz/`.
 
+**The card deck is a load-bearing element of that design system** (codified 2026-08-01): the skill's `references/card-deck.md` specs "the Deck" — stack geometry, compass verbs, the pending-verb accent, and the physics constants — with this repo (`CardStack.vue` + `utils/deck.ts`) as the reference implementation. If you retune `DECK` in `utils/deck.ts` or change the interaction grammar, mirror the change into that spec.
+
 **Vendoring** (the design system can't be reached at runtime on the deployed Worker):
 - `public/tufte/fonts/` — ET Book woff files (roman / italic / bold) + license
 - `assets/css/tufte.css` — `@font-face`, the `--tufte-*` base tokens, semantic aliases (`--text-*`, `--surface-*`, `--border-*`), and the dark palette under `@media (prefers-color-scheme: dark)`. Loaded first in `nuxt.config.ts` `css` so `main.css` can override.
