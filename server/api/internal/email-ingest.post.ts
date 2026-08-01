@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { getD1 } from '~/server/utils/cloudflare'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 import { insertArticleWithContent } from '~/server/utils/article-store'
-import { stripForwardPrefixes, firstHttpLink, emailGuid } from '~/server/utils/emailIngest'
+import { stripForwardPrefixes, firstHttpLink, emailGuid, ingestAccountEmail } from '~/server/utils/emailIngest'
 import { applyEmailRig } from '~/server/utils/emailRigs'
 import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
 
@@ -49,12 +49,14 @@ export default defineEventHandler(async (event) => {
   }
   const { senderEmail, messageId, subject, author, html, text, receivedAt } = validation.data
 
+  const accountEmail = ingestAccountEmail(senderEmail, subject)
+
   try {
     const db = getD1(event)
 
     const user = await db.prepare(
       'SELECT id FROM "User" WHERE email = ? COLLATE NOCASE'
-    ).bind(senderEmail.toLowerCase()).first<{ id: string }>()
+    ).bind(accountEmail).first<{ id: string }>()
     if (!user) {
       throw createError({ statusCode: 403, statusMessage: 'Sender is not a registered account' })
     }

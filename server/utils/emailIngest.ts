@@ -25,6 +25,19 @@ export function firstHttpLink(html?: string | null, text?: string | null): strin
   return fromText ? fromText.replace(/[.,;:!?]+$/, '') : null
 }
 
+/**
+ * The account an incoming email belongs to. Normally the sender — but
+ * Gmail's forward-to-this-address verification arrives from Google with
+ * the Gmail account being set up named in the subject
+ * ("… Receive Mail from <user>@gmail.com"); route it to that account so
+ * the confirmation code lands in Found instead of bouncing.
+ */
+export function ingestAccountEmail(senderEmail: string, subject?: string | null): string {
+  const sender = senderEmail.toLowerCase()
+  if (sender !== 'forwarding-noreply@google.com') return sender
+  return subject?.match(/from\s+([^\s<>]+@[^\s<>]+)/i)?.[1]?.toLowerCase() || sender
+}
+
 // FNV-1a 32-bit — sync, deterministic; only used to compress over-long
 // Message-IDs into the guid budget, not for security.
 function fnv1a(s: string): string {

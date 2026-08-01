@@ -1,4 +1,4 @@
-import { stripForwardPrefixes, firstHttpLink, emailGuid } from '~/server/utils/emailIngest'
+import { stripForwardPrefixes, firstHttpLink, emailGuid, ingestAccountEmail } from '~/server/utils/emailIngest'
 import { senderAuthOk } from '~/email-worker/src/authResults'
 
 describe('stripForwardPrefixes', () => {
@@ -99,5 +99,29 @@ describe('senderAuthOk (email-worker alignment check)', () => {
   it('allows a missing header (Cloudflare edge gate already ran)', () => {
     expect(senderAuthOk(null, 'gmail.com')).toBe(true)
     expect(senderAuthOk('', 'gmail.com')).toBe(true)
+  })
+})
+
+describe('ingestAccountEmail', () => {
+  it('is the sender for ordinary forwards', () => {
+    expect(ingestAccountEmail('Phareim@Gmail.com', 'Fwd: hello')).toBe('phareim@gmail.com')
+  })
+
+  it("routes Gmail's forwarding verification to the account named in the subject", () => {
+    expect(
+      ingestAccountEmail(
+        'forwarding-noreply@google.com',
+        '(#552341988) Gmail Forwarding Confirmation - Receive Mail from phareim@gmail.com'
+      )
+    ).toBe('phareim@gmail.com')
+  })
+
+  it('falls back to the sender when the subject names no address', () => {
+    expect(ingestAccountEmail('forwarding-noreply@google.com', 'odd subject')).toBe(
+      'forwarding-noreply@google.com'
+    )
+    expect(ingestAccountEmail('forwarding-noreply@google.com', undefined)).toBe(
+      'forwarding-noreply@google.com'
+    )
   })
 })
