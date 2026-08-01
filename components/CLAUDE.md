@@ -72,7 +72,7 @@ Components communicate via:
 
 The entire UX is a ground-up build in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one accent). Build plan: `docs/superpowers/plans/2026-06-09-tufte-reader-rebuild.md`. Canonical system: the `tufte-viz` skill at `~/github/skill-tufte-viz/`.
 
-**The card deck is a load-bearing element of that design system** (codified 2026-08-01): the skill's `references/card-deck.md` specs "the Deck" — stack geometry, compass verbs, the pending-verb accent, and the physics constants — with this repo (`CardStack.vue` + `utils/deck.ts`) as the reference implementation. If you retune `DECK` in `utils/deck.ts` or change the interaction grammar, mirror the change into that spec.
+**The card deck is a load-bearing element of that design system** (codified 2026-08-01): the skill's `references/card-deck.md` specs "the Deck" — stack geometry, compass verbs, the pending-verb accent, and the physics constants — and `references/swipe-card.md` specs the underlying "Swipe Card" primitive, whose tuning table cites this repo's three variants (`utils/deck.ts`, `utils/grid.ts`, `utils/readerSwipe.ts`) as the reference implementations. Framework-neutral recipes live in the skill at `assets/interactions/`. If you retune any of those three constant sets or change the interaction grammar, mirror the change into the specs.
 
 **Vendoring** (the design system can't be reached at runtime on the deployed Worker):
 - `public/tufte/fonts/` — ET Book woff files (roman / italic / bold) + license
