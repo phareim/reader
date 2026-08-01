@@ -3,6 +3,7 @@ import { getD1 } from '~/server/utils/cloudflare'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 import { insertArticleWithContent } from '~/server/utils/article-store'
 import { stripForwardPrefixes, firstHttpLink, emailGuid } from '~/server/utils/emailIngest'
+import { applyEmailRig } from '~/server/utils/emailRigs'
 import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
 
 /**
@@ -72,11 +73,16 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 429, statusMessage: 'Daily email limit reached' })
     }
 
+    // A recognized newsletter gets its rig's cleanup (unwrapped tracking
+    // links, honest card URL, canonical author); everything rig-less
+    // stays on the generic path. Rigs fail soft per field.
+    const rigged = applyEmailRig(html)
+
     // HTML part preferred; a text-only mail gets the same paragraphizer
     // treatment legacy plain-text bodies do. Display-time DOMPurify in the
     // reader is the sanitization boundary, as for every article body.
     const content = html?.trim()
-      ? html
+      ? (rigged.html ?? html)
       : text?.trim()
         ? (looksLikePlainText(text) ? paragraphize(text) : text)
         : undefined
@@ -85,10 +91,10 @@ export default defineEventHandler(async (event) => {
     const insert = await insertArticleWithContent(event, feedId, {
       guid,
       title: stripForwardPrefixes(subject),
-      // No canonical URL exists for an email; the first link in the body
-      // (usually "view in browser") is the most useful stand-in.
-      url: firstHttpLink(html, text) || 'https://reader.phareim.no/',
-      author,
+      // No canonical URL exists for an email; the rig's pick or the first
+      // link in the body (usually "view in browser") is the stand-in.
+      url: rigged.url || firstHttpLink(html, text) || 'https://reader.phareim.no/',
+      author: author || rigged.author || undefined,
       content,
       summary: text ? text.replace(/\s+/g, ' ').trim().slice(0, 280) : undefined,
       publishedAt: receivedAt || new Date().toISOString(),
