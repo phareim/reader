@@ -8,6 +8,14 @@ belongs here with a test beside it.
 Auto-imported by Nuxt. Server-side helpers live in
 [`../server/CLAUDE.md`](../server/CLAUDE.md).
 
+The three swipe-gesture rule sets here (`deck.ts`, `grid.ts`, `readerSwipe.ts`)
+are the reference implementations of the Tufte Viz design system's **Swipe
+Card** element — its spec (`references/swipe-card.md` in
+`~/github/skill-tufte-viz/`, alongside `references/card-deck.md` for the Deck)
+cites their exact constants as the canonical tuning table. If you retune any of
+them or change the commit grammar, mirror the change into those specs
+(codified 2026-08-01).
+
 ## The modules
 
 - `utils/deck.ts` — `resolveDirection(dx, dy, vx, vy)`, `advance(deck, action)`, `undo(deck, history)`, `DECK` constants, `DeckHistoryEntry` (carries `ideaId`/`ideaExisting` for elevate)
