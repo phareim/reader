@@ -1,17 +1,51 @@
 # Email → Reader: `reader@phareim.no`
 
-**Status: Phase 1 built + deployed (2026-07-12).** What exists:
-`POST /api/internal/email-ingest` on the Reader (Bearer
+**Status: Phases 1 + 2 built + deployed (Phase 2 2026-08-01).** What
+exists: `POST /api/internal/email-ingest` on the Reader (Bearer
 `NUXT_EMAIL_INGEST_KEY`), the `reader-email` Worker (`email-worker/` —
 deployed, secret set, CI workflow `deploy-email-worker.yml` path-filtered
 on `email-worker/**`), pure helpers in `server/utils/emailIngest.ts` +
-`email-worker/src/authResults.ts` (both unit-tested). Phase 1 pulled two
-Phase-2 items forward because they were cheap: HTML-part rendering and
-first-link URL extraction. **Remaining manual step:** enable Email Routing
-on the `phareim.no` zone in the Cloudflare dashboard and add the custom
-address `reader@phareim.no` → deliver to Worker `reader-email` (the local
-API token lacks the DNS/Email-Routing perms to do it headlessly). Still
-open for Phase 2: forward-block author recovery, tracking-pixel strip.
+`email-worker/src/authResults.ts`, and the ingest-time body cleaner
+`server/utils/emailClean.ts` (all unit-tested). Email Routing is live on
+the `phareim.no` zone (`reader@phareim.no` → Worker `reader-email`,
+enabled in the dashboard 2026-08-01 — first real mail: TLDR issues
+forwarded from Gmail).
+
+**Phase 2 rendering polish (`server/utils/emailClean.ts`, runs once at
+ingest):** removes the forwarded-mail header (Gmail `gmail_attr`, Apple
+"Begin forwarded message:", Outlook From/Sent/To/Subject blocks) and
+recovers the original sender as the card `author`; captures the
+newsletter's hidden preheader div as the card `summary` (it's the preview
+text the sender wrote) before removing all hidden elements — critical
+because display-time DOMPurify strips `style`, which would otherwise make
+`display:none` preheaders *visible* junk; drops tracking pixels,
+`<style>`/`<script>`, invisible-character padding, and link-pipe nav rows
+("Sign Up | Advertise | View Online"); flattens layout tables into block
+flow (data tables survive — the heuristic keeps any table with a `<th>`
+or a multi-column row and no layout attributes) and strips presentational
+attributes so the reader's Tufte typography takes over. The card URL
+prefers the newsletter's own "View Online"/"view in browser" link
+(`viewInBrowserLink`, matched by anchor text against the RAW html since
+the cleaner removes nav rows), falling back to the first body link.
+Cleaning fails soft: a parse error or a clean that would empty the body
+returns the raw input, same convention as the per-feed rigs.
+
+**Per-newsletter email rigs (`server/utils/emailRigs/`)** run *before* the
+generic cleaner — the email-shaped sibling of `feedRigs`. A forwarded
+newsletter arrives with the *forwarder* as sender, so rigs key on the link
+hosts inside the body (a newsletter's tracking/CDN domains are its
+fingerprint). Hooks (`pickUrl`, `author`, `body`) all fail soft to the
+generic path. First rig: **`tldr`** (tldr.tech, all verticals) — unwraps
+every `tracking.tldrnewsletter.com/CL0/` redirect to its real target
+(pure string work, no fetches), picks the unwrapped web-version link as
+the card URL, and sets author `TLDR`. Order in the endpoint: rig →
+`cleanEmailHtml` → insert; the rig's `pickUrl` beats `viewInBrowserLink`
+beats `firstHttpLink`.
+
+One special sender: Gmail's forward-to-this-address **verification mail**
+arrives from `forwarding-noreply@google.com` with the Gmail account being
+set up named in the subject — `ingestAccountEmail` routes it to that
+account so the confirmation code lands in Found instead of bouncing.
 
 Forward any email — a newsletter issue, a paywalled-article-in-your-inbox, a
 long announcement — from your registered email address to

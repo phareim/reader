@@ -38,6 +38,26 @@ export function ingestAccountEmail(senderEmail: string, subject?: string | null)
   return subject?.match(/from\s+([^\s<>]+@[^\s<>]+)/i)?.[1]?.toLowerCase() || sender
 }
 
+// "View Online" / "View in browser" / "Web version" — the newsletter's own
+// canonical link, better than whatever link happens to come first.
+const VIEW_ONLINE_RE = /view\s+(?:this\s+)?(?:email\s+)?(?:online|in\s+(?:your\s+)?browser)|web\s*.?\s*version|read\s+online/i
+
+/**
+ * The newsletter's "view in browser" link, found by anchor text. Falls back
+ * to null; callers chain `?? firstHttpLink(...)`.
+ */
+export function viewInBrowserLink(html?: string | null): string | null {
+  if (!html) return null
+  const anchorRe = /<a\b[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  let m: RegExpExecArray | null
+  while ((m = anchorRe.exec(html))) {
+    const label = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    // hrefs in raw HTML carry entity-encoded ampersands.
+    if (VIEW_ONLINE_RE.test(label)) return m[1].replace(/&amp;/g, '&')
+  }
+  return null
+}
+
 // FNV-1a 32-bit — sync, deterministic; only used to compress over-long
 // Message-IDs into the guid budget, not for security.
 function fnv1a(s: string): string {

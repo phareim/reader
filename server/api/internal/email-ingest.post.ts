@@ -2,8 +2,9 @@ import { z } from 'zod'
 import { getD1 } from '~/server/utils/cloudflare'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
 import { insertArticleWithContent } from '~/server/utils/article-store'
-import { stripForwardPrefixes, firstHttpLink, emailGuid, ingestAccountEmail } from '~/server/utils/emailIngest'
+import { stripForwardPrefixes, firstHttpLink, viewInBrowserLink, emailGuid, ingestAccountEmail } from '~/server/utils/emailIngest'
 import { applyEmailRig } from '~/server/utils/emailRigs'
+import { cleanEmailHtml, stripTextForwardHeader } from '~/server/utils/emailClean'
 import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
 
 /**
@@ -75,30 +76,43 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 429, statusMessage: 'Daily email limit reached' })
     }
 
-    // A recognized newsletter gets its rig's cleanup (unwrapped tracking
-    // links, honest card URL, canonical author); everything rig-less
-    // stays on the generic path. Rigs fail soft per field.
+    // A recognized newsletter gets its rig's cleanup first (unwrapped
+    // tracking links, honest card URL, canonical author — pure string
+    // work, server/utils/emailRigs/); the rigged body then runs through
+    // the generic email cleaner (forward-block removal + author recovery,
+    // hidden-preheader capture as summary, tracking-pixel strip,
+    // layout-table flattening, nav-row removal —
+    // server/utils/emailClean.ts) so the stored body is prose-shaped.
+    // Both fail soft. A text-only mail sheds its forward header and gets
+    // the same paragraphizer treatment legacy plain-text bodies do.
+    // Display-time DOMPurify in the reader remains the sanitization
+    // boundary, as for every article body.
     const rigged = applyEmailRig(html)
-
-    // HTML part preferred; a text-only mail gets the same paragraphizer
-    // treatment legacy plain-text bodies do. Display-time DOMPurify in the
-    // reader is the sanitization boundary, as for every article body.
-    const content = html?.trim()
-      ? (rigged.html ?? html)
-      : text?.trim()
-        ? (looksLikePlainText(text) ? paragraphize(text) : text)
+    const riggedHtml = rigged.html ?? html
+    const cleaned = riggedHtml?.trim() ? cleanEmailHtml(riggedHtml) : null
+    const cleanText = text?.trim() ? stripTextForwardHeader(text) : undefined
+    const content = cleaned
+      ? cleaned.html
+      : cleanText?.trim()
+        ? (looksLikePlainText(cleanText) ? paragraphize(cleanText) : cleanText)
         : undefined
 
     const guid = emailGuid(messageId)
     const insert = await insertArticleWithContent(event, feedId, {
       guid,
       title: stripForwardPrefixes(subject),
-      // No canonical URL exists for an email; the rig's pick or the first
-      // link in the body (usually "view in browser") is the stand-in.
-      url: rigged.url || firstHttpLink(html, text) || 'https://reader.phareim.no/',
-      author: author || rigged.author || undefined,
+      // No canonical URL exists for an email; the rig's pick beats the
+      // newsletter's own "view in browser" link beats the first body
+      // link. The generic lookups run on the RIGGED html (tracking links
+      // unwrapped) rather than the cleaned one — the cleaner removes nav
+      // rows, and "View Online" usually lives in one.
+      url: rigged.url || viewInBrowserLink(riggedHtml) || firstHttpLink(cleaned?.html ?? riggedHtml, cleanText ?? text) || 'https://reader.phareim.no/',
+      author: author || rigged.author || cleaned?.author || undefined,
       content,
-      summary: text ? text.replace(/\s+/g, ' ').trim().slice(0, 280) : undefined,
+      // The newsletter's hidden preview line is the summary the sender
+      // wrote; the cleaned text part is the fallback.
+      summary: cleaned?.preheader
+        || (cleanText ? cleanText.replace(/\s+/g, ' ').trim().slice(0, 280) : undefined),
       publishedAt: receivedAt || new Date().toISOString(),
       source: 'email'
     })
