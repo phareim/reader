@@ -14,8 +14,14 @@ import { resolveContentUrls } from '~/server/utils/resolveContentUrls'
  * response's `lastId` (query string) and repeat until `done: true`. An
  * already-absolute body round-trips byte-identical, so re-running a batch
  * (or the whole sweep) is harmless.
+ *
+ * `limit` (query string, default 50, capped at 50) trims the batch size —
+ * unlike the other backfills, this one re-parses each stored body through
+ * linkedom, which is CPU-heavy enough that a run of image-dense articles
+ * can trip the Worker's per-request CPU limit (error 1102); drop it to
+ * ~10-15 and retry when that happens.
  */
-const BATCH = 50
+const DEFAULT_BATCH = 50
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -24,11 +30,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  const afterId = Number(getQuery(event).afterId) || 0
+  const query = getQuery(event)
+  const afterId = Number(query.afterId) || 0
+  const batchSize = Math.min(Math.max(Number(query.limit) || DEFAULT_BATCH, 1), DEFAULT_BATCH)
 
   const db = getD1(event)
   const batch = await db.prepare(
-    `SELECT id, url, content_key FROM "Article" WHERE id > ? AND content_key IS NOT NULL ORDER BY id LIMIT ${BATCH}`
+    `SELECT id, url, content_key FROM "Article" WHERE id > ? AND content_key IS NOT NULL ORDER BY id LIMIT ${batchSize}`
   ).bind(afterId).all()
 
   const rows = (batch.results || []) as Array<{ id: number; url: string; content_key: string }>
@@ -46,5 +54,5 @@ export default defineEventHandler(async (event) => {
 
   const lastId = rows.length ? rows[rows.length - 1].id : afterId
 
-  return { processed: rows.length, changed, lastId, done: rows.length < BATCH }
+  return { processed: rows.length, changed, lastId, done: rows.length < batchSize }
 })
