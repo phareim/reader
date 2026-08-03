@@ -94,6 +94,22 @@ describe('extractImageUrl', () => {
     expect(extractImageUrl(item, html)).toBe('https://example.com/thumb.jpg')
   })
 
+  it('resolves a root-relative content <img> src against baseUrl (bjorg.bjornroche.com)', () => {
+    const html = '<img src="/assets/2026/trust-me.jpg" alt="">'
+    expect(extractImageUrl({}, html, 'https://bjorg.bjornroche.com/management/secret/'))
+      .toBe('https://bjorg.bjornroche.com/assets/2026/trust-me.jpg')
+  })
+
+  it('leaves an already-absolute content <img> src untouched even with baseUrl set', () => {
+    const html = '<img src="https://cdn.example.com/pic.jpg">'
+    expect(extractImageUrl({}, html, 'https://example.com/post/')).toBe('https://cdn.example.com/pic.jpg')
+  })
+
+  it('does not resolve when baseUrl is omitted (back-compat)', () => {
+    const html = '<img src="/assets/2026/trust-me.jpg">'
+    expect(extractImageUrl({}, html)).toBe('/assets/2026/trust-me.jpg')
+  })
+
   it('returns undefined when nothing is found', () => {
     expect(extractImageUrl({})).toBeUndefined()
     expect(extractImageUrl({}, '<p>no images here</p>')).toBeUndefined()

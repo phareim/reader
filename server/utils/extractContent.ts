@@ -1,6 +1,7 @@
 import { Readability } from '@mozilla/readability'
 import { parseHTML } from 'linkedom/worker'
 import { paragraphize } from '~/utils/paragraphize'
+import { resolveContentUrls } from './resolveContentUrls'
 
 /**
  * Readability-based article extraction. Pure (no D1/R2/h3 imports) so it
@@ -135,64 +136,13 @@ function extractWithReadability(html: string, articleUrl: string): string | null
     const article = new Readability(document as unknown as Document).parse()
     if (!article?.content) return null
 
-    const body = resolveUrls(article.content, articleUrl)
-    if (!body) return null
-
-    const textLength = (body.textContent || '').trim().length
+    const textLength = (article.textContent || '').trim().length
     if (textLength < MIN_TEXT_CHARS) return null
 
-    return body.innerHTML
+    return resolveContentUrls(article.content, articleUrl)
   } catch {
     return null
   }
-}
-
-/**
- * linkedom has no base-URL support, so relative hrefs/srcs in Readability's
- * output are resolved here against the article URL.
- */
-function resolveUrls(contentHtml: string, articleUrl: string): any | null {
-  try {
-    const { document } = parseHTML(`<html><body>${contentHtml}</body></html>`)
-    const body = document.querySelector('body')
-    if (!body) return null
-
-    for (const el of body.querySelectorAll('a[href]')) {
-      el.setAttribute('href', resolveUrl(el.getAttribute('href'), articleUrl))
-    }
-    for (const el of body.querySelectorAll('img[src]')) {
-      el.setAttribute('src', resolveUrl(el.getAttribute('src'), articleUrl))
-    }
-    for (const el of body.querySelectorAll('[srcset]')) {
-      el.setAttribute('srcset', resolveSrcset(el.getAttribute('srcset') || '', articleUrl))
-    }
-
-    return body
-  } catch {
-    return null
-  }
-}
-
-function resolveUrl(value: string | null, base: string): string {
-  if (!value) return ''
-  try {
-    return new URL(value, base).href
-  } catch {
-    return value
-  }
-}
-
-function resolveSrcset(srcset: string, base: string): string {
-  return srcset
-    .split(',')
-    .map((candidate) => {
-      const trimmed = candidate.trim()
-      if (!trimmed) return trimmed
-      const [url, ...descriptor] = trimmed.split(/\s+/)
-      return [resolveUrl(url, base), ...descriptor].join(' ')
-    })
-    .filter((candidate) => candidate.length > 0)
-    .join(', ')
 }
 
 /**

@@ -3,6 +3,7 @@ import { extractImageUrl } from './feedImage'
 import { decodeFeedBody } from './feedCharset'
 import { rigForUrl } from './feedRigs'
 import { bridgeSectionForUrl, buildBridgeXml } from './anthropicBridge'
+import { resolveContentUrls } from './resolveContentUrls'
 
 const fetchTimeout = Number(process.env.FETCH_TIMEOUT) || 30000
 
@@ -182,14 +183,21 @@ export async function parseFeed(url: string): Promise<ParsedFeed> {
           item.description
         const rawSummary = item.summary || item.description
 
+        // Publisher HTML often carries root-/document-relative img/a URLs,
+        // which break once rendered on reader.phareim.no's origin. Resolve
+        // against the article's own link (falls back to the feed's site,
+        // then the feed URL itself) before it's ever stored.
+        const baseUrl = item.link || siteUrl || url
+        const content = rawContent ? resolveContentUrls(rawContent, baseUrl) : rawContent
+
         return {
           guid: await generateGuid(item),
           title: item.title || 'Untitled',
           url: item.link || '',
           author: typeof (item as any).author === 'object' ? ((item as any).author?.name || JSON.stringify((item as any).author)) : (item as any).author,
-          content: rawContent, // Sanitization now done client-side
+          content, // Sanitization now done client-side
           summary: rawSummary ? rawSummary.substring(0, 500) : undefined,
-          imageUrl: extractImageUrl(item, rawContent),
+          imageUrl: extractImageUrl(item, rawContent, baseUrl),
           publishedAt: normalizeDate(item.published)
         }
       })

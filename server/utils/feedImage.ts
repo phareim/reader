@@ -8,6 +8,7 @@
  */
 
 import { decodeEntities } from './htmlEntities'
+import { resolveUrl } from './resolveContentUrls'
 
 function asArray(value: any): any[] {
   if (value === undefined || value === null) return []
@@ -44,29 +45,34 @@ function mediaUrl(value: any): string | undefined {
  * Extract image URL from a raw feed entry using multiple strategies.
  * Returns undefined when no image is found — callers must not substitute
  * a stock-photo service; imageUrl should simply be absent.
+ *
+ * `baseUrl` (the article's own link, ideally) resolves root-/document-relative
+ * URLs — mainly needed for strategy 4, but cheap insurance for the others too.
  */
-export function extractImageUrl(item: any, rawContent?: string): string | undefined {
+export function extractImageUrl(item: any, rawContent?: string, baseUrl?: string): string | undefined {
+  const resolve = (url: string | undefined) => (url && baseUrl ? resolveUrl(url, baseUrl) : url)
+
   // 1. Enclosure, when it is an image
   for (const enclosure of asArray(item.enclosure)) {
     const type = attr(enclosure, 'type') || ''
     const url = attr(enclosure, 'url')
-    if (url && type.startsWith('image/')) return url
+    if (url && type.startsWith('image/')) return resolve(url)
   }
 
   // 2. media:content / media:thumbnail — directly on the entry or inside
   //    media:group (YouTube nests both under the group)
   const direct = mediaUrl(item.mediaContent) || mediaUrl(item.mediaThumbnail)
-  if (direct) return direct
+  if (direct) return resolve(direct)
   for (const group of asArray(item.mediaGroup)) {
     const grouped = mediaUrl(group?.['media:content']) || mediaUrl(group?.['media:thumbnail'])
-    if (grouped) return grouped
+    if (grouped) return resolve(grouped)
   }
 
   // 3. itunes:image
   const itunesImage = asArray(item.itunesImage).map((node) => attr(node, 'href')).find(Boolean)
-  if (itunesImage) return itunesImage
+  if (itunesImage) return resolve(itunesImage)
   if (typeof item.itunes?.image === 'string' && item.itunes.image) {
-    return item.itunes.image
+    return resolve(item.itunes.image)
   }
 
   // 4. First <img> tag in the HTML content. The src comes out of raw HTML,
@@ -77,7 +83,7 @@ export function extractImageUrl(item: any, rawContent?: string): string | undefi
   if (rawContent) {
     const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i)
     if (imgMatch?.[1]) {
-      return decodeEntities(imgMatch[1])
+      return resolve(decodeEntities(imgMatch[1]))
     }
   }
 
