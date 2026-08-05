@@ -43,6 +43,8 @@
  *                    paging AND the seen-set, so it reaches seeded-out backlog
  *                    items too (guid dedup upstream keeps re-sends harmless).
  *                    Used by the articles service's push-on-ready/starred hook.
+ *   --kinds a,b      only ingest these kinds (default READER_SYNC_KINDS from the
+ *                    env file, else all). Filtered items are marked seen.
  *   --page-size N    articles per list page (default 50, capped at 100 by the API)
  *   --max-pages N    hard cap on catch-up paging (default 8)
  *   --max-items N    hard cap on articles ingested per run (default 60)
@@ -97,6 +99,13 @@ if (!READER_URL || !READER_TOKEN) throw new Error('missing READER_API_URL / READ
 
 const ARTICLES_URL = (aenv.ARTICLES_API_URL || 'http://127.0.0.1:3003').replace(/\/$/, '');
 const ARTICLES_KEY = aenv.ARTICLES_API_KEY || '';
+
+// Kind filter: `--kinds a,b` or READER_SYNC_KINDS in the env file (comma list;
+// empty = all kinds). Filtered-out items are still marked seen so lifting the
+// filter later doesn't flood Found with the accumulated backlog.
+const KINDS = (strFlag('--kinds') || aenv.READER_SYNC_KINDS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const kindWanted = (k) => KINDS.length === 0 || KINDS.includes(k);
 
 const state = fs.existsSync(STATE_PATH)
   ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'))
@@ -307,7 +316,7 @@ function renderArticle(a) {
 // --- main ---
 const freshIds = [];   // ids to fetch+ingest (newest-first)
 const seedIds = [];    // ids to just mark seen (--seed)
-let cursor = null, page = 0;
+let cursor = null, page = 0, filteredOut = 0;
 
 if (FORCE_IDS.length) {
   // Force mode: exactly these ids, seen or not. No paging, no seed.
@@ -322,6 +331,9 @@ if (FORCE_IDS.length) {
   const pageNew = rows.filter(r => !seen.has(String(r.id)));
   for (const r of pageNew) {
     if (SEED) { seedIds.push(String(r.id)); continue; }
+    // Unwanted kinds are consumed here (seen, never fetched) so paging's
+    // "caught up once a page isn't entirely new" logic stays untouched.
+    if (!kindWanted(r.kind)) { filteredOut++; seen.add(String(r.id)); continue; }
     if (freshIds.length < MAX_ITEMS) freshIds.push(r.id);
   }
   page++;
@@ -351,6 +363,9 @@ for (const id of freshIds.slice().reverse()) {
   let item;
   try {
     const detail = await apiGet(`/${id}`);
+    // Force mode (--ids) skips the paging loop, so the kind filter applies
+    // here — a starred article push is dropped just like a paged one.
+    if (!kindWanted(detail.kind)) { filteredOut++; seen.add(String(id)); continue; }
     item = renderArticle(detail);
   } catch (e) {
     failed++; console.error(`  ✗ fetch ${id}: ${e.message}`); continue;
@@ -381,4 +396,4 @@ if (!DRY) {
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 
-console.error(`done — ingested ${ingested}, rebuilt ${replaced}, already-known ${dup}, unrenderable ${skipped}, failed ${failed}, pages ${page}`);
+console.error(`done — ingested ${ingested}, rebuilt ${replaced}, already-known ${dup}, unrenderable ${skipped}, kind-filtered ${filteredOut}, failed ${failed}, pages ${page}`);
