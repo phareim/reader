@@ -413,7 +413,7 @@ don't fire on the same second:
 |---|---|
 | `ai-digest-sync.timer` | `06:30` (daily — first in Found at breakfast) |
 | `reader-sources-sync.timer` | `07,19:30` (Worker-side X + Reddit + HN sync; replaced `x-bookmark-sync.timer` / `reader-x-bookmarks.timer`) |
-| `bluesky-bookmark-sync.timer` | `07,19:40` |
+| `bluesky-bookmark-sync.timer` | `07,19:40` (enabled + creds live, verified 2026-08-06) |
 | `instapaper-sync.timer` | `07,19:50` |
 | `mastodon-bookmark-sync.timer` | `08,20:00` |
 | `reddit-saved-sync.timer` | (superseded — never enabled; Reddit runs in `reader-sources-sync`) |
