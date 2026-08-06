@@ -39,7 +39,7 @@
     "isomorphic-dompurify": "^2.35.0",
     "linkedom": "0.18.12",
     "motion-v": "^2.3.0",
-    "nuxt": "^3.17.7",
+    "nuxt": "^3.21.10",
     "zod": "^4.1.12"
   },
   "overrides": {
