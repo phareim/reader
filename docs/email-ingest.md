@@ -117,8 +117,12 @@ other's powers).
 Behavior:
 
 1. Resolve the user: `SELECT id FROM "User" WHERE email = ? COLLATE NOCASE`.
-   No match → 403 (the email Worker turns this into `setReject`, so the
-   sender gets a bounce instead of silence).
+   No match → the `NUXT_EMAIL_DEFAULT_ACCOUNT` account, if set (added
+   2026-08-09 so newsletters can be *subscribed* directly with
+   reader@phareim.no — the sender is then the newsletter itself, not a
+   registered user; sender authentication was already enforced by the
+   Worker). No match and no default → 403 (the email Worker turns this
+   into `setReject`, so the sender gets a bounce instead of silence).
 2. `resolveFoundFeed(event, userId)` — same per-user Found feed the
    collectors use.
 3. Insert via `insertArticleWithContent` with:
@@ -174,11 +178,18 @@ Layered, outermost first:
 1. **Cloudflare Email Routing itself** rejects inbound mail that fails
    both SPF and DKIM before our Worker ever runs, and stamps
    `ARC-Authentication-Results` on what passes.
-2. **Sender allowlist = the User table.** The `email()` handler checks
-   `message.from` (envelope sender, lowercased) against registered emails
-   via the ingest endpoint's 403. Unknown sender →
+2. **Sender allowlist = the User table, with a default-account escape
+   hatch.** The `email()` handler checks `message.from` (envelope sender,
+   lowercased) against registered emails via the ingest endpoint's 403.
+   Unknown sender → the `NUXT_EMAIL_DEFAULT_ACCOUNT` account when set
+   (since 2026-08-09; authenticated-but-unregistered senders — i.e.
+   newsletters subscribed directly with the ingest address — land there,
+   still behind layer 1/3 auth and the layer 5 caps), else
    `message.setReject('This address only accepts mail from registered Reader accounts')`
-   — an honest bounce, not a black hole.
+   — an honest bounce, not a black hole. Rejections and accepts are
+   `console.warn`/`log`'d and persisted via the email Worker's
+   `[observability]` block (short retention, but "why did that mail
+   bounce?" is now answerable from the dashboard).
 3. **Spoof hardening**: the Worker parses `ARC-Authentication-Results` and
    requires `spf=pass` **or** `dkim=pass` *aligned with the sender domain*
    (gmail.com mail must carry gmail.com auth). Envelope-From spoofing of a
@@ -194,7 +205,11 @@ Layered, outermost first:
    wrong is the realistic failure, not an attacker).
 6. **worst case** someone who controls a registered user's mailbox can
    insert articles into that user's own feed. That is… the feature. No
-   cross-user surface exists: sender maps to exactly one account.
+   cross-user surface exists: sender maps to exactly one account. With
+   `NUXT_EMAIL_DEFAULT_ACCOUNT` set, the accepted trade-off widens: *any*
+   sender with valid SPF/DKIM on its own domain can put cards in the
+   default account's Found feed — i.e. spam to a mostly-unknown address,
+   capped at 20/day, deletable with a swipe. Unset the var to close it.
 
 ## Config & deploy
 

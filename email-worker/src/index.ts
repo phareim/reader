@@ -23,15 +23,22 @@ interface Env {
 
 export default {
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    // Rejections are console.warn'd (persisted via [observability]) so
+    // "why did that mail bounce?" is answerable after the fact.
+    const reject = (reason: string): void => {
+      console.warn(`reject from=${message.from} subject=${JSON.stringify(message.headers.get('subject') || '')}: ${reason}`)
+      message.setReject(reason)
+    }
+
     if (message.rawSize > MAX_RAW_BYTES) {
-      message.setReject('Message too large (2 MB max) — forward a link instead')
+      reject('Message too large (2 MB max) — forward a link instead')
       return
     }
 
     const sender = (message.from || '').toLowerCase().trim()
     const senderDomain = sender.split('@')[1] || ''
     if (!senderDomain) {
-      message.setReject('Missing sender address')
+      reject('Missing sender address')
       return
     }
 
@@ -39,7 +46,7 @@ export default {
       message.headers.get('arc-authentication-results') ||
       message.headers.get('authentication-results')
     if (!senderAuthOk(authHeader, senderDomain)) {
-      message.setReject('Sender authentication does not match the sending address')
+      reject('Sender authentication does not match the sending address')
       return
     }
 
@@ -48,7 +55,7 @@ export default {
       const raw = await new Response(message.raw).arrayBuffer()
       parsed = await PostalMime.parse(raw)
     } catch (err: any) {
-      message.setReject(`Could not parse message: ${err?.message || 'unknown error'}`)
+      reject(`Could not parse message: ${err?.message || 'unknown error'}`)
       return
     }
 
@@ -73,20 +80,21 @@ export default {
         body: JSON.stringify(payload),
       })
     } catch (err: any) {
-      message.setReject(`Reader is unreachable — try again later (${err?.message || 'fetch failed'})`)
+      reject(`Reader is unreachable — try again later (${err?.message || 'fetch failed'})`)
       return
     }
 
     if (res.status === 403) {
-      message.setReject('This address only accepts mail from registered Reader accounts')
+      reject('This address only accepts mail from registered Reader accounts')
     } else if (res.status === 429) {
-      message.setReject('Daily forward limit reached — try again tomorrow')
+      reject('Daily forward limit reached — try again tomorrow')
     } else if (!res.ok) {
       const detail = await res.text().catch(() => '')
       console.error(`email-ingest ${res.status}: ${detail.slice(0, 300)}`)
-      message.setReject(`Reader could not store the message (${res.status})`)
+      reject(`Reader could not store the message (${res.status})`)
+    } else {
+      console.log(`accepted from=${sender} subject=${JSON.stringify(parsed.subject || '')}`)
     }
-    // 2xx: accepted (or an idempotent repeat) — nothing more to do.
   },
 }
 

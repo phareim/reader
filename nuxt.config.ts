@@ -51,6 +51,7 @@ export default defineNuxtConfig({
     personalEmails: '', // NUXT_PERSONAL_EMAILS — accounts with SFL elevate/highlight-mirror/TTS
     cronKey: '', // NUXT_CRON_KEY (Worker secret) — auth for /api/internal/sync-stale + sync-x-bookmarks
     emailIngestKey: '', // NUXT_EMAIL_INGEST_KEY (Worker secret) — auth for /api/internal/email-ingest (reader-email Worker)
+    emailDefaultAccount: '', // NUXT_EMAIL_DEFAULT_ACCOUNT — account that receives mail from senders who aren't registered users (direct newsletter subscriptions); unset ⇒ unknown senders bounce
     xClientId: '', // NUXT_X_CLIENT_ID — X OAuth2 app client id (link-your-X-account)
     xClientSecret: '', // NUXT_X_CLIENT_SECRET (Worker secret) — X OAuth2 app client secret
     redditClientId: '', // NUXT_REDDIT_CLIENT_ID — Reddit OAuth2 app client id (link-your-Reddit-account)

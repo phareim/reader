@@ -55,9 +55,17 @@ export default defineEventHandler(async (event) => {
   try {
     const db = getD1(event)
 
-    const user = await db.prepare(
+    let user = await db.prepare(
       'SELECT id FROM "User" WHERE email = ? COLLATE NOCASE'
     ).bind(accountEmail).first<{ id: string }>()
+    // Unknown-but-authenticated senders (the Worker already enforced
+    // SPF/DKIM alignment) land in the default account, so newsletters can
+    // be subscribed directly with reader@phareim.no instead of forwarded.
+    if (!user && config.emailDefaultAccount) {
+      user = await db.prepare(
+        'SELECT id FROM "User" WHERE email = ? COLLATE NOCASE'
+      ).bind(config.emailDefaultAccount).first<{ id: string }>()
+    }
     if (!user) {
       throw createError({ statusCode: 403, statusMessage: 'Sender is not a registered account' })
     }

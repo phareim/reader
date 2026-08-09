@@ -109,6 +109,10 @@ NUXT_CRON_KEY="..."
 # in ~/.config/reader/env as READER_EMAIL_INGEST_KEY.
 NUXT_EMAIL_INGEST_KEY="..."
 
+# Email ingest: account receiving mail from unregistered (but SPF/DKIM-
+# authenticated) senders — direct newsletter subscriptions. Unset ⇒ bounce.
+NUXT_EMAIL_DEFAULT_ACCOUNT="phareim@gmail.com"
+
 # Linked sources (Sources page) + Worker-side Found syncs. Each pair fails
 # soft (that source's row is hidden) while unset; HN needs no credentials.
 # Redirect URIs https://<host>/api/auth/{x,reddit}/callback must be
@@ -119,7 +123,7 @@ NUXT_REDDIT_CLIENT_ID="..."
 NUXT_REDDIT_CLIENT_SECRET="..."
 ```
 
-In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, and `NUXT_REDDIT_CLIENT_SECRET` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
+In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, and `NUXT_REDDIT_CLIENT_SECRET` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
 
 ## Deployment
 

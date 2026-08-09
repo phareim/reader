@@ -7,3 +7,9 @@ compatibility_date = "2026-07-01"
 
 [vars]
 READER_API_URL = "https://reader.phareim.no"
+
+# Persist console.* to Workers Logs (dashboard → Workers → reader-email →
+# Logs) so rejections are inspectable after the fact, not only via
+# `wrangler tail`. Free-plan retention is short (~3 days) but beats nothing.
+[observability]
+enabled = true
