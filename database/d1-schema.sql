@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS "Feed" (
   is_active INTEGER DEFAULT 1,
   -- 'rss' (default), 'found' (social bookmarks, push-only), or 'manual'
   kind TEXT NOT NULL DEFAULT 'rss',
+  -- Deck half-life in hours (migration 019). NULL = default pace (72h).
+  -- Unread articles older than 3 half-lives fade from decay-scoped queries.
+  half_life_hours REAL,
   created_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   updated_at TEXT DEFAULT (CURRENT_TIMESTAMP),
   UNIQUE(user_id, url)

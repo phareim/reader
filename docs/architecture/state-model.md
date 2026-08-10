@@ -27,6 +27,8 @@ Special values that survived the rebuild: `useArticles().fetchArticles(-1)` fetc
 
 **Feed-Tag Relationship**: Many-to-many through `FeedTag` join table. Feeds can have multiple tags; the Sources room groups feeds by tag.
 
+**Half-life ("the pace", migration `019-feed-half-life.sql`, 2026-08-10)**: `Feed.half_life_hours` (REAL, NULL = default 72h) drives the deck's decay mode — unread queries with `decay=true` order by age-in-half-lives (a slow blog's week-old essay ranks with today's news) and **fade** rss articles older than 3 half-lives. Fading is a filter, not a verb: nothing is marked read, the article stays reachable via search and mark-all-read still clears it. This deliberately makes "how many unread" a definitional question — the deck counts what is *currently flowing*, not the backlog (and the header shows "40+" past `DECAY.COUNT_CAP`). Pure logic in `utils/decay.ts`; the Sources "Pace" row button cycles presets via `PATCH /api/feeds/:id`. Found/manual feeds never fade.
+
 **Saved Articles ("the shelf")**: Independent `SavedArticle` table (not a boolean on Article) to support:
 - User-specific saved state (multi-user ready)
 - Tags on saved articles via `SavedArticleTag`

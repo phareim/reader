@@ -239,6 +239,29 @@ export const useFeeds = () => {
     }
   }
 
+  // The Sources pace control: persist a feed's deck half-life (hours).
+  const updateFeedHalfLife = async (id: number, halfLifeHours: number | null) => {
+    try {
+      const response = await $fetch<{ success: boolean; halfLifeHours: number | null }>(
+        `/api/feeds/${id}`,
+        {
+          method: 'PATCH',
+          body: { halfLifeHours }
+        }
+      )
+
+      const feedIndex = feeds.value.findIndex(f => f.id === id)
+      if (feedIndex !== -1) {
+        feeds.value[feedIndex].halfLifeHours = response.halfLifeHours
+      }
+
+      return response
+    } catch (err: any) {
+      error.value = err.data?.message || err.message || 'Failed to update feed'
+      throw err
+    }
+  }
+
   return {
     feeds: readonly(feeds),
     selectedFeedId,
@@ -258,6 +281,7 @@ export const useFeeds = () => {
     deleteFeed,
     refreshFeed,
     syncAll,
-    updateFeedTags
+    updateFeedTags,
+    updateFeedHalfLife
   }
 }

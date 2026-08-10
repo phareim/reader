@@ -72,6 +72,15 @@
               >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
               <button class="mono-button" @click="markRead(feed.id)">Mark read</button>
               <button class="mono-button" @click="editTags(feed)">Tags</button>
+              <!-- The pace cycles the feed's deck half-life through the
+                   presets; unread articles older than ~3 half-lives rest
+                   (fade from the deck without being marked read). -->
+              <button
+                v-if="(feed.kind ?? 'rss') === 'rss'"
+                class="mono-button"
+                :title="`Articles fade from the deck after about ${halfLifeLabel(feed.halfLifeHours)} × 3 — tap to change the pace`"
+                @click="cyclePace(feed)"
+              >Pace {{ halfLifeLabel(feed.halfLifeHours) }}</button>
               <button class="mono-button mono-button--danger" @click="confirmDelete(feed)">Delete</button>
             </div>
           </li>
@@ -169,10 +178,11 @@
 import type { Feed } from '~/types'
 import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
 import { feedHealthNote } from '~/utils/feedHealth'
+import { halfLifeLabel, nextHalfLife } from '~/utils/decay'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover', 'good-reads'])
 
-const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, refreshFeed, updateFeedTags } = useFeeds()
+const { feeds, feedsByTag, allTags, fetchFeeds, addFeed, smartAddFeed, deleteFeed, syncAll, refreshFeed, updateFeedTags, updateFeedHalfLife } = useFeeds()
 const { markAllAsRead, fetchArticles } = useArticles()
 const { user, signOut } = useAuth()
 const { showSuccess, showError } = useToast()
@@ -379,6 +389,16 @@ async function markRead(feedId: number) {
 
 function editTags(feed: Feed) {
   tagEditorFeed.value = feed
+}
+
+// Cycle the deck half-life through the presets. The button label updating is
+// the feedback; a toast per tap would be noise.
+async function cyclePace(feed: Feed) {
+  try {
+    await updateFeedHalfLife(feed.id, nextHalfLife(feed.halfLifeHours))
+  } catch {
+    showError('Could not update pace')
+  }
 }
 
 async function saveTags(tags: string[]) {

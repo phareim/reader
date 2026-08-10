@@ -27,7 +27,7 @@
           </span>
         </ClientOnly>
         <MonoLabel class="inline-flex items-center gap-1" :aria-label="`${headerCount} unread`">
-          {{ headerCount }}
+          {{ softCount(headerCount) }}
           <svg
             class="h-3 w-3"
             viewBox="0 0 24 24"
@@ -88,6 +88,7 @@
 
 <script setup lang="ts">
 import type { Article } from '~/types'
+import { softCount } from '~/utils/decay'
 
 const props = defineProps<{ tag?: string; feedId?: number; title?: string }>()
 const emit = defineEmits<{ notFound: [] }>()

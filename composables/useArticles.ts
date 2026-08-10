@@ -60,6 +60,9 @@ export const useArticles = () => {
 
     if (showUnreadOnly.value) {
       params.isRead = 'false'
+      // Half-life mode: the unread entrance orders by age-in-half-lives and
+      // lets articles past the fade horizon rest (see utils/decay.ts).
+      params.decay = 'true'
     }
 
     // Exclude saved articles from feed views

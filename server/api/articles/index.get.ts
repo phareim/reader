@@ -1,6 +1,14 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { RESTORE_MIN, RESTORE_MAX } from '~/utils/readingPosition'
+import { DECAY } from '~/utils/decay'
+
+// SQL mirror of utils/decay.ts decayAge/hasFaded — age in hours over the
+// feed's half-life (NULL/0 falls back to the default). Only rss feeds fade;
+// found/manual are push-curated and keep their backlog.
+const AGE_HOURS = `(julianday('now') - julianday(COALESCE(a.published_at, a.created_at))) * 24.0`
+const HALF_LIFE_HOURS = `COALESCE(NULLIF(f.half_life_hours, 0), ${DECAY.DEFAULT_HALF_LIFE_HOURS})`
+const DECAY_AGE = `${AGE_HOURS} / ${HALF_LIFE_HOURS}`
 
 export default defineEventHandler(async (event) => {
   // Auth required — results are always scoped to the caller's own feeds.
@@ -17,6 +25,10 @@ export default defineEventHandler(async (event) => {
   // Articles the reader is partway through (the shelf's "Continue reading"
   // strip): unread, with a saved position inside the restore band.
   const inProgress = query.inProgress === 'true'
+  // Half-life mode (the deck/grid entrance): order by age-in-half-lives and
+  // fade articles past the horizon. Never combined with inProgress — the
+  // "Continue reading" strip must not lose a half-read article.
+  const decay = query.decay === 'true' && !inProgress
   const limit = Math.min(parseInt(query.limit as string) || 50, 200)
   const offset = parseInt(query.offset as string) || 0
 
@@ -136,14 +148,25 @@ export default defineEventHandler(async (event) => {
       params.push(RESTORE_MIN, RESTORE_MAX)
     }
 
+    if (decay) {
+      // Fade rss articles past the horizon. A NULL/unparseable date makes
+      // julianday NULL — keep those rows rather than silently losing them.
+      where += ` AND (f.kind != 'rss' OR julianday(COALESCE(a.published_at, a.created_at)) IS NULL OR ${AGE_HOURS} < ${HALF_LIFE_HOURS} * ${DECAY.FADE_HORIZON})`
+    }
+
     // In-progress rows order by most recently touched (pre-013 positions
-    // have no timestamp and sort last); everything else by publish date.
+    // have no timestamp and sort last). Decay mode orders by age measured in
+    // half-lives, so a slow feed's week-old essay ranks with today's news
+    // (NULL decay ages — unparseable dates — sort last, not first).
+    // Everything else by publish date.
     const orderBy = inProgress
       ? 'a.progress_updated_at IS NULL, a.progress_updated_at DESC, a.published_at DESC'
-      : 'a.published_at DESC'
+      : decay
+        ? `(${DECAY_AGE}) IS NULL, ${DECAY_AGE} ASC, a.published_at DESC`
+        : 'a.published_at DESC'
 
     const countResult = await db.prepare(
-      `SELECT COUNT(*) AS total FROM "Article" a WHERE ${where}`
+      `SELECT COUNT(*) AS total FROM "Article" a JOIN "Feed" f ON f.id = a.feed_id WHERE ${where}`
     ).bind(...params).first()
 
     const articlesResult = await db.prepare(

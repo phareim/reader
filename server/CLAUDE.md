@@ -19,10 +19,11 @@ Routes follow REST conventions:
 - `GET /api/feeds/:id` - Single feed
 - `DELETE /api/feeds/:id` - Delete feed
 - `POST /api/feeds/:id/refresh` - Manually refresh a feed (400 for push-only `found`/`manual` kinds — there is no upstream to fetch)
+- `PATCH /api/feeds/:id` - Update feed settings: `{ halfLifeHours: number 1–8760 | null }` (null = default pace; the Sources "Pace" button cycles the `utils/decay.ts` presets through this)
 - `PATCH /api/feeds/:id/tags` - Update feed tags
 
 **Articles**:
-- `GET /api/articles` - List articles with filtering (feedId, feedIds, isRead, tag (case-insensitive ASCII; 404 if unknown; empty list if tag has no feeds), `inProgress=true` — unread articles with `read_progress` inside the 3%–95% restore band, ordered by `progress_updated_at` (migration `013`, most recently touched first; the shelf's "Continue reading" strip). Rows include `readProgress`.)
+- `GET /api/articles` - List articles with filtering (feedId, feedIds, isRead, tag (case-insensitive ASCII; 404 if unknown; empty list if tag has no feeds), `inProgress=true` — unread articles with `read_progress` inside the 3%–95% restore band, ordered by `progress_updated_at` (migration `013`, most recently touched first; the shelf's "Continue reading" strip). Rows include `readProgress`.) **`decay=true`** (the deck/grid entrance — `useArticles` sends it with every unread query, 2026-08-10): orders by age measured in half-lives (`(now − published_at) / Feed.half_life_hours`, NULL/0 → 72h default — so within one feed the order matches recency, and across feeds slow writers surface) and **fades** rss articles older than 3 half-lives out of both rows and `total` (a WHERE filter — never marks read; found/manual kinds and NULL-dated rows are exempt). SQL constants at the top of `index.get.ts` mirror `utils/decay.ts` — change in lockstep. Ignored when combined with `inProgress`.
 - `GET /api/articles/:id` - Single article with full content
 - `PATCH /api/articles/:id/read` - Mark article as read/unread
 - `PATCH /api/articles/:id/progress` - Save the reading position `{ progress: 0..1 }` (fraction of scrollable height; clamped server-side)

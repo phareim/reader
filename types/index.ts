@@ -13,6 +13,8 @@ export interface Feed {
   newestArticleAt?: string | null
   isActive: boolean
   kind?: 'rss' | 'found' | 'manual'
+  /** Deck half-life in hours; null = default pace (utils/decay.ts DECAY). */
+  halfLifeHours?: number | null
 }
 
 export interface Article {

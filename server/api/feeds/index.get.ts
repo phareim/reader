@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
           error_count,
           is_active,
           kind,
+          half_life_hours,
           created_at
         FROM "Feed"
         WHERE user_id = ?
@@ -78,7 +79,8 @@ export default defineEventHandler(async (event) => {
         errorCount: Number(feed.error_count || 0),
         newestArticleAt: newestMap.get(feed.id) || null,
         isActive: Boolean(feed.is_active),
-        kind: feed.kind || 'rss'
+        kind: feed.kind || 'rss',
+        halfLifeHours: feed.half_life_hours ?? null
       }))
     }
   } catch (error: any) {
