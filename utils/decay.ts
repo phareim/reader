@@ -26,10 +26,10 @@ export const DECAY = {
   /** The deck header stops counting precisely past this ("40+"). */
   COUNT_CAP: 40,
   /**
-   * The finite paces offered on Sources, in hours: 12h, 1d, 3d, 7d, 30d.
-   * The cycle continues 30d → ∞ (FOREVER_HOURS) → 12h; see nextHalfLife.
+   * The finite paces offered on Sources, in hours: 3d, 7d, 30d.
+   * The cycle continues 30d → ∞ (FOREVER_HOURS) → 3d; see nextHalfLife.
    */
-  PRESETS: [12, 24, 72, 168, 720],
+  PRESETS: [72, 168, 720],
 } as const
 
 /**
@@ -70,14 +70,17 @@ export function halfLifeLabel(hours: number | null | undefined): string {
   return Number.isInteger(days) ? `${days}d` : `${h}h`
 }
 
-/** The next stop in the Sources pace cycle (12h → 1d → 3d → 7d → 30d → ∞ → 12h). */
+/**
+ * The next stop in the Sources pace cycle (3d → 7d → 30d → ∞ → 3d):
+ * the first preset strictly above the current pace, ∞ past the last, and
+ * around again. Off-preset values (a removed preset, a hand-set number)
+ * snap to the next stop up.
+ */
 export function nextHalfLife(current: number | null | undefined): number {
   if (current === DECAY.FOREVER_HOURS) return DECAY.PRESETS[0]
   const presets: readonly number[] = DECAY.PRESETS
   const effective = current && current > 0 ? current : DECAY.DEFAULT_HALF_LIFE_HOURS
-  const idx = presets.findIndex((p) => p >= effective)
-  if (idx === -1 || idx === presets.length - 1) return DECAY.FOREVER_HOURS
-  return presets[idx + 1]
+  return presets.find((p) => p > effective) ?? DECAY.FOREVER_HOURS
 }
 
 /**

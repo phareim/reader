@@ -101,21 +101,21 @@ describe('halfLifeLabel', () => {
 })
 
 describe('nextHalfLife', () => {
-  it('cycles 12h → 1d → 3d → 7d → 30d → ∞ → 12h', () => {
-    expect(nextHalfLife(12)).toBe(24)
-    expect(nextHalfLife(24)).toBe(72)
+  it('cycles 3d → 7d → 30d → ∞ → 3d', () => {
     expect(nextHalfLife(72)).toBe(168)
     expect(nextHalfLife(168)).toBe(720)
     expect(nextHalfLife(720)).toBe(DECAY.FOREVER_HOURS)
-    expect(nextHalfLife(DECAY.FOREVER_HOURS)).toBe(12)
+    expect(nextHalfLife(DECAY.FOREVER_HOURS)).toBe(72)
   })
 
   it('starts a never-set feed from the default pace', () => {
     expect(nextHalfLife(null)).toBe(DECAY.FOREVER_HOURS) // default 30d → next stop
   })
 
-  it('snaps an off-preset value to the cycle', () => {
-    expect(nextHalfLife(100)).toBe(720) // 100 ≤ 168 → next after 168
+  it('snaps an off-preset value to the next stop up', () => {
+    expect(nextHalfLife(12)).toBe(72) // a removed preset steps into the cycle
+    expect(nextHalfLife(24)).toBe(72)
+    expect(nextHalfLife(100)).toBe(168)
     expect(nextHalfLife(9000)).toBe(DECAY.FOREVER_HOURS) // beyond every finite preset
   })
 })
