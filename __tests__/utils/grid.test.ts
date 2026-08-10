@@ -1,4 +1,4 @@
-import { GRID, resolveGridDirection, nextPageOffset, nextUnreadId, prevUnreadId, dedupeAppend } from '~/utils/grid'
+import { GRID, resolveGridDirection, nextPageOffset, nextUnreadId, prevUnreadId, dedupeAppend, syncSlots, backfillSlot, restoreSlot } from '~/utils/grid'
 import type { Article } from '~/types'
 
 describe('resolveGridDirection', () => {
@@ -172,5 +172,60 @@ describe('prevUnreadId', () => {
   it('is nextUnreadId\'s inverse on an all-unread deck', () => {
     const deck = [row(1), row(2), row(3)]
     expect(prevUnreadId(deck, new Set(), nextUnreadId(deck, new Set(), 2)!)).toBe(2)
+  })
+})
+
+describe('syncSlots', () => {
+  it('keeps slot order and drops slots whose article left the pool', () => {
+    expect(syncSlots([3, 1, 2], [1, 2])).toEqual([1, 2])
+    expect(syncSlots([3, 1, 2], [1, 2, 3])).toEqual([3, 1, 2])
+  })
+
+  it('appends pool articles not yet slotted at the end — nothing shifts', () => {
+    expect(syncSlots([2, 1], [1, 2, 4, 5])).toEqual([2, 1, 4, 5])
+  })
+
+  it('starts empty slots from pool order', () => {
+    expect(syncSlots([], [1, 2, 3])).toEqual([1, 2, 3])
+  })
+})
+
+describe('backfillSlot', () => {
+  it('pulls the last slot into the vacated position — other slots keep their place', () => {
+    expect(backfillSlot([1, 2, 3, 4], 2)).toEqual({ slots: [1, 4, 3], movedId: 4 })
+    expect(backfillSlot([1, 2, 3, 4], 1)).toEqual({ slots: [4, 2, 3], movedId: 4 })
+  })
+
+  it('just shortens the list when the last slot itself is committed', () => {
+    expect(backfillSlot([1, 2, 3], 3)).toEqual({ slots: [1, 2], movedId: null })
+  })
+
+  it('is a no-op for an id not in the slots', () => {
+    expect(backfillSlot([1, 2], 9)).toEqual({ slots: [1, 2], movedId: null })
+  })
+})
+
+describe('restoreSlot', () => {
+  it('returns the undone card to its slot and the backfill to the end', () => {
+    // backfillSlot([1,2,3,4], 2) → [1,4,3]; restoring 2 must give [1,2,3,4]
+    expect(restoreSlot([1, 4, 3], 2, 1, 4)).toEqual([1, 2, 3, 4])
+  })
+
+  it('round-trips backfillSlot for every position', () => {
+    const slots = [10, 20, 30, 40]
+    for (const id of slots) {
+      const i = slots.indexOf(id)
+      const { slots: after, movedId } = backfillSlot(slots, id)
+      expect(restoreSlot(after, id, i, movedId)).toEqual(slots)
+    }
+  })
+
+  it('tolerates a backfill card that has itself been committed since', () => {
+    // 4 backfilled slot 1, then 4 was committed too — only 2 comes back.
+    expect(restoreSlot([1, 3], 2, 1, 4)).toEqual([1, 2, 3])
+  })
+
+  it('clamps an out-of-range index to the end', () => {
+    expect(restoreSlot([1, 2], 9, 7, null)).toEqual([1, 2, 9])
   })
 })

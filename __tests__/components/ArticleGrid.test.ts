@@ -148,6 +148,37 @@ describe('ArticleGrid commit wiring', () => {
   })
 })
 
+describe('ArticleGrid stable slots', () => {
+  const renderedIds = (w: ReturnType<typeof mountGrid>) =>
+    w.findAll('[data-testid^="mini-"]').map((n) => n.attributes('data-testid'))
+
+  it('a committed card is backfilled in place by the last card — no reflow', async () => {
+    const w = mountGrid()
+    await (w.vm as any).commitCard(1, 'left')
+    await flushPromises()
+    // Card 3 (furthest down) fills card 1's slot; card 2 does not move.
+    expect(renderedIds(w)).toEqual(['mini-3', 'mini-2'])
+  })
+
+  it('undo restores the card to its slot and the backfill to the end', async () => {
+    const w = mountGrid()
+    await (w.vm as any).commitCard(1, 'left')
+    await (w.vm as any).undo()
+    await flushPromises()
+    expect(renderedIds(w)).toEqual(['mini-1', 'mini-2', 'mini-3'])
+  })
+
+  it('new pool articles append at the end without disturbing existing slots', async () => {
+    const w = mountGrid()
+    await (w.vm as any).commitCard(1, 'left')
+    // The pool the parent would now hold: card 1 consumed, a new page landed.
+    const pool = articles.filter((a) => a.id !== 1)
+    await w.setProps({ articles: [...pool, { id: 4, title: 'Four', feedTitle: 'Feed', isRead: false }] as any })
+    await flushPromises()
+    expect(renderedIds(w)).toEqual(['mini-3', 'mini-2', 'mini-4'])
+  })
+})
+
 describe('ArticleGrid infinite scroll', () => {
   it('observes the sentinel when hasMore and emits loadMore on intersection', async () => {
     const w = mountGrid({ hasMore: true })

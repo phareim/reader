@@ -7,13 +7,14 @@
         that lets one surface both scroll and swipe. Each cell owns its own
         MotionValue (xFor), so a committed card can fling off while the next
         swipe starts immediately — commits overlap instead of queueing.
-        TransitionGroup's move transition covers the reflow when a committed
-        card leaves the live list.
+        The v-for runs over the stable slot list (slotArticles), not the live
+        pool: a committed card's slot is backfilled in place, so nothing
+        reflows and no move transition is needed.
       -->
       <!-- Single column on phones (wider rows read + sort easier), 3-col ≥sm -->
-      <TransitionGroup tag="div" name="grid-cards" class="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-3">
+      <div class="grid grid-cols-1 gap-3 pb-6 sm:grid-cols-3">
         <motion.div
-          v-for="article in articles"
+          v-for="article in slotArticles"
           :key="article.id"
           class="relative"
           :class="dragId === article.id || exiting.has(article.id) ? 'z-20' : undefined"
@@ -38,7 +39,7 @@
             <ActionLabel accent>{{ pending === 'left' ? 'Read' : 'Save' }}</ActionLabel>
           </div>
         </motion.div>
-      </TransitionGroup>
+      </div>
 
       <!-- Infinite-scroll sentinel: exists only while the server has more -->
       <div v-if="hasMore" ref="sentinel" class="h-px" aria-hidden="true" />
@@ -49,13 +50,13 @@
       <!-- Mark the whole scope (feed / tag / everything) read — the parent
            owns the API call; the count keeps going server-side even past
            unfetched pages. -->
-      <div v-if="articles.length" class="flex justify-center pb-8 pt-2">
+      <div v-if="slotArticles.length" class="flex justify-center pb-8 pt-2">
         <ActionLabel :disabled="markingAll" @click="emit('markAllRead')">
           {{ markingAll ? 'Marking…' : 'Mark all read' }}
         </ActionLabel>
       </div>
 
-      <div v-if="articles.length === 0" class="flex h-full items-center justify-center">
+      <div v-if="slotArticles.length === 0" class="flex h-full items-center justify-center">
         <DeckEmptyState />
       </div>
     </div>
@@ -67,11 +68,11 @@
 <script setup lang="ts">
 // ref/watch imported explicitly (not relying on Nuxt auto-imports) so the
 // component also resolves under Jest. Harmless under Nuxt.
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import { motion, motionValue, animate } from 'motion-v'
 import type { MotionValue, PanInfo } from 'motion-v'
 import type { Article } from '~/types'
-import { GRID, resolveGridDirection, type GridDirection } from '~/utils/grid'
+import { GRID, resolveGridDirection, syncSlots, backfillSlot, restoreSlot, type GridDirection } from '~/utils/grid'
 import { DECK } from '~/utils/deck'
 
 const props = defineProps<{
@@ -85,6 +86,23 @@ const emit = defineEmits<{ loadMore: []; markAllRead: [] }>()
 const { saveArticle, unsaveArticle } = useSavedArticles()
 const { markAsRead } = useArticles()
 const { showError } = useToast()
+
+/* ── Stable slots ──────────────────────────────────────────────────── */
+// The grid renders a slot list, not the live pool: swiping a card away must
+// not shift every card below it up one. Instead the vacated slot is refilled
+// in place by the LAST slotted article (the one furthest down the feed) via
+// backfillSlot — calm beats strict chronology in a survey view. syncSlots
+// reconciles against the pool: committed cards drop out, new pool rows
+// (loadMore pages, a sync's arrivals, an undone card mid-restore) append at
+// the end where nothing moves.
+const slotIds = ref<number[]>(props.articles.map((a) => a.id))
+watch(() => props.articles, (pool) => {
+  slotIds.value = syncSlots(slotIds.value, pool.map((a) => a.id))
+})
+const slotArticles = computed(() => {
+  const byId = new Map(props.articles.map((a) => [a.id, a]))
+  return slotIds.value.map((id) => byId.get(id)).filter((a): a is Article => !!a)
+})
 
 /* ── Drag physics ──────────────────────────────────────────────────── */
 // One MotionValue PER CARD, created lazily on first bind. A committing card
@@ -174,11 +192,11 @@ function settleWithin(p: Promise<unknown>, ms = ANIMATION_SAFETY_MS): Promise<vo
 }
 
 /**
- * Fling the card off horizontally on its own MotionValue, then perform the
- * optimistic verb. The store update removes the article from the parent's
- * live list, so the cell leaves the DOM on its own; the card's map entry is
- * dropped afterwards so an undone card re-enters at rest. Only the SAME card
- * is guarded against a double-commit — swipes on other cards run
+ * Fling the card off horizontally on its own MotionValue, then swap the slot
+ * (backfillSlot pulls the last slotted article into the vacated position —
+ * nothing else moves) and perform the optimistic verb. The card's map entry
+ * is dropped afterwards so an undone card re-enters at rest. Only the SAME
+ * card is guarded against a double-commit — swipes on other cards run
  * concurrently. Exposed for tests (the gesture path funnels here).
  */
 async function commitCard(id: number, dir: GridDirection, vx = 0) {
@@ -188,6 +206,9 @@ async function commitCard(id: number, dir: GridDirection, vx = 0) {
   try {
     const w = typeof window === 'undefined' ? 800 : window.innerWidth
     await settleWithin(animate(xFor(id), dir === 'left' ? -w : w, { ...GRID.FLING, velocity: vx }))
+    const slotIndex = slotIds.value.indexOf(id)
+    const { slots, movedId } = backfillSlot(slotIds.value, id)
+    slotIds.value = slots
     if (dir === 'left') {
       markAsRead(id, true).catch(() => showError('Mark-read failed'))
       showUndo('Read')
@@ -195,7 +216,7 @@ async function commitCard(id: number, dir: GridDirection, vx = 0) {
       saveArticle(id).catch(() => showError('Save failed'))
       showUndo('Save')
     }
-    history.value = [...history.value, { id, action: dir }]
+    history.value = [...history.value, { id, action: dir, slotIndex, movedId }]
   } finally {
     xMap.delete(id)
     const next = new Set(exiting.value)
@@ -205,10 +226,14 @@ async function commitCard(id: number, dir: GridDirection, vx = 0) {
 }
 
 /* ── Undo ──────────────────────────────────────────────────────────── */
-// Grid-local history — no deck order to restore: undoing the verb flips the
-// article back into the live list, which re-inserts the card at its natural
-// published-order position.
-const history = ref<Array<{ id: number; action: GridDirection }>>([])
+// Grid-local history. Each entry carries the slot swap (slotIndex + which id
+// backfilled it) so undo restores the exact picture: the card returns to its
+// original slot and the backfill goes back to the end (restoreSlot). The
+// slot restore happens BEFORE the API call — the id sits in slotIds while
+// the pool still lacks it (slotArticles filters it out), and when the
+// optimistic store update returns the article to the pool, syncSlots keeps
+// it where restoreSlot put it instead of appending it.
+const history = ref<Array<{ id: number; action: GridDirection; slotIndex: number; movedId: number | null }>>([])
 const undoVisible = ref(false)
 const undoLabel = ref('')
 let undoTimer: ReturnType<typeof setTimeout> | null = null
@@ -225,6 +250,7 @@ async function performUndo() {
   const entry = history.value[history.value.length - 1]
   if (!entry) return
   history.value = history.value.slice(0, -1)
+  slotIds.value = restoreSlot(slotIds.value, entry.id, entry.slotIndex, entry.movedId)
   try {
     if (entry.action === 'left') await markAsRead(entry.id, false)
     else await unsaveArticle(entry.id)
@@ -271,9 +297,3 @@ onUnmounted(() => {
 
 defineExpose({ undo: performUndo, commitCard })
 </script>
-
-<style scoped>
-.grid-cards-move {
-  transition: transform 0.25s ease;
-}
-</style>

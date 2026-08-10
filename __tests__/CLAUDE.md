@@ -20,7 +20,7 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 ## Current suites
 
 - `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `retreat` skip-inverse rotation, `undo`)
-- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId`/`prevUnreadId` forward/backward-scan/wraparound/read+saved skipping/no-context null)
+- `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId`/`prevUnreadId` forward/backward-scan/wraparound/read+saved skipping/no-context null, `syncSlots`/`backfillSlot`/`restoreSlot` stable-slot reconciliation + in-place backfill + drift-tolerant undo round-trips)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
 - `__tests__/server/xRender.test.ts` — X bookmark → Found-item rendering (`server/utils/xRender.ts`): author line/escaping/note_tweet, quoted + replied-to context blocks, media + lead image, video rendering (`<video>` off the highest-bitrate mp4 variant, HLS ignored, still-only fallback, poster-not-mp4 lead image), link filtering/dedupe, native X Article rendering incl. the heading heuristic
@@ -30,7 +30,7 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
 - `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern, deck/grid toggle, grid keyboard branching, re-snapshot on grid→deck return, feed-scoped shift+R (refreshFeed for pull feeds, full sync for the push-only Found feed)
 - `__tests__/components/MiniCard.test.ts` — grid mini card: image vs typographic variant, Unsplash-filler filtering, footer (feed · age), no excerpt
-- `__tests__/components/ArticleGrid.test.ts` — grid commit wiring (save/read + undo toast), busy guard, LIFO undo, tap→reader, IntersectionObserver sentinel → `loadMore`, empty state
+- `__tests__/components/ArticleGrid.test.ts` — grid commit wiring (save/read + undo toast), busy guard, LIFO undo, tap→reader, stable slots (in-place backfill, undo slot restore, end-append of new pool rows), IntersectionObserver sentinel → `loadMore`, empty state
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard
 - `__tests__/components/RsvpOverlay.test.ts` — ORP split rendering, play/pause + done→restart (fake timers), wpm keys with clamping + localStorage persistence, word skips, Esc/Close emits

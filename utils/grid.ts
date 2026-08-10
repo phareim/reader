@@ -115,6 +115,63 @@ export function prevUnreadId(
 }
 
 /**
+ * Reconcile the grid's stable slot order with the live article pool.
+ *
+ * The grid displays a slot list, not the pool directly: swiping a card away
+ * must not reflow the survey, so slot positions are stable and only the
+ * committed slot changes. This keeps the two in sync — slots whose article
+ * left the pool (committed, saved elsewhere, synced away) are dropped, and
+ * pool articles not yet slotted (a loadMore page, a sync's new arrivals, an
+ * undone card re-entering) are appended at the END, where nothing shifts.
+ */
+export function syncSlots(slotIds: readonly number[], poolIds: readonly number[]): number[] {
+  const pool = new Set(poolIds)
+  const kept = slotIds.filter((id) => pool.has(id))
+  const slotted = new Set(kept)
+  return [...kept, ...poolIds.filter((id) => !slotted.has(id))]
+}
+
+/**
+ * Remove a committed card from the slot list by pulling the LAST slot — the
+ * article furthest down the feed — into the vacated position. Every other
+ * card keeps its place; chronology bends at exactly one slot (deliberate —
+ * calm beats strict order in a survey view). Committing the last slot just
+ * shortens the list. Returns the new slots plus which id moved (null when
+ * none did), so undo can put both back.
+ */
+export function backfillSlot(
+  slotIds: readonly number[],
+  removedId: number,
+): { slots: number[]; movedId: number | null } {
+  const i = slotIds.indexOf(removedId)
+  if (i === -1) return { slots: [...slotIds], movedId: null }
+  const slots = [...slotIds]
+  const movedId = i === slots.length - 1 ? null : slots[slots.length - 1]
+  slots.pop()
+  if (movedId != null) slots[i] = movedId
+  return { slots, movedId }
+}
+
+/**
+ * backfillSlot's inverse, for undo: the undone card returns to its original
+ * slot and the card that backfilled it goes back to the end. Tolerates drift
+ * since the commit — a backfill card that has itself been committed is simply
+ * gone, and an out-of-range index clamps to the end.
+ */
+export function restoreSlot(
+  slotIds: readonly number[],
+  id: number,
+  index: number,
+  movedId: number | null,
+): number[] {
+  let slots = slotIds.filter((s) => s !== id)
+  const returnMoved = movedId != null && slots.includes(movedId)
+  if (returnMoved) slots = slots.filter((s) => s !== movedId)
+  const i = Math.min(Math.max(index, 0), slots.length)
+  return [...slots.slice(0, i), id, ...slots.slice(i), ...(returnMoved ? [movedId!] : [])]
+}
+
+/**
  * Append a fetched page onto the existing list, dropping articles we already
  * hold (a shifted window can re-serve rows). Existing object references are
  * preserved so in-place reactivity (isRead flips, imageUrl backfills) keeps
