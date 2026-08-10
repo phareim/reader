@@ -78,7 +78,9 @@
               <button
                 v-if="(feed.kind ?? 'rss') === 'rss'"
                 class="mono-button"
-                :title="`Articles fade from the deck after about ${halfLifeLabel(feed.halfLifeHours)} × 3 — tap to change the pace`"
+                :title="feed.halfLifeHours === DECAY.FOREVER_HOURS
+                  ? 'Articles from this feed never fade — tap to change the pace'
+                  : `Articles fade from the deck after about ${halfLifeLabel(feed.halfLifeHours)} × 3 — tap to change the pace`"
                 @click="cyclePace(feed)"
               >Pace {{ halfLifeLabel(feed.halfLifeHours) }}</button>
               <button class="mono-button mono-button--danger" @click="confirmDelete(feed)">Delete</button>
@@ -178,7 +180,7 @@
 import type { Feed } from '~/types'
 import type { DiscoveredFeedOption, DetectedArticle } from '~/composables/useFeeds'
 import { feedHealthNote } from '~/utils/feedHealth'
-import { halfLifeLabel, nextHalfLife } from '~/utils/decay'
+import { DECAY, halfLifeLabel, nextHalfLife } from '~/utils/decay'
 
 const RESERVED = new Set(['shelf', 'sources', 'login', 'mcp-settings', 'article', 'found', 'highlights', 'search', 'discover', 'good-reads'])
 

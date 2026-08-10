@@ -61,6 +61,20 @@ describe('hasFaded', () => {
   it('never fades undated articles', () => {
     expect(hasFaded(null, 12, NOW)).toBe(false)
   })
+
+  it('the ∞ pace never fades, however old', () => {
+    const twoYearsAgo = NOW - 2 * 365 * 24 * HOUR
+    expect(hasFaded(twoYearsAgo, DECAY.FOREVER_HOURS, NOW)).toBe(false)
+  })
+})
+
+describe('the ∞ pace and ordering', () => {
+  it('orders ∞ articles by the default half-life — they drift down, not pin to top', () => {
+    const aWeekAgo = NOW - 7 * 24 * HOUR
+    expect(decayAge(aWeekAgo, DECAY.FOREVER_HOURS, NOW)).toBeCloseTo(
+      decayAge(aWeekAgo, DECAY.DEFAULT_HALF_LIFE_HOURS, NOW)
+    )
+  })
 })
 
 describe('halfLifeLabel', () => {
@@ -73,8 +87,12 @@ describe('halfLifeLabel', () => {
   })
 
   it('shows the default pace for null/0', () => {
-    expect(halfLifeLabel(null)).toBe('3d')
-    expect(halfLifeLabel(0)).toBe('3d')
+    expect(halfLifeLabel(null)).toBe('30d')
+    expect(halfLifeLabel(0)).toBe('30d')
+  })
+
+  it('labels the ∞ pace', () => {
+    expect(halfLifeLabel(DECAY.FOREVER_HOURS)).toBe('∞')
   })
 
   it('keeps non-whole-day values in hours', () => {
@@ -83,21 +101,22 @@ describe('halfLifeLabel', () => {
 })
 
 describe('nextHalfLife', () => {
-  it('cycles through the presets and wraps', () => {
+  it('cycles 12h → 1d → 3d → 7d → 30d → ∞ → 12h', () => {
     expect(nextHalfLife(12)).toBe(24)
     expect(nextHalfLife(24)).toBe(72)
     expect(nextHalfLife(72)).toBe(168)
     expect(nextHalfLife(168)).toBe(720)
-    expect(nextHalfLife(720)).toBe(12)
+    expect(nextHalfLife(720)).toBe(DECAY.FOREVER_HOURS)
+    expect(nextHalfLife(DECAY.FOREVER_HOURS)).toBe(12)
   })
 
   it('starts a never-set feed from the default pace', () => {
-    expect(nextHalfLife(null)).toBe(168) // default 72 → next preset
+    expect(nextHalfLife(null)).toBe(DECAY.FOREVER_HOURS) // default 30d → next stop
   })
 
   it('snaps an off-preset value to the cycle', () => {
     expect(nextHalfLife(100)).toBe(720) // 100 ≤ 168 → next after 168
-    expect(nextHalfLife(9000)).toBe(12) // beyond every preset → wrap
+    expect(nextHalfLife(9000)).toBe(DECAY.FOREVER_HOURS) // beyond every finite preset
   })
 })
 

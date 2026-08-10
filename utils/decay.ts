@@ -14,12 +14,21 @@
 
 export const DECAY = {
   /** Half-life applied when a feed has none set (NULL / 0), hours. */
-  DEFAULT_HALF_LIFE_HOURS: 72,
+  DEFAULT_HALF_LIFE_HOURS: 720,
+  /**
+   * Sentinel for the "∞" pace: articles from the feed never fade — they lie
+   * in the deck until read. Ordering still uses the default half-life so an
+   * evergreen card drifts down naturally instead of pinning to the top.
+   */
+  FOREVER_HOURS: -1,
   /** An article fades after this many half-lives. */
   FADE_HORIZON: 3,
   /** The deck header stops counting precisely past this ("40+"). */
   COUNT_CAP: 40,
-  /** The paces offered on Sources, in hours: 12h, 1d, 3d, 7d, 30d. */
+  /**
+   * The finite paces offered on Sources, in hours: 12h, 1d, 3d, 7d, 30d.
+   * The cycle continues 30d → ∞ (FOREVER_HOURS) → 12h; see nextHalfLife.
+   */
   PRESETS: [12, 24, 72, 168, 720],
 } as const
 
@@ -27,6 +36,8 @@ export const DECAY = {
  * Age of an article measured in half-lives. `publishedAt` is an ISO string or
  * epoch ms; a missing/invalid date reads as age 0 (never fades — the SQL side
  * keeps NULL-dated rows for the same reason). Future dates give a negative age.
+ * FOREVER_HOURS (and any non-positive half-life) falls back to the default —
+ * the ∞ pace changes fading, not ordering.
  */
 export function decayAge(
   publishedAt: string | number | null | undefined,
@@ -40,30 +51,33 @@ export function decayAge(
   return (now - t) / (halfLife * 3_600_000)
 }
 
-/** True once an article is past the fade horizon. */
+/** True once an article is past the fade horizon. The ∞ pace never fades. */
 export function hasFaded(
   publishedAt: string | number | null | undefined,
   halfLifeHours: number | null | undefined,
   now: number = Date.now(),
 ): boolean {
+  if (halfLifeHours === DECAY.FOREVER_HOURS) return false
   return decayAge(publishedAt, halfLifeHours, now) >= DECAY.FADE_HORIZON
 }
 
-/** Short label for a half-life value: 12 → "12h", 72 → "3d", null → "3d" (default). */
+/** Short label for a half-life value: 12 → "12h", 72 → "3d", ∞ pace → "∞", null → "30d" (default). */
 export function halfLifeLabel(hours: number | null | undefined): string {
+  if (hours === DECAY.FOREVER_HOURS) return '∞'
   const h = hours && hours > 0 ? hours : DECAY.DEFAULT_HALF_LIFE_HOURS
   if (h < 24) return `${h}h`
   const days = h / 24
   return Number.isInteger(days) ? `${days}d` : `${h}h`
 }
 
-/** The next preset in the Sources pace cycle (12h → 1d → 3d → 7d → 30d → 12h). */
+/** The next stop in the Sources pace cycle (12h → 1d → 3d → 7d → 30d → ∞ → 12h). */
 export function nextHalfLife(current: number | null | undefined): number {
+  if (current === DECAY.FOREVER_HOURS) return DECAY.PRESETS[0]
   const presets: readonly number[] = DECAY.PRESETS
   const effective = current && current > 0 ? current : DECAY.DEFAULT_HALF_LIFE_HOURS
   const idx = presets.findIndex((p) => p >= effective)
-  if (idx === -1) return presets[0]
-  return presets[(idx + 1) % presets.length]
+  if (idx === -1 || idx === presets.length - 1) return DECAY.FOREVER_HOURS
+  return presets[idx + 1]
 }
 
 /**

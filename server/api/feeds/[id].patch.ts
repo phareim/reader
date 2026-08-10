@@ -6,10 +6,15 @@
 
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
+import { DECAY } from '~/utils/decay'
 import { z } from 'zod'
 
 const updateFeedSchema = z.object({
-  halfLifeHours: z.number().min(1).max(8760).nullable()
+  // 1–8760h, the ∞ sentinel, or null (reset to default).
+  halfLifeHours: z.union([
+    z.literal(DECAY.FOREVER_HOURS),
+    z.number().min(1).max(8760)
+  ]).nullable()
 })
 
 export default defineEventHandler(async (event) => {

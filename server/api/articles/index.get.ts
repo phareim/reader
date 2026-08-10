@@ -4,10 +4,11 @@ import { RESTORE_MIN, RESTORE_MAX } from '~/utils/readingPosition'
 import { DECAY } from '~/utils/decay'
 
 // SQL mirror of utils/decay.ts decayAge/hasFaded — age in hours over the
-// feed's half-life (NULL/0 falls back to the default). Only rss feeds fade;
-// found/manual are push-curated and keep their backlog.
+// feed's half-life (NULL/0 and the ∞ sentinel fall back to the default for
+// ordering; ∞ additionally never fades). Only rss feeds fade; found/manual
+// are push-curated and keep their backlog.
 const AGE_HOURS = `(julianday('now') - julianday(COALESCE(a.published_at, a.created_at))) * 24.0`
-const HALF_LIFE_HOURS = `COALESCE(NULLIF(f.half_life_hours, 0), ${DECAY.DEFAULT_HALF_LIFE_HOURS})`
+const HALF_LIFE_HOURS = `COALESCE(NULLIF(NULLIF(f.half_life_hours, 0), ${DECAY.FOREVER_HOURS}), ${DECAY.DEFAULT_HALF_LIFE_HOURS})`
 const DECAY_AGE = `${AGE_HOURS} / ${HALF_LIFE_HOURS}`
 
 export default defineEventHandler(async (event) => {
@@ -149,9 +150,10 @@ export default defineEventHandler(async (event) => {
     }
 
     if (decay) {
-      // Fade rss articles past the horizon. A NULL/unparseable date makes
-      // julianday NULL — keep those rows rather than silently losing them.
-      where += ` AND (f.kind != 'rss' OR julianday(COALESCE(a.published_at, a.created_at)) IS NULL OR ${AGE_HOURS} < ${HALF_LIFE_HOURS} * ${DECAY.FADE_HORIZON})`
+      // Fade rss articles past the horizon. The ∞ pace never fades, and a
+      // NULL/unparseable date makes julianday NULL — keep those rows rather
+      // than silently losing them.
+      where += ` AND (f.kind != 'rss' OR f.half_life_hours = ${DECAY.FOREVER_HOURS} OR julianday(COALESCE(a.published_at, a.created_at)) IS NULL OR ${AGE_HOURS} < ${HALF_LIFE_HOURS} * ${DECAY.FADE_HORIZON})`
     }
 
     // In-progress rows order by most recently touched (pre-013 positions
