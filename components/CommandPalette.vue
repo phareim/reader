@@ -216,10 +216,15 @@ function onInputKey(e: KeyboardEvent) {
   } else if (e.key === 'Escape') { e.preventDefault(); close() }
 }
 
-// The global chord. Shift is part of it, so the page handlers' meta/ctrl
-// guard already keeps this keypress away from the deck and reader verbs.
+// The global chords: ⌘/Ctrl+Shift+P and the ⌘/Ctrl+K alias. Meta/ctrl is
+// part of both, so the page handlers' modifier guard already keeps these
+// keypresses away from the deck and reader verbs.
 function onGlobalKey(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+  const chord =
+    (e.metaKey || e.ctrlKey) &&
+    ((e.shiftKey && (e.key === 'p' || e.key === 'P')) ||
+      (!e.shiftKey && e.key === 'k'))
+  if (chord) {
     e.preventDefault()
     if (open.value) close()
     else openPalette()

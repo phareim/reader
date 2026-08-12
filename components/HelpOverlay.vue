@@ -56,7 +56,7 @@ const deckKeys = [
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
-  ['⌘ shift p', 'Command palette'],
+  ['⌘ shift p / ⌘ k', 'Command palette'],
   ...readerKeys,
   ['?', 'This card'],
 ]
@@ -70,7 +70,7 @@ const gridKeys = [
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
-  ['⌘ shift p', 'Command palette'],
+  ['⌘ shift p / ⌘ k', 'Command palette'],
   ...readerKeys,
   ['?', 'This card'],
 ]
