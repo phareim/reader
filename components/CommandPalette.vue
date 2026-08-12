@@ -32,7 +32,10 @@
             @click="run(row)"
           >
             <template v-if="row.kind === 'command'">
-              <MonoLabel :accent="i === selected" :dash="i === selected">{{ row.label }}</MonoLabel>
+              <div class="flex items-baseline justify-between gap-4">
+                <MonoLabel :accent="i === selected" :dash="i === selected">{{ row.label }}</MonoLabel>
+                <MonoLabel v-if="row.keys" class="shrink-0">{{ row.keys }}</MonoLabel>
+              </div>
             </template>
             <template v-else-if="row.kind === 'highlight'">
               <MonoLabel :accent="i === selected" :dash="i === selected" class="block min-w-0 truncate">{{ row.articleTitle }}</MonoLabel>
@@ -84,7 +87,7 @@ interface HighlightHit {
 }
 
 type Row =
-  | { kind: 'command'; key: string; label: string; action: () => void | Promise<void> }
+  | { kind: 'command'; key: string; label: string; keys?: string; action: () => void | Promise<void> }
   | { kind: 'article'; key: string; label: string; feedTitle: string; date: string; id: number }
   | { kind: 'highlight'; key: string; label: string; articleTitle: string; articleId: number }
 
@@ -106,12 +109,14 @@ const parsed = computed(() => parsePaletteQuery(q.value))
 const mode = computed(() => parsed.value.mode)
 const term = computed(() => parsed.value.term)
 
-const commands: { id: string; label: string; action: () => void | Promise<void> }[] = [
+// `keys` is the command's global chord where one exists (shown right-aligned
+// in the row, same notation as HelpOverlay) — most commands are palette-only.
+const commands: { id: string; label: string; keys?: string; action: () => void | Promise<void> }[] = [
   { id: 'deck', label: 'Go to Deck', action: () => navigateTo('/') },
   { id: 'found', label: 'Go to Found', action: () => navigateTo('/found') },
   { id: 'shelf', label: 'Go to Shelf', action: () => navigateTo('/shelf') },
   { id: 'sources', label: 'Go to Sources', action: () => navigateTo('/sources') },
-  { id: 'search', label: 'Go to Search', action: () => navigateTo('/search') },
+  { id: 'search', label: 'Go to Search', keys: '/', action: () => navigateTo('/search') },
   { id: 'highlights', label: 'Go to Highlights', action: () => navigateTo('/highlights') },
   { id: 'good-reads', label: 'Go to Good reads', action: () => navigateTo('/good-reads') },
   { id: 'discover', label: 'Go to Discover', action: () => navigateTo('/discover') },
@@ -120,6 +125,7 @@ const commands: { id: string; label: string; action: () => void | Promise<void> 
   {
     id: 'sync',
     label: 'Sync all feeds',
+    keys: 'shift + r',
     action: async () => {
       try {
         await syncAll()
@@ -137,6 +143,7 @@ const rows = computed<Row[]>(() => {
       kind: 'command' as const,
       key: `cmd:${c.id}`,
       label: c.label,
+      keys: c.keys,
       action: c.action,
     }))
   }
