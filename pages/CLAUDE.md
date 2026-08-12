@@ -24,7 +24,7 @@ Pure logic: [`../utils/CLAUDE.md`](../utils/CLAUDE.md).
 
 ## Keyboard shortcuts
 
-There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable). The one global exception is the **command palette** (`components/CommandPalette.vue`, mounted in `app.vue`): `⌘/Ctrl+Shift+P` (or `⌘/Ctrl+K`) on any page opens a centered input — a leading `>` filters the command list (rooms, view mode, sync), anything else full-text-searches articles via `GET /api/search`. Pure query/filter logic in `utils/palette.ts` (unit-tested).
+There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable). The one global exception is the **command palette** (`components/CommandPalette.vue`, mounted in `app.vue`): `⌘/Ctrl+Shift+P` (or `⌘/Ctrl+K`) on any page opens a centered input — a leading `>` filters the command list (rooms, view mode, sync), anything else searches articles (`GET /api/search`) and highlights (`GET /api/highlights?q=`) in parallel. Pure query/filter logic in `utils/palette.ts` (unit-tested).
 
 **Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes; `x`/`e`/`j`/`k` are the mail-reader-idiom aliases (added 2026-07-29; `e` moved from open to mark-read 2026-08-12, matching Gmail's archive):
 - `←` / `x` / `e` - Mark the top card read

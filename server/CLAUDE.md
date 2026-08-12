@@ -43,7 +43,7 @@ Routes follow REST conventions:
 - `DELETE /api/articles/:id/good-read` - Unmark (id in path, no body). `GET /api/articles/:id` carries `isGoodRead` so the reader renders the star without a second fetch
 
 **Highlights** (see "Highlights → SFL"):
-- `GET /api/highlights` - Every highlight the user owns, newest first, joined with article title/url + feed title — powers the `/highlights` room
+- `GET /api/highlights` - Every highlight the user owns, newest first, joined with article title/url + feed title — powers the `/highlights` room. Optional `?q=` (min 2 chars, case-insensitive LIKE on quote/note — highlights are not in the FTS index) and `?limit=` — the command palette's highlight search
 - `GET /api/articles/:id/highlights` - List the article's highlights (ordered by `start_offset`)
 - `POST /api/articles/:id/highlights` - Create a highlight `{ quote, note, startOffset, endOffset }` → SFL `quote` idea + local row + best-effort taste-maker mirror (see "Highlights → taste-maker")
 - `DELETE /api/highlights/:id` - Delete a highlight (id in path, no body) + its SFL idea + best-effort taste-maker undo

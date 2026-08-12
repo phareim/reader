@@ -34,6 +34,12 @@
             <template v-if="row.kind === 'command'">
               <MonoLabel :accent="i === selected" :dash="i === selected">{{ row.label }}</MonoLabel>
             </template>
+            <template v-else-if="row.kind === 'highlight'">
+              <MonoLabel :accent="i === selected" :dash="i === selected" class="block min-w-0 truncate">{{ row.articleTitle }}</MonoLabel>
+              <div class="mt-0.5 truncate text-base leading-snug">
+                <mark class="hl">{{ row.label }}</mark>
+              </div>
+            </template>
             <template v-else>
               <div class="flex items-baseline justify-between gap-4">
                 <MonoLabel :accent="i === selected" :dash="i === selected" class="min-w-0 truncate">{{ row.feedTitle }}</MonoLabel>
@@ -70,14 +76,23 @@ interface SearchHit {
   publishedAt: string | null
 }
 
+interface HighlightHit {
+  id: number
+  articleId: number
+  articleTitle: string
+  quote: string
+}
+
 type Row =
   | { kind: 'command'; key: string; label: string; action: () => void | Promise<void> }
   | { kind: 'article'; key: string; label: string; feedTitle: string; date: string; id: number }
+  | { kind: 'highlight'; key: string; label: string; articleTitle: string; articleId: number }
 
 const open = ref(false)
 const q = ref('')
 const selected = ref(0)
 const results = ref<SearchHit[]>([])
+const hlResults = ref<HighlightHit[]>([])
 const searching = ref(false)
 const settled = ref(false)
 const inputEl = ref<HTMLInputElement | null>(null)
@@ -125,7 +140,7 @@ const rows = computed<Row[]>(() => {
       action: c.action,
     }))
   }
-  return results.value.slice(0, 8).map((r) => ({
+  const articles = results.value.slice(0, 8).map((r) => ({
     kind: 'article' as const,
     key: `art:${r.id}`,
     label: r.title,
@@ -133,6 +148,16 @@ const rows = computed<Row[]>(() => {
     date: r.publishedAt ? formatRelativeDate(r.publishedAt) : '',
     id: r.id,
   }))
+  // Highlights ride below the article hits, recognizable by the yellow
+  // wash alone — no section header needed.
+  const highlights = hlResults.value.map((h) => ({
+    kind: 'highlight' as const,
+    key: `hl:${h.id}`,
+    label: h.quote,
+    articleTitle: h.articleTitle,
+    articleId: h.articleId,
+  }))
+  return [...articles, ...highlights]
 })
 
 watch(rows, () => {
@@ -148,6 +173,7 @@ watch([mode, term], () => {
   if (debounce) clearTimeout(debounce)
   if (mode.value !== 'articles' || term.value.length < 2) {
     results.value = []
+    hlResults.value = []
     searching.value = false
     settled.value = false
     return
@@ -158,26 +184,27 @@ watch([mode, term], () => {
 async function runSearch() {
   const mySeq = ++seq
   searching.value = true
-  try {
-    const res = await $fetch<{ results: SearchHit[] }>('/api/search', {
-      params: { q: term.value },
-    })
-    if (mySeq !== seq) return
-    results.value = res.results
-    settled.value = true
-  } catch {
-    if (mySeq === seq) {
-      results.value = []
-      settled.value = true
-    }
-  } finally {
-    if (mySeq === seq) searching.value = false
-  }
+  // Articles and highlights in parallel; each fails soft to an empty list
+  // so a hiccup in one never hides the other's hits.
+  const [articleHits, highlightHits] = await Promise.all([
+    $fetch<{ results: SearchHit[] }>('/api/search', { params: { q: term.value } })
+      .then((res) => res.results)
+      .catch(() => [] as SearchHit[]),
+    $fetch<{ highlights: HighlightHit[] }>('/api/highlights', { params: { q: term.value, limit: 5 } })
+      .then((res) => res.highlights)
+      .catch(() => [] as HighlightHit[]),
+  ])
+  if (mySeq !== seq) return
+  results.value = articleHits
+  hlResults.value = highlightHits
+  settled.value = true
+  searching.value = false
 }
 
 function openPalette() {
   q.value = ''
   results.value = []
+  hlResults.value = []
   selected.value = 0
   settled.value = false
   open.value = true
@@ -193,6 +220,7 @@ function close() {
 async function run(row: Row) {
   close()
   if (row.kind === 'article') await navigateTo(`/article/${row.id}`)
+  else if (row.kind === 'highlight') await navigateTo(`/article/${row.articleId}`)
   else await row.action()
 }
 
