@@ -67,5 +67,6 @@ feed benefits.
 
 ## Current rigs
 
-`smbc`, `oglaf`, `daringfireball`, `xkcd`, `oatmeal`, `pluralistic` — full behaviour
-notes in [`server/CLAUDE.md`](../../../server/CLAUDE.md) under "Per-feed rigs".
+`smbc`, `oglaf`, `daringfireball`, `xkcd`, `oatmeal`, `pluralistic`, `anthropic`,
+`kode24` — full behaviour notes in [`server/CLAUDE.md`](../../../server/CLAUDE.md)
+under "Per-feed rigs".

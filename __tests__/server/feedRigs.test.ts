@@ -8,6 +8,7 @@ import { daringFireballRig } from '~/server/utils/feedRigs/daringfireball'
 import { xkcdRig } from '~/server/utils/feedRigs/xkcd'
 import { oatmealRig } from '~/server/utils/feedRigs/oatmeal'
 import { pluralisticRig, trimPluralisticBody } from '~/server/utils/feedRigs/pluralistic'
+import { kode24Rig } from '~/server/utils/feedRigs/kode24'
 import type { ParsedArticle } from '~/server/utils/feedParser'
 
 const baseItem = (overrides: Partial<ParsedArticle>): ParsedArticle => ({
@@ -400,5 +401,42 @@ describe('anthropicRig', () => {
   it('fails soft on pages without an article element or with a thin one', async () => {
     expect(await extract('<html><body><main>marketing page</main></body></html>')).toBeNull()
     expect(await extract('<html><body><article><p>thin</p></article></body></html>')).toBeNull()
+  })
+})
+
+describe('kode24Rig', () => {
+  const pageHtml = readFileSync(join(__dirname, '../fixtures/kode24-article.html'), 'utf8')
+  const pageUrl = 'https://www.kode24.no/artikkel/spotify-straffer-ki-musikk/269437'
+  const extract = (html: string, url = pageUrl) =>
+    kode24Rig.extract!({ url, html, fetchPage: async () => null })
+
+  it('matches kode24.no article URLs and the rss host', () => {
+    expect(rigForUrl(pageUrl)?.id).toBe('kode24')
+    expect(rigForUrl('https://rss.kode24.no/')?.id).toBe('kode24')
+  })
+
+  it('keeps the images Readability would otherwise drop', async () => {
+    const result = await extract(pageHtml)
+    expect(result).toBeTruthy()
+    // The lead figure ("headerImage" + div.media wrappers) survives…
+    expect(result!.html).toContain('image-www.kode24.no/247109.webp')
+    // …next to its caption, and the prose is intact.
+    expect(result!.html).toContain('DJ Solberg og Maja')
+    expect(result!.html).toContain('Vil ha rapportering av KI-artister')
+  })
+
+  it('leaves the card image to the generic lead-image fallback', async () => {
+    const result = await extract(pageHtml)
+    expect(result!.imageUrl).toBeUndefined()
+  })
+
+  it('falls back on pages without the CMS class markers or without images', async () => {
+    expect(await extract('<html><body><p>not a kode24 CMS page</p></body></html>')).toBeNull()
+    // Markers present but no image wins through: still null, generic path decides.
+    const imageless =
+      '<html><body><div class="media"></div><article>' +
+      `<p>${'Lang norsk brødtekst om KI og utviklere. '.repeat(20)}</p>` +
+      '</article></body></html>'
+    expect(await extract(imageless)).toBeNull()
   })
 })

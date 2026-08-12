@@ -6,6 +6,7 @@ import { xkcdRig } from './xkcd'
 import { oatmealRig } from './oatmeal'
 import { pluralisticRig } from './pluralistic'
 import { anthropicRig } from './anthropic'
+import { kode24Rig } from './kode24'
 
 export type { FeedRig, RigExtraction, RigPageContext } from './types'
 
@@ -14,7 +15,7 @@ export type { FeedRig, RigExtraction, RigPageContext } from './types'
  * Adding one = a new file exporting a FeedRig + a line here. Both hooks are
  * optional and fail soft into the generic pipeline (see types.ts).
  */
-const RIGS: FeedRig[] = [smbcRig, oglafRig, daringFireballRig, xkcdRig, oatmealRig, pluralisticRig, anthropicRig]
+const RIGS: FeedRig[] = [smbcRig, oglafRig, daringFireballRig, xkcdRig, oatmealRig, pluralisticRig, anthropicRig, kode24Rig]
 
 const hostOf = (url: string | null | undefined): string | null => {
   if (!url) return null
