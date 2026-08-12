@@ -37,24 +37,26 @@ const emit = defineEmits<{ close: [] }>()
 // the card (r, g, w and l all shipped without ever reaching this list).
 const readerKeys = [
   ['esc (reader)', 'Back'],
-  ['r / x (reader)', 'Mark read, on to the next'],
+  ['r / x / e (reader)', 'Mark read, on to the next'],
   ['j / k (reader)', 'Next · previous unread'],
-  ['s / e / v (reader)', 'Save · Elevate · Original'],
+  ['s / v (reader)', 'Save · Original'],
+  ['shift + e (reader)', 'Elevate to SFL'],
   ['h (reader)', 'Highlight selection'],
   ['g (reader)', 'Mark a good read'],
   ['w / l (reader)', 'Speed-read · Read aloud'],
 ]
 
 const deckKeys = [
-  ['← / x', 'Mark read'],
+  ['← / x / e', 'Mark read'],
   ['→', 'Save to the shelf'],
   ['↑', 'Elevate to SFL'],
   ['↓ / j', 'Skip — back of the deck'],
   ['k', 'Bring the previous card back'],
-  ['o / e / Enter / tap', 'Open the reader'],
+  ['o / Enter / tap', 'Open the reader'],
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
+  ['⌘ shift p', 'Command palette'],
   ...readerKeys,
   ['?', 'This card'],
 ]
@@ -68,6 +70,7 @@ const gridKeys = [
   ['u', 'Undo the last verb'],
   ['shift + r', 'Sync all feeds'],
   ['/', 'Search'],
+  ['⌘ shift p', 'Command palette'],
   ...readerKeys,
   ['?', 'This card'],
 ]

@@ -504,10 +504,10 @@ function onKey(e: KeyboardEvent) {
   }
   if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); goBack() }
   else if (e.key === 's') toggleSaveAction()
-  else if (e.key === 'r' || e.key === 'x') markReadAndReturn()
+  else if (e.key === 'r' || e.key === 'x' || e.key === 'e') markReadAndReturn()
   else if (e.key === 'j') goToAdjacent(1)
   else if (e.key === 'k') goToAdjacent(-1)
-  else if (e.key === 'e') elevateAction()
+  else if (e.key === 'E' && e.shiftKey) elevateAction()
   else if (e.key === 'v') openOriginal()
   else if (e.key === 'g') toggleGoodReadAction()
   else if (e.key === 'h') startHighlight()

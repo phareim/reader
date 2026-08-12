@@ -238,11 +238,12 @@ function onKey(e: KeyboardEvent) {
     }
     return
   }
-  // x / j / k mirror the mail-reader idiom: x reads (←), j skips forward
-  // (↓), k brings the previous card back (the inverse rotation).
+  // x / e / j / k mirror the mail-reader idiom: x and e (Gmail's archive)
+  // read (←), j skips forward (↓), k brings the previous card back (the
+  // inverse rotation).
   const map: Record<string, string> = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
-    x: 'left', j: 'down',
+    x: 'left', e: 'left', j: 'down',
   }
   if (map[e.key]) {
     e.preventDefault()
@@ -253,7 +254,7 @@ function onKey(e: KeyboardEvent) {
     stack.value?.undo()
   } else if (e.key === '?') {
     helpOpen.value = !helpOpen.value
-  } else if (e.key === 'o' || e.key === 'e' || e.key === 'Enter') {
+  } else if (e.key === 'o' || e.key === 'Enter') {
     // Ask the stack for its live top card — the page's deck snapshot
     // goes stale as soon as the first commit removes a card.
     stack.value?.openTop()

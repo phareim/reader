@@ -3,6 +3,7 @@
     <NuxtPage />
     <BottomBar />
     <AppToast />
+    <CommandPalette />
     <ClientOnly>
       <PwaUpdatePrompt />
     </ClientOnly>
