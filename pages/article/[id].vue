@@ -508,7 +508,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'j') goToAdjacent(1)
   else if (e.key === 'k') goToAdjacent(-1)
   else if (e.key === 'E' && e.shiftKey) elevateAction()
-  else if (e.key === 'v') openOriginal()
+  else if (e.key === 'v' || e.key === 'o') openOriginal()
   else if (e.key === 'g') toggleGoodReadAction()
   else if (e.key === 'h') startHighlight()
   else if (e.key === 'w') openRsvp()

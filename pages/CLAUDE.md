@@ -46,7 +46,7 @@ There is no global shortcut composable — each page owns its handler (with guar
 - `j` / `k` - Step to the **next / previous unread article** in the deck context *without* marking anything read (`nextUnreadId` / `prevUnreadId` in `utils/grid.ts`, both with wraparound; `replace: true` navigation like `r`; quiet no-op outside a deck context)
 - `r` / `x` / `e` - Mark read and continue to the **next unread article in the current deck context** (home, tag, or feed — `nextUnreadId` in `utils/grid.ts` scans the last-fetched `useArticles` list forward with wraparound, skipping read/saved rows; navigation uses `replace: true` so Back still points at the deck, not a trail of read articles). Opened outside a deck context (shelf, search, deep link) or with nothing unread left, it falls back to the history-back of `Esc` (also the accent "Mark as read" button at the end of the article). The page is keyed by `route.fullPath` (`definePageMeta`) so article→article navigation mounts a fresh instance
 - `shift+e` - Elevate to SFL (plain `e` became mark-read 2026-08-12, the Gmail idiom)
-- `v` - Open the original in a new tab
+- `o` / `v` - Open the original in a new tab
 - `g` - Toggle the good-read star (also the star button beside the share buttons at the end of the article)
 - `h` - Highlight the current selection (opens the note overlay; no-op without a selection)
 - `w` - Speed-read the article (opens `RsvpOverlay`; no-op on an empty body)
