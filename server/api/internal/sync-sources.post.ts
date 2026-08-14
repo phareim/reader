@@ -32,7 +32,7 @@ import {
  */
 const REFRESH_MARGIN_S = 300
 
-const X_PAGE = 25 // X bills per post returned (~$0.005) — keep pages small
+const X_PAGE = 10 // X bills per post returned (~$0.005/post, deduped per UTC day) — keep pages small
 const X_MAX_PAGES = 5
 const REDDIT_PAGE = 50 // free API; Reddit max is 100
 const REDDIT_MAX_PAGES = 5

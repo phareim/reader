@@ -171,8 +171,10 @@ timer run retries). X v2 is pay-per-usage at **$0.005 per post
 returned**, billed to the app owner regardless of which linked account is
 being read. Linking is open to every signed-in user (accepted cost, like TTS);
 re-gate with `isPersonalUser` in the start routes if guest volume ever hurts.
-Twice-daily polling of a 25-post first page bounds idle X cost to ≈ $0.25/day
-per account worst case; you only ever pay for posts actually returned.
+X dedupes resource charges within a UTC day, so the second daily run is
+effectively free; twice-daily polling of a 10-post first page bounds idle X
+cost to ≈ $0.05/day per account, and you only ever pay for posts actually
+returned.
 
 ## Bluesky bookmark collector (Sleeper-side)
 
