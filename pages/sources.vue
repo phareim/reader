@@ -51,40 +51,52 @@
             <div class="flex items-baseline justify-between gap-3">
               <NuxtLink
                 :to="`/feed/${feed.id}`"
-                class="flex min-w-0 items-center gap-2 text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
+                class="flex min-w-0 flex-1 items-center gap-2 text-lg text-ink hover:text-accent-ink focus-visible:outline focus-visible:outline-1"
               >
                 <FeedFavicon :src="feed.faviconUrl" :size="14" />
                 <span class="truncate">{{ feed.title }}</span>
               </NuxtLink>
-              <MonoLabel>{{ feed.unreadCount }}</MonoLabel>
+              <div class="flex shrink-0 items-baseline gap-4">
+                <!-- Silence is the default: a caught-up feed shows no count. -->
+                <MonoLabel v-if="feed.unreadCount > 0">{{ feed.unreadCount }}</MonoLabel>
+                <button
+                  class="mono-button feed-more"
+                  :class="{ 'feed-more--open': expandedFeedId === feed.id }"
+                  :aria-expanded="expandedFeedId === feed.id"
+                  :aria-label="`Actions for ${feed.title}`"
+                  @click="toggleActions(feed.id)"
+                >···</button>
+              </div>
             </div>
             <p v-if="feedHealthNote(feed)" class="mt-0.5 text-sm italic text-mute">
               {{ feedHealthNote(feed) }}
             </p>
-            <!-- mt-2.5, not mt-1.5: the row verbs carry a 10px pad above them
-                 (.mono-button) so a thumb can reach them, and at 6px that pad
-                 would reach up into the feed title's own hit area. -->
-            <div class="mt-2.5 flex gap-4">
-              <button
-                v-if="(feed.kind ?? 'rss') === 'rss'"
-                class="mono-button"
-                @click="syncFeed(feed)"
-              >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
-              <button class="mono-button" @click="markRead(feed.id)">Mark read</button>
-              <button class="mono-button" @click="editTags(feed)">Tags</button>
-              <!-- The pace cycles the feed's deck half-life through the
-                   presets; unread articles older than ~3 half-lives rest
-                   (fade from the deck without being marked read). -->
-              <button
-                v-if="(feed.kind ?? 'rss') === 'rss'"
-                class="mono-button"
-                :title="feed.halfLifeHours === DECAY.FOREVER_HOURS
-                  ? 'Articles from this feed never fade — tap to change the pace'
-                  : `Articles fade from the deck after about ${halfLifeLabel(feed.halfLifeHours)} × 3 — tap to change the pace`"
-                @click="cyclePace(feed)"
-              >Pace {{ halfLifeLabel(feed.halfLifeHours) }}</button>
-              <button class="mono-button mono-button--danger" @click="confirmDelete(feed)">Delete</button>
-            </div>
+            <!-- The verbs live behind the ··· toggle — one row open at a time.
+                 mono-button--tight + gap-y-4 because the row wraps on narrow
+                 phones: full pads on two lines would overlap hit areas. -->
+            <Transition name="verbs">
+              <div v-if="expandedFeedId === feed.id" class="feed-verbs mt-2.5 flex flex-wrap gap-x-4 gap-y-4">
+                <button
+                  v-if="(feed.kind ?? 'rss') === 'rss'"
+                  class="mono-button mono-button--tight"
+                  @click="syncFeed(feed)"
+                >{{ syncingFeedId === feed.id ? 'Syncing…' : 'Sync' }}</button>
+                <button class="mono-button mono-button--tight" @click="markRead(feed.id)">Mark read</button>
+                <button class="mono-button mono-button--tight" @click="editTags(feed)">Tags</button>
+                <!-- The pace cycles the feed's deck half-life through the
+                     presets; unread articles older than ~3 half-lives rest
+                     (fade from the deck without being marked read). -->
+                <button
+                  v-if="(feed.kind ?? 'rss') === 'rss'"
+                  class="mono-button mono-button--tight"
+                  :title="feed.halfLifeHours === DECAY.FOREVER_HOURS
+                    ? 'Articles from this feed never fade — tap to change the pace'
+                    : `Articles fade from the deck after about ${halfLifeLabel(feed.halfLifeHours)} × 3 — tap to change the pace`"
+                  @click="cyclePace(feed)"
+                >Pace {{ halfLifeLabel(feed.halfLifeHours) }}</button>
+                <button class="mono-button mono-button--tight mono-button--danger" @click="confirmDelete(feed)">Delete</button>
+              </div>
+            </Transition>
           </li>
         </TransitionGroup>
       </section>
@@ -198,6 +210,13 @@ const newUrl = ref('')
 const adding = ref(false)
 const syncing = ref(false)
 const tagEditorFeed = ref<Feed | null>(null)
+
+// The per-feed verb row is one tap away behind the ··· toggle; opening a
+// row closes whichever other row was open.
+const expandedFeedId = ref<number | null>(null)
+function toggleActions(feedId: number) {
+  expandedFeedId.value = expandedFeedId.value === feedId ? null : feedId
+}
 
 // Feed-picker state for when a site exposes several feeds
 const discovered = ref<DiscoveredFeedOption[] | null>(null)
@@ -417,6 +436,7 @@ async function confirmDelete(feed: Feed) {
   if (!window.confirm(`Delete "${feed.title}" and all its articles?`)) return
   try {
     const res = await deleteFeed(feed.id)
+    if (expandedFeedId.value === feed.id) expandedFeedId.value = null
     const n = res?.deletedArticles ?? 0
     showSuccess(n === 1 ? 'Deleted — 1 article' : `Deleted — ${n} articles`)
   } catch { showError('Failed to delete feed') }
@@ -442,6 +462,16 @@ async function signOutAction() {
 /* The row verbs (Sync / Mark read / Tags / Delete, A−/A+, Unlink, Sign out)
    are `.mono-button` from assets/css/main.css — type, hover, focus ring and
    touch pad in one place, shared with the other rooms. */
+
+/* The ··· toggle answers in ink while its verb row is open. The glyph is
+   text, so it inherits the mono-button type + pad + focus ring. */
+.feed-more { letter-spacing: 0.08em; }
+.feed-more--open { color: var(--text-strong); }
+
+/* Verb row reveal: a quiet fade-in (no leave — closing is instant). The
+   global reduced-motion rule in main.css stills this. */
+.verbs-enter-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.verbs-enter-from { opacity: 0; transform: translateY(-2px); }
 
 /* Feed row removal: fade + collapse so a deleted feed leaves the list cleanly */
 .feed-row { transition: opacity .28s ease, transform .28s ease; }
