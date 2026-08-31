@@ -3,7 +3,7 @@
  * sleeper-articles-sync.mjs — Sleeper-side collector: the Sleeper Articles service
  * (~/chat/articles, the SFL-bookmark extraction pipeline) → Reader "Found" feed.
  *
- * The seventh Found collector (siblings: x / bluesky / mastodon / reddit /
+ * A Found collector (siblings: x / bluesky / reddit /
  * instapaper / ai-digest). Where the social collectors read *one bookmark → one
  * card*, this one reads the already-extracted articles the Sleeper Articles API
  * serves (full Markdown bodies, summaries, key points) and normalizes each into

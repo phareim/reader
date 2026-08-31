@@ -12,8 +12,8 @@ Each morning, one **synthesized digest card** lands in the Found feed: a short
 editor's-letter over the last 24h of AI news, styled like the obsession brief.
 One swipe to read it in the serif reader, elevate it to SFL, or skip.
 
-It is **not** a new kind of feature — it is a **sixth Sleeper-side collector**
-in the exact mould of the five that already feed Found (X / Bluesky / Mastodon /
+It is **not** a new kind of feature — it is another **Sleeper-side collector**
+in the exact mould of the ones that already feed Found (X / Bluesky /
 Reddit / Instapaper). The only twist: where those normalize *one social item →
 one card*, this one **reads many SFL ideas → synthesizes → posts one card**. The
 Reader stays completely source-agnostic; zero Reader-app changes.

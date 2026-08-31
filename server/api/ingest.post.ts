@@ -3,7 +3,7 @@
  *
  * Generic ingestion seam for the "Found" feed — a push-only bucket for
  * bookmarks/saves collected from social sources. A Sleeper-side collector
- * (X bookmarks first; Mastodon/Reddit/… later) normalizes each item into
+ * (X bookmarks first; Reddit/… later) normalizes each item into
  * the shape below and POSTs it here with an MCP token.
  *
  * The Reader stays source-agnostic: every source reuses this one endpoint and

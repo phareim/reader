@@ -8,7 +8,7 @@
  * listing server-side; the rendering below was ported verbatim to
  * server/utils/redditRender.ts. Kept as reference only.
  *
- * A sibling of x-bookmark-sync.mjs / bluesky-bookmark-sync.mjs / mastodon-*.
+ * A sibling of x-bookmark-sync.mjs / bluesky-bookmark-sync.mjs.
  * Reddit's analog to bookmarks is the **saved** list (posts you've saved AND
  * comments you've saved). Each run:
  *   1. mints an OAuth2 bearer token via the "script" app password grant,

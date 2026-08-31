@@ -6,7 +6,7 @@ feed. Shipped 2026-06-27.
 
 ## Why
 
-The Reader's feeds are RSS-pull. Bookmarks on X (and later Mastodon, Reddit, …)
+The Reader's feeds are RSS-pull. Bookmarks on X (and later Reddit, …)
 are a different shape: there's no RSS, the content needs source-specific
 extraction, and auth is per-user OAuth. Rather than teach the Reader about each
 network, we keep it **source-agnostic** and push normalized items into it from
@@ -15,7 +15,6 @@ Sleeper-side collectors.
 ```
 X bookmarks ──────┐
 Bluesky ──────────┤
-Mastodon ─────────┤
 Reddit ───────────┼─→ [Sleeper collector(s)] ──POST /api/ingest──→ Reader (D1+R2) ──→ "Found" feed + tab
 Instapaper ───────┤   normalize to one shape    (MCP-authed)         ↑ behaves like any feed
 AI digest ────────┤   (synthesizes many → one)
@@ -23,9 +22,11 @@ Sleeper Articles ─┘   (extracted articles → one card each)
 ```
 
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Seven collectors ship today (`source=x-bookmark`, `bluesky`,
-`mastodon`, `reddit`, `instapaper`, `ai-digest`, `sleeper-articles`); each is a
-standalone `scripts/*-sync.mjs` + a systemd user timer. Five normalize *one social
+changes.** Six collectors ship today (`source=x-bookmark`, `bluesky`,
+`reddit`, `instapaper`, `ai-digest`, `sleeper-articles`); each is a
+standalone `scripts/*-sync.mjs` + a systemd user timer. (A Mastodon collector
+existed but was removed 2026-08-31 — never enabled; Petter doesn't use
+Mastodon.) Four normalize *one social
 item → one card*; the AI digest is the odd one out — it reads *many* items and
 synthesizes *one* card; the Sleeper Articles collector mirrors *one
 already-extracted article → one card* (see the sections below).
@@ -37,7 +38,7 @@ already-extracted article → one card* (see the sections below).
   it — same trick as the `'manual'` Manual Additions feed). `'rss'` for everything
   else.
 - `Article.source TEXT` — per-item origin inside Found (`'x-bookmark'`, future
-  `'mastodon'`/`'reddit'`/…). NULL for RSS articles.
+  `'reddit'`/…). NULL for RSS articles.
 - Index `idx_feed_user_kind (user_id, kind)`.
 
 Applied to prod with:
@@ -208,36 +209,6 @@ Mint an app password at **Bluesky → Settings → App Passwords** (no special
 scopes needed) and drop it into `env`. First run creates `token.json` and
 `state.json` automatically. Deleted/blocked bookmarks are skipped (and marked
 seen so they aren't retried).
-
-## Mastodon bookmark collector (Sleeper-side)
-
-`scripts/mastodon-bookmark-sync.mjs` — like Bluesky, free and friction-light:
-auth is a personal access token, no OAuth dance, no per-call cost.
-
-Each run:
-1. Pages newest-first through the authed user's bookmarks (`GET /api/v1/bookmarks`),
-   following the `Link: …; rel="next"` header for pagination (Mastodon paginates
-   bookmarks by an **internal bookmark id** exposed only in that header — *not* the
-   status id — so we never construct `max_id` ourselves). Stops once it reaches
-   already-ingested ids (bounded by `FIRST_PAGE=40` / `--max-pages`).
-2. Renders each bookmarked Status to HTML — content (already HTML), media,
-   boosted post (`reblog`), and link `card` all arrive in the one object.
-3. POSTs each to `/api/ingest` as `source=mastodon`, `externalId` = status id.
-
-Flags: `--dry-run`, `--verbose`, `--max-pages N`.
-
-### Auth / config
-
-| Path | Holds |
-|---|---|
-| `~/.config/mastodon/env` | `MASTODON_INSTANCE` (e.g. `https://mastodon.social`), `MASTODON_ACCESS_TOKEN` |
-| `~/.config/mastodon/state.json` | `seen_ids[]` high-water set, `last_run`, `total_ingested` |
-| `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
-
-Get the token on **your instance → Preferences → Development → New Application**,
-with the `read:bookmarks` scope, then copy *Your access token*. No client
-id/secret needed for a single-user personal token. First run creates
-`state.json`; bookmarks of deleted/unviewable statuses are skipped.
 
 ## Reddit collector (Sleeper-side — SUPERSEDED, never enabled)
 
@@ -417,7 +388,6 @@ don't fire on the same second:
 | `reader-sources-sync.timer` | `07,19:30` (Worker-side X + Reddit + HN sync; replaced `x-bookmark-sync.timer` / `reader-x-bookmarks.timer`) |
 | `bluesky-bookmark-sync.timer` | `07,19:40` (enabled + creds live, verified 2026-08-06) |
 | `instapaper-sync.timer` | `07,19:50` |
-| `mastodon-bookmark-sync.timer` | `08,20:00` |
 | `reddit-saved-sync.timer` | (superseded — never enabled; Reddit runs in `reader-sources-sync`) |
 | `sleeper-articles-sync.timer` | `08,20:20` |
 

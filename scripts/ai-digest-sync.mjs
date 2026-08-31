@@ -2,7 +2,7 @@
 /**
  * ai-digest-sync.mjs — Sleeper-side collector: the morning AI digest → Reader "Found" feed.
  *
- * The sixth Found collector (siblings: x / bluesky / mastodon / reddit / instapaper),
+ * A Found collector (siblings: x / bluesky / reddit / instapaper),
  * with one twist: where those normalize *one social item → one card*, this one reads
  * *many SFL ideas → synthesizes → posts ONE card*. Each run:
  *   1. pulls the last ~24h of SFL ideas tagged `ai-news`
