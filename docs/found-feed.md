@@ -413,23 +413,9 @@ before enabling the timer.
 - `__tests__/server/hn.test.ts` — HN favorites-page id scrape + Firebase item →
   Found-item rendering (link story vs Ask HN; comment/deleted/dead skips).
 
-## Native app — TODO
+## Native app — retired
 
-The web app ships the Found tab in this deploy. A separate native build (the iOS
-Reader app, built on Petter's local machine) needs the matching surface — see the
-checklist in the sleeper-task and the "Native app integration" section below.
-
-### Native app integration spec
-
-To add the Found room to the native client:
-1. **New tab** between Deck and Shelf, label **Found**, routing to a feed-scoped
-   deck (reuse the existing feed/deck screen).
-2. **Resolve the feed** by `kind === 'found'` from `GET /api/feeds` (the response
-   now includes `kind` per feed). Do **not** hardcode a feed id — it's created
-   lazily on first ingest and differs per user/environment.
-3. **Empty state** when no `kind:'found'` feed exists yet ("Nothing found yet").
-4. Everything else is free: Found articles already come back from the normal
-   `GET /api/articles` list and the per-feed deck; the five verbs (save / read /
-   elevate / skip / open) work unchanged. Tweet bodies are HTML in R2 and render
-   through the same article reader.
-5. Nothing to send on write — ingestion is entirely server-side.
+The Reader is **web-only** (decided 2026-08-31): Petter reads exclusively in the
+web app, and the planned native iOS client was never built — no Xcode project
+ever existed. The Found-tab integration spec that lived here is in git history
+if a native client ever returns.
