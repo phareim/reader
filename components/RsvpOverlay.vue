@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-50 flex flex-col bg-paper"
+      class="tufte-sheet fixed inset-0 z-50 flex flex-col bg-paper"
       role="dialog"
       aria-modal="true"
       aria-label="Speed read"

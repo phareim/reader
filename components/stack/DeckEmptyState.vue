@@ -1,6 +1,9 @@
 <template>
-  <div class="flex flex-col items-center gap-6 text-center">
-    <div class="text-4xl text-faint" aria-hidden="true">&#9789;</div>
+  <!-- The deck's last sheet: blank paper with the one accent stamped on it.
+       A stamp is the tactile layer's single sanctioned use of red ink on a
+       page; it replaces the old moon glyph. -->
+  <div class="tufte-sheet flex h-full w-full flex-col items-center justify-center gap-6 px-8 text-center">
+    <span class="tufte-stamp" aria-hidden="true">{{ noFeeds ? 'No sources' : 'Caught up' }}</span>
     <!-- A brand-new account has no sources yet — "all caught up" would be
          a lie; point at the room where reading begins instead. -->
     <template v-if="noFeeds">

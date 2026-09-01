@@ -4,7 +4,7 @@
     <header class="flex items-baseline justify-between pb-3">
       <MonoLabel dash>Found</MonoLabel>
     </header>
-    <HairlineRule />
+    <HairlineRule desk />
     <div class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <template v-if="loading">
         <MonoLabel dash>Loading…</MonoLabel>

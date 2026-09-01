@@ -3,7 +3,8 @@
        vh-centred form sits low and the sign-in button can start below the
        fold on first paint. -->
   <main class="flex min-h-dvh items-center justify-center px-5">
-    <div class="w-full max-w-sm">
+    <div class="tufte-sheet-stack w-full max-w-sm">
+    <div class="tufte-sheet w-full px-6 py-7">
       <MonoLabel dash>The Reader</MonoLabel>
       <h1 class="mt-2 text-3xl">{{ isSignUp ? 'Create account' : 'Sign in' }}</h1>
       <HairlineRule class="mt-4 mb-6" />
@@ -44,6 +45,7 @@
           </button>
         </div>
       </form>
+    </div>
     </div>
   </main>
 </template>

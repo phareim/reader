@@ -1,54 +1,56 @@
 <template>
   <main class="fixed inset-0 overflow-y-auto overscroll-none">
-    <div class="mx-auto max-w-measure px-5 py-6 pb-20">
-      <header class="flex items-baseline justify-between">
-        <MonoLabel dash>Highlights</MonoLabel>
-        <MonoLabel>{{ headerCount }}</MonoLabel>
-      </header>
-      <HairlineRule class="mt-3" />
+    <div class="mx-auto max-w-measure px-3 pt-4 pb-20 sm:px-5 sm:pt-6">
+      <div class="tufte-sheet room-sheet px-5 py-6">
+        <header class="flex items-baseline justify-between">
+          <MonoLabel dash>Highlights</MonoLabel>
+          <MonoLabel>{{ headerCount }}</MonoLabel>
+        </header>
+        <HairlineRule class="mt-3" />
 
-      <!-- Hashtag filter — derived from #tags in the notes; one active at a time -->
-      <div v-if="allTags.length" class="mt-4 flex flex-wrap gap-x-4 gap-y-3">
-        <button
-          v-for="t in allTags"
-          :key="t"
-          class="tag-chip mono-button mono-button--tight"
-          :class="{ 'tag-chip-active': t === activeTag }"
-          @click="toggleTag(t)"
-        >#{{ t }}</button>
-      </div>
+        <!-- Hashtag filter — derived from #tags in the notes; one active at a time -->
+        <div v-if="allTags.length" class="mt-4 flex flex-wrap gap-x-4 gap-y-3">
+          <button
+            v-for="t in allTags"
+            :key="t"
+            class="tag-chip mono-button mono-button--tight"
+            :class="{ 'tag-chip-active': t === activeTag }"
+            @click="toggleTag(t)"
+          >#{{ t }}</button>
+        </div>
 
-      <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
-      <p v-else-if="highlights.length === 0" class="mt-8 italic text-mute">
-        Nothing marked yet — select a passage in the reader and press <span class="font-mono">h</span>.
-      </p>
-      <p v-else-if="filtered.length === 0" class="mt-8 italic text-mute">
-        No marks tagged #{{ activeTag }}.
-      </p>
+        <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
+        <p v-else-if="highlights.length === 0" class="mt-8 italic text-mute">
+          Nothing marked yet — select a passage in the reader and press <span class="font-mono">h</span>.
+        </p>
+        <p v-else-if="filtered.length === 0" class="mt-8 italic text-mute">
+          No marks tagged #{{ activeTag }}.
+        </p>
 
-      <ul v-else>
-        <li v-for="hl in filtered" :key="hl.id" class="border-b border-rule py-5">
-          <p class="text-lg leading-relaxed text-ink">
-            <span class="quote-wash">{{ hl.quote }}</span>
-          </p>
-          <p
-            v-if="hl.note"
-            class="mt-2 text-sm text-body"
-            v-html="renderNoteHtml(hl.note)"
-          />
-          <div class="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <NuxtLink
-              :to="`/article/${hl.articleId}`"
-              class="min-w-0 truncate focus-visible:outline focus-visible:outline-1"
-            ><MonoLabel dash>{{ hl.articleTitle }}</MonoLabel></NuxtLink>
-            <div class="flex items-baseline gap-4">
-              <MonoLabel v-if="hl.sflIdeaId">In SFL</MonoLabel>
-              <MonoLabel>{{ hl.createdAt ? formatRelativeDate(hl.createdAt) : '' }}</MonoLabel>
-              <button class="hl-remove mono-button mono-button--danger" @click="remove(hl.id)">&mdash; Remove</button>
+        <ul v-else>
+          <li v-for="hl in filtered" :key="hl.id" class="border-b border-rule py-5">
+            <p class="text-lg leading-relaxed text-ink">
+              <span class="quote-wash">{{ hl.quote }}</span>
+            </p>
+            <p
+              v-if="hl.note"
+              class="mt-2 text-sm text-body"
+              v-html="renderNoteHtml(hl.note)"
+            />
+            <div class="mt-2.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <NuxtLink
+                :to="`/article/${hl.articleId}`"
+                class="min-w-0 truncate focus-visible:outline focus-visible:outline-1"
+              ><MonoLabel dash>{{ hl.articleTitle }}</MonoLabel></NuxtLink>
+              <div class="flex items-baseline gap-4">
+                <MonoLabel v-if="hl.sflIdeaId">In SFL</MonoLabel>
+                <MonoLabel>{{ hl.createdAt ? formatRelativeDate(hl.createdAt) : '' }}</MonoLabel>
+                <button class="hl-remove mono-button mono-button--danger" @click="remove(hl.id)">&mdash; Remove</button>
+              </div>
             </div>
-          </div>
-        </li>
-      </ul>
+          </li>
+        </ul>
+      </div>
     </div>
   </main>
 </template>

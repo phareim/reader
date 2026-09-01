@@ -4,7 +4,7 @@
     <header class="flex items-baseline justify-between pb-3">
       <MonoLabel dash>The Reader</MonoLabel>
     </header>
-    <HairlineRule />
+    <HairlineRule desk />
     <div class="flex flex-1 flex-col items-center justify-center gap-4">
       <p class="text-body">No tag named "{{ tag }}".</p>
       <NuxtLink to="/"><ActionLabel accent>Back to the deck</ActionLabel></NuxtLink>

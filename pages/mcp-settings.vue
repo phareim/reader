@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-paper text-ink font-serif p-6">
+  <div class="tufte-sheet min-h-screen bg-paper text-ink font-serif p-6">
     <div class="max-w-4xl mx-auto py-6">
       <!-- Header -->
       <div class="mb-6">

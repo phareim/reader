@@ -192,3 +192,93 @@ mark.hl {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Paper on the desk — how the app wears the tactile layer (2026-09-01).
+
+   The model: <body> is the desk (grained, dark, light ink); every paper
+   surface is a .tufte-sheet (deck cards, room pages, the article, overlays,
+   popovers) and restores the paper ink tokens the desk re-mapped. Three
+   app-specific surfaces paint their own paper and restore the same way:
+   the ActionLabel chip, the .desk-bar strip (BottomBar, read-aloud player)
+   and the .tufte-input well. Everything else inherits its context — a
+   MonoLabel or .mono-button reads light on the desk and ink on a sheet
+   without knowing which it is on.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* HairlineRule: pressed into paper (deboss) or into the desk (emboss). */
+.tufte-tactile .hairline {
+  height: 2px;
+  border: 0;
+  background: var(--rule-deboss);
+}
+.tufte-tactile .hairline--desk {
+  background: var(--rule-emboss);
+}
+
+/* The bordered chip (ActionLabel): a paper button pressed into whatever it
+   sits on. Restores paper ink so it reads the same on desk and sheet. */
+.tufte-tactile .action-label {
+  background: var(--surface-button);
+  box-shadow: var(--press-secondary);
+  text-shadow: var(--text-press);
+  color: var(--ink-quiet);
+  border-color: var(--rule-strong);
+  --text-accent: var(--accent-ink);
+}
+.tufte-tactile .action-label:hover:not(:disabled) {
+  color: var(--tufte-ink);
+  border-color: var(--rule-strong);
+}
+.tufte-tactile .action-label.action-label--accent {
+  color: var(--accent-ink);
+  border-color: var(--tufte-accent);
+}
+.tufte-tactile .action-label:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* A strip cut into the desk: BottomBar, the read-aloud player. Paper tone,
+   a hard top edge, a lit inner rim. */
+.tufte-tactile .desk-bar {
+  background: var(--surface-button);
+  border-color: transparent;
+  box-shadow: 0 -1px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.7);
+  --text-strong:   var(--tufte-ink);
+  --text-body:     var(--ink-soft);
+  --text-muted:    var(--ink-quiet);
+  --text-faint:    var(--tufte-muted);
+  --text-accent:   var(--accent-ink);
+  --border-rule:   var(--rule);
+  --border-strong: var(--rule-strong);
+}
+.tufte-tactile .desk-bar :is(a, button, span) { text-shadow: var(--text-press); }
+@media (prefers-color-scheme: dark) {
+  .tufte-tactile .desk-bar {
+    box-shadow: 0 -1px 0 rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+}
+
+/* A room page is one sheet lying on the desk: it fills the screen even when
+   the list is short, so a near-empty shelf is still a sheet, not a scrap. */
+.room-sheet {
+  min-height: calc(100dvh - 7.5rem);
+}
+
+/* CardFrame keeps its hairline frame in flat mode; on the desk the sheet's
+   own hard shadow edge is the frame. */
+.tufte-tactile .card-frame {
+  border-color: transparent;
+}
+
+/* Text input: a shallow well pressed into the paper (the login form). */
+.tufte-tactile .tufte-input {
+  background: var(--paper-sunk);
+  box-shadow: var(--press-secondary);
+  border-bottom-color: transparent;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.tufte-tactile .tufte-input:focus {
+  border-bottom-color: var(--tufte-accent);
+}

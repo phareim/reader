@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="fixed inset-0 z-50 overflow-y-auto bg-paper" role="dialog" aria-modal="true" aria-label="Save article">
+    <div class="tufte-sheet fixed inset-0 z-50 overflow-y-auto bg-paper" role="dialog" aria-modal="true" aria-label="Save article">
       <div class="mx-auto max-w-measure px-5 py-6">
         <header class="flex items-baseline justify-between gap-3">
           <MonoLabel dash>No feed here</MonoLabel>

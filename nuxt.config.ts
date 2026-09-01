@@ -17,12 +17,18 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'The Reader',
+      // Tufte Viz tactile paper layer: <html> opts in, <body> is the desk.
+      // Drop `tufte-tactile` here and the whole app falls back to flat paper.
+      htmlAttrs: { class: 'tufte-tactile' },
+      bodyAttrs: { class: 'tufte-desk' },
       meta: [
         { name: 'description', content: 'A calm reading room' },
         // viewport-fit=cover is required for env(safe-area-inset-*) to resolve
         // to non-zero on notched iPhones — the BottomBar relies on it.
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#fbf9f4' },
+        // The desk, not the paper — the tactile layer's page ground.
+        { name: 'theme-color', content: '#7a7062', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#2a2622', media: '(prefers-color-scheme: dark)' },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },

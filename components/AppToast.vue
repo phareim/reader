@@ -18,7 +18,7 @@
     <div
       v-if="success || error"
       aria-hidden="true"
-      class="fixed left-1/2 -translate-x-1/2 z-50 border bg-paper-raised px-4 py-2"
+      class="tufte-sheet fixed left-1/2 -translate-x-1/2 z-50 border bg-paper-raised px-4 py-2"
       :class="error ? 'border-accent' : 'border-rule-strong'"
       style="bottom: calc(4.5rem + env(safe-area-inset-bottom));"
     >

@@ -5,6 +5,13 @@ Four rooms switched by `BottomBar.vue`: **Deck** (`/`), **Found** (`/found`),
 login sit outside the bar.
 
 Components these compose: [`../components/CLAUDE.md`](../components/CLAUDE.md).
+
+Since 2026-09-01 every room is one sheet of paper lying on the desk (`<body>`):
+the scrolling list pages wrap their `max-w-measure` block in
+`<div class="tufte-sheet room-sheet">`, the deck's cards are sheets on the bare
+desk, and the reader's action row sits on the desk above the article sheet
+(the sheet is what slides off on a left swipe). See "Paper on the desk" in
+`components/CLAUDE.md` for the ink-token contract before adding a surface.
 Pure logic: [`../utils/CLAUDE.md`](../utils/CLAUDE.md).
 
 ## The pages

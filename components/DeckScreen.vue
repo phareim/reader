@@ -44,7 +44,7 @@
         </MonoLabel>
       </span>
     </header>
-    <HairlineRule />
+    <HairlineRule desk />
 
     <div class="relative min-h-0 flex-1 py-4">
       <ClientOnly>

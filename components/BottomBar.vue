@@ -1,7 +1,7 @@
 <template>
   <nav
     v-if="visible"
-    class="fixed bottom-0 inset-x-0 z-40 border-t border-rule bg-paper"
+    class="desk-bar fixed bottom-0 inset-x-0 z-40 border-t border-rule bg-paper"
     style="padding-bottom: env(safe-area-inset-bottom);"
   >
     <div class="mx-auto max-w-measure flex">

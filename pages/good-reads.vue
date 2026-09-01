@@ -1,35 +1,37 @@
 <template>
   <main class="fixed inset-0 overflow-y-auto overscroll-none">
-    <div class="mx-auto max-w-measure px-5 py-6 pb-20">
-      <header class="flex items-baseline justify-between">
-        <MonoLabel dash>Good reads</MonoLabel>
-        <MonoLabel>{{ articles.length }} starred</MonoLabel>
-      </header>
-      <HairlineRule class="mt-3" />
+    <div class="mx-auto max-w-measure px-3 pt-4 pb-20 sm:px-5 sm:pt-6">
+      <div class="tufte-sheet room-sheet px-5 py-6">
+        <header class="flex items-baseline justify-between">
+          <MonoLabel dash>Good reads</MonoLabel>
+          <MonoLabel>{{ articles.length }} starred</MonoLabel>
+        </header>
+        <HairlineRule class="mt-3" />
 
-      <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
-      <p v-else-if="articles.length === 0" class="mt-8 italic text-mute">
-        Nothing starred yet — mark a good read at the end of an article.
-      </p>
+        <p v-if="loading" class="mt-8 italic text-mute">Loading…</p>
+        <p v-else-if="articles.length === 0" class="mt-8 italic text-mute">
+          Nothing starred yet — mark a good read at the end of an article.
+        </p>
 
-      <ul v-else>
-        <li v-for="a in articles" :key="a.id" class="border-b border-rule py-4">
-          <NuxtLink :to="`/article/${a.id}`" class="block">
-            <div class="flex items-baseline justify-between gap-4">
-              <MonoLabel dash>{{ a.feedTitle }}</MonoLabel>
-              <MonoLabel>{{ a.goodReadAt ? formatRelativeDate(a.goodReadAt) : '' }}</MonoLabel>
+        <ul v-else>
+          <li v-for="a in articles" :key="a.id" class="border-b border-rule py-4">
+            <NuxtLink :to="`/article/${a.id}`" class="block">
+              <div class="flex items-baseline justify-between gap-4">
+                <MonoLabel dash>{{ a.feedTitle }}</MonoLabel>
+                <MonoLabel>{{ a.goodReadAt ? formatRelativeDate(a.goodReadAt) : '' }}</MonoLabel>
+              </div>
+              <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
+              <p class="mt-1 text-sm text-mute">{{ excerpt(a.summary, 140) }}</p>
+            </NuxtLink>
+            <div class="mt-3 flex justify-end">
+              <button
+                class="gr-remove mono-button mono-button--danger"
+                @click="remove(a.id)"
+              >&mdash; Remove</button>
             </div>
-            <h2 class="mt-1 text-xl leading-snug text-ink">{{ a.title }}</h2>
-            <p class="mt-1 text-sm text-mute">{{ excerpt(a.summary, 140) }}</p>
-          </NuxtLink>
-          <div class="mt-3 flex justify-end">
-            <button
-              class="gr-remove mono-button mono-button--danger"
-              @click="remove(a.id)"
-            >&mdash; Remove</button>
-          </div>
-        </li>
-      </ul>
+          </li>
+        </ul>
+      </div>
     </div>
   </main>
 </template>

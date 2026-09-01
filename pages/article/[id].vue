@@ -5,7 +5,9 @@
     <div class="w-full bg-mute" :style="{ height: scrollPercent + '%' }" />
   </div>
 
-  <main class="mx-auto max-w-measure px-5 py-6">
+  <!-- The action row sits on the desk; the article below it is a sheet of
+       paper lying there — on touch the sheet is what slides off the desk. -->
+  <main class="mx-auto max-w-measure px-3 py-4 sm:px-5 sm:py-6">
     <!-- Action row. On phones the buttons collapse to icons (see ActionLabel)
          so the four of them stay within the hairline rule's width; from sm: up
          they spell out their labels. -->
@@ -53,7 +55,7 @@
         </ActionLabel>
       </div>
     </div>
-    <HairlineRule class="mt-4" />
+    <HairlineRule desk class="mt-4" />
 
     <template v-if="article">
       <!--
@@ -67,6 +69,7 @@
         faint elastic give: there is no right verb here.
       -->
       <motion.div
+        class="tufte-sheet mt-5 px-5 pb-6 pt-1 sm:px-8 sm:pb-8"
         :style="{ x: swipeX, opacity: swipeOpacity }"
         style="touch-action: pan-y;"
         :drag="swipeDragEnabled ? 'x' : false"
@@ -79,7 +82,7 @@
         @drag-end="(e: PointerEvent, info: PanInfo) => onSwipeDragEnd(info)"
         @click.capture="onSwipeClickCapture"
       >
-      <header class="mt-8">
+      <header class="mt-6">
         <div class="flex items-baseline justify-between">
           <MonoLabel dash>{{ article.feedTitle }}</MonoLabel>
           <MonoLabel>{{ relativeDate }}</MonoLabel>
@@ -99,7 +102,7 @@
            non-accent so the single crimson stays on "Mark as read"; the star
            takes the accent only once marked (same precedent as the Save
            bookmark); brand glyphs render on every width. -->
-      <div class="flex items-center justify-center gap-3 pb-24">
+      <div class="flex items-center justify-center gap-3 pb-6">
         <ActionLabel accent :disabled="markingRead" aria-label="Mark as read" @click="markReadAndReturn">
           <template #icon>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
@@ -135,6 +138,7 @@
         </template>
       </div>
       </motion.div>
+      <div class="h-20" aria-hidden="true" />
 
       <!-- Pending-verb label: the deck's left-swipe accent language — fixed
            so it holds still while the article slides out from under it. -->
@@ -195,7 +199,7 @@
          chunks); the crimson wash in the body marks the spoken passage
          itself. Pause/Resume carries the accent — it is the moment of
          attention while listening. -->
-    <div v-if="readAloud !== 'idle'" class="fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper">
+    <div v-if="readAloud !== 'idle'" class="desk-bar fixed inset-x-0 bottom-0 z-40 border-t border-rule bg-paper">
       <div class="h-[2px] w-full" aria-hidden="true">
         <div class="h-full bg-accent-ink" :style="{ width: ttsProgress + '%' }" />
       </div>
