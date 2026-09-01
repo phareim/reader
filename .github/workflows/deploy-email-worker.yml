@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       # The Worker's sender-auth alignment logic (email-worker/src/authResults.ts)
       # is covered by the ROOT suite, __tests__/server/emailIngest.test.ts — so
@@ -28,6 +28,7 @@ jobs:
 
       - uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: "4.128.0"  # action defaults to wrangler 3.90.0, which now exits 1 before running
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: email-worker

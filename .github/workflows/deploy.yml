@@ -12,7 +12,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm install
@@ -28,12 +28,14 @@ jobs:
       # (backfilled 2026-07-21 for the manually-applied 003–018).
       - uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: "4.128.0"  # action defaults to wrangler 3.90.0, which now exits 1 before running
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: d1 migrations apply reader-service --remote
 
       - uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: "4.128.0"  # action defaults to wrangler 3.90.0, which now exits 1 before running
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
