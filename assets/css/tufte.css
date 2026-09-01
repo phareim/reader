@@ -307,11 +307,16 @@ html:not(.tufte-tactile) .tufte-sheet::after { display: none; }
   transform: rotate(-1.2deg) translate(7px, 5px);
 }
 
-/* Type on paper is pressed in. Data-ink is exempt — always. */
-.tufte-tactile .tufte-sheet :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,label,button,blockquote) { text-shadow: var(--text-press); }
-.tufte-tactile .tufte-sheet :is(.tufte-figure, .tufte-figure *, svg, svg *, code, pre, pre *, img) { text-shadow: none; }
+/* Type on paper is pressed in. Data-ink is exempt — always.
+   Cascade note: in a Nuxt app everything hangs off one #__nuxt child of the
+   desk, so the desk rule (specificity 0,3,1) reaches into every sheet. The
+   sheet rules below therefore also carry .tufte-desk (0,3,1) and come last,
+   so paper press wins on paper and the data-ink exemption wins over both. */
 .tufte-tactile .tufte-desk > :not(.tufte-sheet) :is(h1,h2,h3,h4,h5,h6,p,span,a,button) { text-shadow: var(--text-press-desk); }
-.tufte-tactile .tufte-desk .tufte-sheet :is(span,a) { text-shadow: var(--text-press); }
+.tufte-tactile .tufte-sheet :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,label,button,blockquote,span,a),
+.tufte-tactile .tufte-desk .tufte-sheet :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,th,td,label,button,blockquote,span,a) { text-shadow: var(--text-press); }
+.tufte-tactile .tufte-sheet :is(.tufte-figure, .tufte-figure *, svg, svg *, code, pre, pre *, img),
+.tufte-tactile .tufte-desk .tufte-sheet :is(.tufte-figure, .tufte-figure *, svg, svg *, code, pre, pre *, img) { text-shadow: none; }
 
 /* ── Rules — pressed, not drawn ───────────────────────────────────────── */
 .tufte-rule        { height: 2px; border: 0; margin: 0; background: var(--rule); }

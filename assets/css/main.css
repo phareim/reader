@@ -282,3 +282,8 @@ mark.hl {
 .tufte-tactile .tufte-input:focus {
   border-bottom-color: var(--tufte-accent);
 }
+
+/* The chip on the desk (deck header) is paper: the desk's text press must not
+   reach it. Same specificity as the desk rule in tufte.css, later in cascade. */
+.tufte-tactile .tufte-desk .action-label:is(button, a),
+.tufte-tactile .tufte-desk .action-label :is(span) { text-shadow: var(--text-press); }
