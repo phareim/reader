@@ -45,6 +45,8 @@
  *                    Used by the articles service's push-on-ready/starred hook.
  *   --kinds a,b      only ingest these kinds (default READER_SYNC_KINDS from the
  *                    env file, else all). Filtered items are marked seen.
+ *   --sources a,b    articles with these `source` values bypass the kind filter
+ *                    (default READER_SYNC_SOURCES; 'share' = iOS share sheet).
  *   --page-size N    articles per list page (default 50, capped at 100 by the API)
  *   --max-pages N    hard cap on catch-up paging (default 8)
  *   --max-items N    hard cap on articles ingested per run (default 60)
@@ -106,6 +108,14 @@ const ARTICLES_KEY = aenv.ARTICLES_API_KEY || '';
 const KINDS = (strFlag('--kinds') || aenv.READER_SYNC_KINDS || '')
   .split(',').map(s => s.trim()).filter(Boolean);
 const kindWanted = (k) => KINDS.length === 0 || KINDS.includes(k);
+
+// Source pass-through: `--sources a,b` or READER_SYNC_SOURCES — articles whose
+// `source` matches bypass the kind filter. Lets deliberate saves (the iOS
+// share sheet posts source='share') reach Found while the mirror stays
+// digest-only for everything else.
+const SOURCES = (strFlag('--sources') || aenv.READER_SYNC_SOURCES || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const wanted = (r) => kindWanted(r.kind) || SOURCES.includes(r.source);
 
 const state = fs.existsSync(STATE_PATH)
   ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8'))
@@ -333,7 +343,7 @@ if (FORCE_IDS.length) {
     if (SEED) { seedIds.push(String(r.id)); continue; }
     // Unwanted kinds are consumed here (seen, never fetched) so paging's
     // "caught up once a page isn't entirely new" logic stays untouched.
-    if (!kindWanted(r.kind)) { filteredOut++; seen.add(String(r.id)); continue; }
+    if (!wanted(r)) { filteredOut++; seen.add(String(r.id)); continue; }
     if (freshIds.length < MAX_ITEMS) freshIds.push(r.id);
   }
   page++;
@@ -365,7 +375,7 @@ for (const id of freshIds.slice().reverse()) {
     const detail = await apiGet(`/${id}`);
     // Force mode (--ids) skips the paging loop, so the kind filter applies
     // here — a starred article push is dropped just like a paged one.
-    if (!kindWanted(detail.kind)) { filteredOut++; seen.add(String(id)); continue; }
+    if (!wanted(detail)) { filteredOut++; seen.add(String(id)); continue; }
     item = renderArticle(detail);
   } catch (e) {
     failed++; console.error(`  ✗ fetch ${id}: ${e.message}`); continue;

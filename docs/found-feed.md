@@ -351,6 +351,15 @@ keeps it safe. The same X post can appear both as an `x-bookmark` card and a
 `sleeper-articles` `post` card; drop `kind=post` in the collector if that
 redundancy is unwanted.
 
+**Kind filter + source pass-through:** since 2026-08-05 the host env sets
+`READER_SYNC_KINDS=digest` — only digest cards flow in, the full SFL mirror is
+off (it duplicated elevated Reader articles back into Found). Since 2026-09-01
+`READER_SYNC_SOURCES=share` (or `--sources a,b`) lets articles whose `source`
+matches bypass the kind filter: the SleeperChat iOS share extension POSTs the
+saved url to the Articles service with `source: "share"`, so deliberate saves
+reach Found once extracted while the mirror stays digest-only for everything
+else.
+
 ### Auth / config
 
 | File | Holds |
