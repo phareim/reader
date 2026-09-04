@@ -8,7 +8,10 @@ export default defineEventHandler(async (event) => {
   try {
     const db = getD1(event)
 
-    const [feedsResult, unreadCountsResult, feedTagsResult, newestResult] = await Promise.all([
+    // newest_article_at is a correlated MAX() over idx_article_feed_id_published_at:
+    // one index seek per feed. The GROUP BY it replaced scanned every article
+    // the user owns (~16K rows per feed-list load, 2026-09-04).
+    const [feedsResult, unreadCountsResult, feedTagsResult] = await Promise.all([
       db.prepare(`
         SELECT
           id,
@@ -23,7 +26,8 @@ export default defineEventHandler(async (event) => {
           is_active,
           kind,
           half_life_hours,
-          created_at
+          created_at,
+          (SELECT MAX(a.published_at) FROM "Article" a WHERE a.feed_id = "Feed".id) AS newest_article_at
         FROM "Feed"
         WHERE user_id = ?
         ORDER BY created_at ASC
@@ -40,12 +44,6 @@ export default defineEventHandler(async (event) => {
         FROM "FeedTag" ft
         JOIN "Tag" t ON t.id = ft.tag_id
         WHERE t.user_id = ?
-      `).bind(user.id).all(),
-      db.prepare(`
-        SELECT feed_id, MAX(published_at) AS newest
-        FROM "Article"
-        WHERE feed_id IN (SELECT id FROM "Feed" WHERE user_id = ?)
-        GROUP BY feed_id
       `).bind(user.id).all()
     ])
 
@@ -60,10 +58,6 @@ export default defineEventHandler(async (event) => {
       tagMap.set(row.feed_id, list)
     }
 
-    const newestMap = new Map(
-      (newestResult.results || []).map((item: any) => [item.feed_id, item.newest as string | null])
-    )
-
     return {
       feeds: (feedsResult.results || []).map((feed: any) => ({
         id: feed.id,
@@ -77,7 +71,7 @@ export default defineEventHandler(async (event) => {
         lastFetchedAt: feed.last_fetched_at,
         lastError: feed.last_error,
         errorCount: Number(feed.error_count || 0),
-        newestArticleAt: newestMap.get(feed.id) || null,
+        newestArticleAt: feed.newest_article_at || null,
         isActive: Boolean(feed.is_active),
         kind: feed.kind || 'rss',
         halfLifeHours: feed.half_life_hours ?? null

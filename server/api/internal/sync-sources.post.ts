@@ -6,7 +6,7 @@ import { renderRedditChild } from '~/server/utils/redditRender'
 import { parseFavoriteIds, hasMoreFavorites, renderHnItem } from '~/server/utils/hn'
 import { renderGithubStar, GITHUB_UA } from '~/server/utils/githubStars'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
-import { insertArticleWithContent } from '~/server/utils/article-store'
+import { insertArticleWithContent, knownGuids } from '~/server/utils/article-store'
 import { normalizeUrl } from '~/server/utils/urlNormalize'
 import {
   listAllLinkedSources,
@@ -100,19 +100,6 @@ async function ensureFreshCredentials(
   }
   await updateLinkedSourceCredentials(event, row.id, next)
   return next
-}
-
-/**
- * Which of these guids already exist in the feed? Shared stop-condition
- * helper: a page that isn't entirely new means everything older is known.
- */
-async function knownGuids(event: any, feedId: number, guids: string[]): Promise<Set<string>> {
-  if (!guids.length) return new Set()
-  const placeholders = guids.map(() => '?').join(',')
-  const { results } = await getD1(event).prepare(
-    `SELECT guid FROM "Article" WHERE feed_id = ? AND guid IN (${placeholders})`
-  ).bind(feedId, ...guids).all()
-  return new Set((results ?? []).map((r: any) => r.guid))
 }
 
 async function insertItems(event: any, feedId: number, items: FoundItem[]): Promise<number> {

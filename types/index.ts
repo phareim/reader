@@ -41,7 +41,6 @@ export interface Article {
 
 export interface ArticlesResponse {
   articles: Article[]
-  total: number
   hasMore: boolean
 }
 

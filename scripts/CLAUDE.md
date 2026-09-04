@@ -46,6 +46,7 @@ Worker-side ([`../server/CLAUDE.md`](../server/CLAUDE.md)).
 
 - `scripts/sync-stale.mjs` — trigger for `POST /api/internal/sync-stale` (`reader-sync-stale.timer`, every 10 min)
 - `scripts/sync-sources.mjs` — trigger for `POST /api/internal/sync-sources` (`reader-sources-sync.timer`, 07/19:30)
+- `scripts/rest-faded.mjs` — trigger for `POST /api/internal/rest-faded` (`reader-rest-faded.timer`, nightly 03:20; marks faded rss articles read, added 2026-09-04)
 - `scripts/discover-crawl.mjs` — five-call stage sequence for the Discover crawl (`reader-discover-crawl.timer`, every 6h)
 - `scripts/taste-highlight-backfill.mjs` — mirrors highlights into taste-maker (see [`../docs/architecture/integrations.md`](../docs/architecture/integrations.md))
 - `scripts/gen_icon.py` — regenerates the app icon family (see [`../components/CLAUDE.md`](../components/CLAUDE.md))

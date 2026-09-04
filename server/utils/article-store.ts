@@ -25,6 +25,30 @@ type ArticleInsert = {
   fullTextComplete?: boolean
 }
 
+/**
+ * Which of these guids already exist in the feed? Used as a pre-check before
+ * insert loops (feed sync re-sees the same ~100 items every run — inserting
+ * them all with INSERT OR IGNORE cost ~15K no-op writes/day against D1
+ * before 2026-09-04) and as the linked-sources stop condition (a page that
+ * isn't entirely new means everything older is known). Chunked to stay
+ * under D1's 100-bound-parameter cap.
+ */
+export const knownGuids = async (event: any, feedId: number, guids: string[]): Promise<Set<string>> => {
+  const known = new Set<string>()
+  if (!guids.length) return known
+  const db = getD1(event)
+  const CHUNK = 90
+  for (let i = 0; i < guids.length; i += CHUNK) {
+    const slice = guids.slice(i, i + CHUNK)
+    const placeholders = slice.map(() => '?').join(',')
+    const { results } = await db.prepare(
+      `SELECT guid FROM "Article" WHERE feed_id = ? AND guid IN (${placeholders})`
+    ).bind(feedId, ...slice).all()
+    for (const r of results ?? []) known.add((r as any).guid)
+  }
+  return known
+}
+
 export const insertArticleWithContent = async (event: any, feedId: number, item: ArticleInsert) => {
   const db = getD1(event)
   const publishedAt = item.publishedAt

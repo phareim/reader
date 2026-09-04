@@ -85,6 +85,9 @@ CREATE TABLE IF NOT EXISTS "Article" (
   -- normalized URL (server/utils/urlNormalize.ts) for cross-source Found
   -- dedup; set at insert time (migration 012)
   url_norm TEXT,
+  -- set by the nightly rest-faded job when it marks a faded rss article read
+  -- (migration 020); read_at stays NULL for those
+  rested_at TEXT,
   UNIQUE(feed_id, guid)
 );
 
@@ -242,6 +245,7 @@ CREATE INDEX IF NOT EXISTS idx_article_feed_id_is_read ON "Article"(feed_id, is_
 CREATE INDEX IF NOT EXISTS idx_article_feed_url_norm ON "Article"(feed_id, url_norm);
 CREATE INDEX IF NOT EXISTS idx_article_is_read_published_at ON "Article"(is_read, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_article_published_at ON "Article"(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_article_feed_id_published_at ON "Article"(feed_id, published_at);
 
 CREATE INDEX IF NOT EXISTS idx_saved_article_user_id_saved_at ON "SavedArticle"(user_id, saved_at);
 CREATE INDEX IF NOT EXISTS idx_saved_article_article_id_user_id ON "SavedArticle"(article_id, user_id);

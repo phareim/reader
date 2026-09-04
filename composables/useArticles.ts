@@ -87,7 +87,7 @@ export const useArticles = () => {
       })
 
       articles.value = response.articles
-      total.value = response.total
+      total.value = response.articles.length
       hasMore.value = response.hasMore
       lastQuery.value = query
       extraOffset.value = 0
@@ -214,7 +214,7 @@ export const useArticles = () => {
 
       const { merged, added } = dedupeAppend(articles.value, response.articles)
       articles.value = merged
-      total.value = response.total
+      total.value = merged.length
       hasMore.value = response.hasMore
       if (added === 0 && response.hasMore && response.articles.length > 0) {
         extraOffset.value += response.articles.length

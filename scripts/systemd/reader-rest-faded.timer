@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — nightly rest of faded articles
+
+[Timer]
+# Once a night. Articles fade continuously (the deck's WHERE filter hides
+# them the moment they cross the horizon); this just keeps the unread
+# backlog — and every D1 scan over it — from growing without bound.
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

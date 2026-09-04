@@ -1,0 +1,12 @@
+[Unit]
+Description=Reader — mark faded rss articles read (nightly rest)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path if the repo lives elsewhere on the host.
+ExecStart=/usr/bin/node /home/petter/github/reader/scripts/rest-faded.mjs
+# Auth is read from ~/.config/reader/env (READER_CRON_KEY) —
+# no EnvironmentFile needed.
+Nice=10

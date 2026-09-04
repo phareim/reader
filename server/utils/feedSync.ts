@@ -1,6 +1,6 @@
 import { getD1 } from '~/server/utils/cloudflare'
 import { parseFeed } from '~/server/utils/feedParser'
-import { insertArticleWithContent } from '~/server/utils/article-store'
+import { insertArticleWithContent, knownGuids } from '~/server/utils/article-store'
 
 export interface SyncResult {
   feedId: number
@@ -48,7 +48,13 @@ export async function syncSingleFeed(event: any, feed: FeedInfo): Promise<SyncRe
     ).run()
 
     const maxArticles = Number(process.env.MAX_ARTICLES_PER_FEED) || 100
-    const articlesToAdd = parsedFeed.items.slice(0, maxArticles)
+    const seen = parsedFeed.items.slice(0, maxArticles)
+    // One SELECT per feed instead of one INSERT OR IGNORE per item: a feed
+    // re-serves the same items every fetch, so ~98% of inserts were no-ops
+    // (and each no-op still counted as a D1 write). INSERT OR IGNORE stays as
+    // the race guard for the few that pass the check.
+    const known = await knownGuids(event, feed.id, seen.map((item) => item.guid))
+    const articlesToAdd = seen.filter((item) => !known.has(item.guid))
 
     let articlesAdded = 0
     for (const item of articlesToAdd) {

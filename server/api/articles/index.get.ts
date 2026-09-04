@@ -105,7 +105,6 @@ export default defineEventHandler(async (event) => {
       if (!allowedFeedIds || allowedFeedIds.length === 0) {
         return {
           articles: [],
-          total: 0,
           hasMore: false
         }
       }
@@ -121,7 +120,6 @@ export default defineEventHandler(async (event) => {
     if (!allowedFeedIds || allowedFeedIds.length === 0) {
       return {
         articles: [],
-        total: 0,
         hasMore: false
       }
     }
@@ -167,10 +165,9 @@ export default defineEventHandler(async (event) => {
         ? `(${DECAY_AGE}) IS NULL, ${DECAY_AGE} ASC, a.published_at DESC`
         : 'a.published_at DESC'
 
-    const countResult = await db.prepare(
-      `SELECT COUNT(*) AS total FROM "Article" a JOIN "Feed" f ON f.id = a.feed_id WHERE ${where}`
-    ).bind(...params).first()
-
+    // hasMore comes from fetching one row past the page. The COUNT(*) this
+    // replaced re-scanned the whole unread set on every page (decay ordering
+    // can't use an index), doubling each list load's D1 rows read.
     const articlesResult = await db.prepare(
       `
       SELECT
@@ -196,10 +193,13 @@ export default defineEventHandler(async (event) => {
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
       `
-    ).bind(...params, limit, offset).all()
+    ).bind(...params, limit + 1, offset).all()
+
+    const rows = (articlesResult.results || []) as any[]
+    const hasMore = rows.length > limit
 
     return {
-      articles: (articlesResult.results || []).map((article: any) => ({
+      articles: rows.slice(0, limit).map((article: any) => ({
         id: article.id,
         feedId: article.feed_id,
         feedTitle: article.feed_title,
@@ -218,8 +218,7 @@ export default defineEventHandler(async (event) => {
         readAt: article.read_at,
         readProgress: article.read_progress ?? 0
       })),
-      total: Number(countResult?.total || 0),
-      hasMore: offset + (articlesResult.results?.length || 0) < Number(countResult?.total || 0)
+      hasMore
     }
   } catch (error: any) {
     if (error.statusCode) {

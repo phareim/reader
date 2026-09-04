@@ -55,7 +55,7 @@ export default defineNuxtConfig({
     ttsApiKey: '',  // NUXT_TTS_API_KEY
     inviteCode: '', // NUXT_INVITE_CODE (Worker secret) — sign-up is closed while unset
     personalEmails: '', // NUXT_PERSONAL_EMAILS — accounts with SFL elevate/highlight-mirror/TTS
-    cronKey: '', // NUXT_CRON_KEY (Worker secret) — auth for /api/internal/sync-stale + sync-x-bookmarks
+    cronKey: '', // NUXT_CRON_KEY (Worker secret) — auth for /api/internal/{sync-stale,sync-sources,rest-faded,discover-crawl,backfill-*}
     emailIngestKey: '', // NUXT_EMAIL_INGEST_KEY (Worker secret) — auth for /api/internal/email-ingest (reader-email Worker)
     emailDefaultAccount: '', // NUXT_EMAIL_DEFAULT_ACCOUNT — account that receives mail from senders who aren't registered users (direct newsletter subscriptions); unset ⇒ unknown senders bounce
     xClientId: '', // NUXT_X_CLIENT_ID — X OAuth2 app client id (link-your-X-account)
