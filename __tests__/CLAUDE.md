@@ -29,7 +29,7 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 - `__tests__/server/githubStars.test.ts` — GitHub starred repos → Found-item rendering (`server/utils/githubStars.ts`): star+json vs plain-repo shapes, starred_at → publishedAt, escaping, star-count compaction, homepage-link filtering, unrenderable-entry nulls
 - `__tests__/components/CardStack.test.ts` — commit/undo wiring, race guards, elevate failure paths
 - `__tests__/components/DeckScreen.test.ts` — DeckScreen tag prop, 404→notFound emit, snapshot pattern, deck/grid toggle, grid keyboard branching, re-snapshot on grid→deck return, feed-scoped shift+R (refreshFeed for pull feeds, full sync for the push-only Found feed)
-- `__tests__/components/MiniCard.test.ts` — grid mini card: image vs typographic variant, Unsplash-filler filtering, footer (feed · age), no excerpt
+- `__tests__/components/MiniCard.test.ts` — grid mini card: image vs typographic variant, Unsplash-filler filtering, footer (feed · age), no excerpt; shared MiniCard/ArticleCard failed-image recovery and replacement-image regression
 - `__tests__/components/ArticleGrid.test.ts` — grid commit wiring (save/read + undo toast), busy guard, LIFO undo, tap→reader, stable slots (in-place backfill, undo slot restore, end-append of new pool rows), IntersectionObserver sentinel → `loadMore`, empty state
 - `__tests__/components/TagEditorOverlay.test.ts` — chips, suggestion filtering, keyboard (Enter/comma/arrows/Backspace/Esc), save/close emits
 - `__tests__/components/HighlightNoteOverlay.test.ts` — quote display, save emits trimmed note, Cmd/Ctrl+Enter commit, saving-guard

@@ -216,11 +216,10 @@ mark.hl {
   background: var(--rule-emboss);
 }
 
-/* The bordered chip (ActionLabel): a paper button pressed into whatever it
-   sits on. Restores paper ink so it reads the same on desk and sheet. */
+/* The bordered chip (ActionLabel): a small paper slip on its surface. Restores paper ink so it reads the same on desk and sheet. */
 .tufte-tactile .action-label {
   background: var(--surface-button);
-  box-shadow: var(--press-secondary);
+  box-shadow: var(--shadow-paper);
   text-shadow: var(--text-press);
   color: var(--ink-quiet);
   border-color: var(--rule-strong);
@@ -238,12 +237,11 @@ mark.hl {
   transform: translateY(1px);
 }
 
-/* A strip cut into the desk: BottomBar, the read-aloud player. Paper tone,
-   a hard top edge, a lit inner rim. */
+/* BottomBar and the read-aloud player: a matte paper strip with one rule. */
 .tufte-tactile .desk-bar {
   background: var(--surface-button);
   border-color: transparent;
-  box-shadow: 0 -1px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.7);
+  box-shadow: 0 -1px 0 var(--rule-strong);
   --text-strong:   var(--tufte-ink);
   --text-body:     var(--ink-soft);
   --text-muted:    var(--ink-quiet);
@@ -253,11 +251,6 @@ mark.hl {
   --border-strong: var(--rule-strong);
 }
 .tufte-tactile .desk-bar :is(a, button, span) { text-shadow: var(--text-press); }
-@media (prefers-color-scheme: dark) {
-  .tufte-tactile .desk-bar {
-    box-shadow: 0 -1px 0 rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
-  }
-}
 
 /* A room page is one sheet lying on the desk: it fills the screen even when
    the list is short, so a near-empty shelf is still a sheet, not a scrap. */
@@ -287,3 +280,11 @@ mark.hl {
    reach it. Same specificity as the desk rule in tufte.css, later in cascade. */
 .tufte-tactile .tufte-desk .action-label:is(button, a),
 .tufte-tactile .tufte-desk .action-label :is(span) { text-shadow: var(--text-press); }
+
+/* Room sheets gain a wider inner gutter on desktop. */
+@media (min-width: 640px) {
+  .room-sheet { padding: 2rem 2.5rem; }
+}
+
+/* Compact clippings sit close to the desk, below the full deck sheet. */
+.tufte-tactile .mini-card { box-shadow: var(--shadow-paper); }

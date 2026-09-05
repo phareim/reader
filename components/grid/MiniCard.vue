@@ -1,6 +1,6 @@
 <template>
   <!-- Row (thumb left) in the 1-col phone grid, stacked (thumb on top) ≥sm -->
-  <CardFrame class="flex h-full flex-row sm:flex-col">
+  <CardFrame class="mini-card flex h-full flex-row p-2 sm:flex-col sm:p-3">
     <!-- With lead image: side thumbnail on phones, hero on top ≥sm -->
     <div v-if="image" class="relative w-28 shrink-0 overflow-hidden sm:w-auto sm:aspect-[4/3]">
       <img
@@ -10,6 +10,7 @@
         style="filter: saturate(.85);"
         loading="lazy"
         draggable="false"
+        @error="failedImage = image"
       />
     </div>
 
@@ -28,14 +29,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Article } from '~/types'
 import { cardImageUrl } from '~/utils/cardData'
 import { formatRelativeDate } from '~/utils/formatDate'
 
 const props = defineProps<{ article: Article }>()
 
-const image = computed(() => cardImageUrl(props.article.imageUrl))
+const failedImage = ref<string | null>(null)
+const image = computed(() => {
+  const url = cardImageUrl(props.article.imageUrl)
+  return url === failedImage.value ? null : url
+})
 const relativeDate = computed(() =>
   props.article.publishedAt ? formatRelativeDate(props.article.publishedAt) : ''
 )

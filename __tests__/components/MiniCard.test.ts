@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, computed } from 'vue'
 import MiniCard from '~/components/grid/MiniCard.vue'
+import ArticleCard from '~/components/stack/ArticleCard.vue'
 
 // MiniCard imports computed explicitly, but provide the auto-import global
 // anyway for symmetry with the other component suites.
@@ -68,5 +69,19 @@ describe('MiniCard', () => {
     expect(w.text()).toContain('The Feed')
     expect(w.text()).toMatch(/hour/) // formatRelativeDate: "2 hours ago"
     expect(w.text()).not.toContain('excerpt that must NOT appear')
+  })
+})
+
+// Both surfaces must remain readable when publishers remove a lead image.
+describe.each([['MiniCard', MiniCard], ['ArticleCard', ArticleCard]])('%s image recovery', (_, component) => {
+  it('keeps the headline and returns to paper after an image fails, then accepts a new image', async () => {
+    const article = { ...baseArticle, imageUrl: 'https://example.com/missing.jpg' }
+    const w = mount(component, { props: { article }, global: { stubs } })
+    await w.get('img').trigger('error')
+    expect(w.find('img').exists()).toBe(false)
+    expect(w.text()).toContain(article.title)
+    expect(w.find('[data-testid="hairline"]').exists()).toBe(true)
+    await w.setProps({ article: { ...article, imageUrl: 'https://example.com/replacement.jpg' } })
+    expect(w.get('img').attributes('src')).toBe('https://example.com/replacement.jpg')
   })
 })

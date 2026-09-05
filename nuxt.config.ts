@@ -27,8 +27,8 @@ export default defineNuxtConfig({
         // to non-zero on notched iPhones — the BottomBar relies on it.
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         // The desk, not the paper — the tactile layer's page ground.
-        { name: 'theme-color', content: '#7a7062', media: '(prefers-color-scheme: light)' },
-        { name: 'theme-color', content: '#2a2622', media: '(prefers-color-scheme: dark)' },
+        { name: 'theme-color', content: '#ded7ca', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#171612', media: '(prefers-color-scheme: dark)' },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },

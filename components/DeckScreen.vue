@@ -16,12 +16,14 @@
             <button
               class="view-toggle tap-pad--y font-mono uppercase"
               :class="viewMode === 'deck' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
+              :aria-pressed="viewMode === 'deck'"
               @click="setViewMode('deck')"
             >Deck</button>
             <span class="view-toggle text-mute">/</span>
             <button
               class="view-toggle tap-pad--y font-mono uppercase"
               :class="viewMode === 'grid' ? 'border-b border-ink text-ink' : 'border-b border-transparent text-mute'"
+              :aria-pressed="viewMode === 'grid'"
               @click="setViewMode('grid')"
             >Grid</button>
           </span>

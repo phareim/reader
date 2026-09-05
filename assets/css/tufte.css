@@ -142,7 +142,7 @@ body {
    2026-09-01) with two adaptations: the midnight palette keys on the system
    preference (prefers-color-scheme) instead of .tufte-dark, matching the
    colour tokens above; and the desk re-maps the semantic text/rule aliases
-   to light-on-desk values, which every paper surface (.tufte-sheet) restores.
+   to context-specific ink, which every paper surface (.tufte-sheet) restores.
 
    The page becomes a sheet of paper lying on a desk; type and rules are
    letterpressed into it. Opt in with class="tufte-tactile" on <html> (set in
@@ -155,13 +155,13 @@ body {
 
 :root {
   /* ── Desk — the surface the paper lies on ────────────────────────────── */
-  --desk:          #7a7062;
-  --desk-edge:     #5f574b;   /* darker rim for a bar/header cut into the desk */
-  --text-on-desk:  #f3efe6;
-  --desk-text-body:  #e4ded2;
-  --desk-text-muted: #cfc7b8;
-  --desk-text-faint: #a89f8f;
-  --desk-text-accent:#ffc2b3;  /* crimson is unreadable on the desk; a lit coral */
+  --desk:          #ded7ca;
+  --desk-edge:     #c6bdad;   /* darker rim for a bar/header cut into the desk */
+  --text-on-desk:  #38352e;
+  --desk-text-body:  #514b40;
+  --desk-text-muted: #625b4e;
+  --desk-text-faint: #71695c;
+  --desk-text-accent:#9a2a17;  /* printed crimson on the light desk */
   --desk-rule:       rgba(0,0,0,.18);
   --desk-rule-strong:rgba(0,0,0,.30);
 
@@ -169,13 +169,13 @@ body {
   --grain-desk:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
   --grain-paper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
   --grain-stamp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.8' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 5 -1.4'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
-  --sheen-paper: linear-gradient(115deg, rgba(255,255,255,.4), transparent 45%);
+  --sheen-paper: linear-gradient(115deg, rgba(255,255,255,.16), transparent 60%);
 
   /* ── Shadows — warm (brown), never grey. Three layers: edge, near, deep ─ */
-  --shadow-sheet: 0 1px 0 rgba(0,0,0,.18),
-                  0 6px 14px -4px rgba(20,15,8,.40),
-                  0 24px 44px -14px rgba(20,15,8,.45);
-  --shadow-sheet-under: 0 8px 20px -8px rgba(20,15,8,.40);
+  --shadow-sheet: 0 0 0 1px rgba(67,53,30,.09),
+                  0 2px 2px -1px rgba(67,53,30,.14),
+                  0 9px 20px -10px rgba(67,53,30,.22);
+  --shadow-sheet-under: 0 3px 8px -3px rgba(67,53,30,.20);
   --shadow-paper: 0 1px 0 rgba(40,36,28,.10),
                   0 3px 6px -2px rgba(40,36,28,.18);   /* a small sheet on a sheet */
 
@@ -185,7 +185,7 @@ body {
   --press-shallow: inset 0 1px 2px rgba(40,36,28,.18), 0 1px 0 rgba(255,255,255,.8);
   --press-deep:    inset 0 2px 3px rgba(0,0,0,.6),      0 1px 0 rgba(255,255,255,.6);
   --text-press-paper: 0 1px 0 rgba(255,255,255,.75);
-  --text-press-desk:  0 -1px 0 rgba(0,0,0,.35);
+  --text-press-desk:  none;
   --accent-stamp:  #c1351d;
 
   /* ── Live slots — components read THESE. Flat until .tufte-tactile. ──── */
@@ -198,10 +198,10 @@ body {
 }
 
 .tufte-tactile {
-  --paper:          #f7f2e8;
+  --paper:          #faf6ed;
   --paper-sunk:     #efe9dc;
   --paper-raised:   #fdfbf6;
-  --surface-button: #f1ebde;
+  --surface-button: #f7f2e8;
   --rule-strong:    #d6cfc0;
   --shadow-card:    var(--shadow-paper);
   --shadow-raise:   var(--shadow-sheet-under);
@@ -216,17 +216,17 @@ body {
 /* Midnight desk */
 @media (prefers-color-scheme: dark) {
   :root {
-    --desk:         #2a2622;
+    --desk:         #171612;
     --desk-edge:    #1a1714;
     --text-on-desk: #cfcabe;
     --desk-text-body:  #b7b1a4;
-    --desk-text-muted: #948d7f;
+    --desk-text-muted: #a49d8f;
     --desk-text-faint: #6f695e;
     --desk-text-accent:#ff8a6e;
     --desk-rule:       rgba(0,0,0,.5);
     --desk-rule-strong:rgba(0,0,0,.7);
     --sheen-paper:  linear-gradient(115deg, rgba(255,255,255,.06), transparent 45%);
-    --shadow-sheet: 0 1px 0 rgba(0,0,0,.6), 0 6px 14px -4px rgba(0,0,0,.6), 0 24px 44px -14px rgba(0,0,0,.7);
+    --shadow-sheet: 0 0 0 1px rgba(255,255,255,.07), 0 2px 3px rgba(0,0,0,.25), 0 9px 20px -10px rgba(0,0,0,.4);
     --shadow-paper: 0 1px 0 rgba(0,0,0,.5), 0 3px 6px -2px rgba(0,0,0,.5);
     --rule-deboss:  linear-gradient(#0d0c0a, #2c2924);
     --rule-emboss:  linear-gradient(rgba(0,0,0,.6), rgba(255,255,255,.06));
@@ -237,7 +237,7 @@ body {
     --accent-stamp: #ff6b4a;
   }
   .tufte-tactile {
-    --paper: #1a1814; --paper-sunk: #14130f; --paper-raised: #211e19; --surface-button: #211e19;
+    --paper: #24211b; --paper-sunk: #14130f; --paper-raised: #211e19; --surface-button: #211e19;
     --rule-strong: #43403a;
   }
 }
@@ -264,7 +264,7 @@ body {
 }
 .tufte-desk::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: var(--grain-desk); mix-blend-mode: multiply;
+  background: var(--grain-desk); mix-blend-mode: multiply; opacity: .35;
 }
 html.tufte-tactile { background: var(--desk); }
 
@@ -291,7 +291,7 @@ html.tufte-tactile { background: var(--desk); }
 .tufte-sheet::before, .tufte-sheet::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
 }
-.tufte-sheet::before { background: var(--grain-paper); mix-blend-mode: multiply; }
+.tufte-sheet::before { background: var(--grain-paper); mix-blend-mode: multiply; opacity: .24; }
 .tufte-sheet::after  { background: var(--sheen-paper); }
 /* Flat mode: a sheet is just paper — no shadow, no grain, no sheen. */
 html:not(.tufte-tactile) .tufte-sheet { box-shadow: none; }
@@ -299,7 +299,7 @@ html:not(.tufte-tactile) .tufte-sheet::before,
 html:not(.tufte-tactile) .tufte-sheet::after { display: none; }
 
 /* Wrap a sheet in this to get a second sheet peeking out behind it. */
-.tufte-sheet-stack { position: relative; }
+.tufte-sheet-stack { position: relative; isolation: isolate; }
 .tufte-tactile .tufte-sheet-stack::before {
   content: ""; position: absolute; inset: 0; z-index: -1;
   background: var(--paper-sunk);
