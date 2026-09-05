@@ -75,6 +75,7 @@ import type { Article } from '~/types'
 import {
   DECK,
   resolveDirection,
+  deckExitDistance,
   advance,
   retreat,
   undo as undoDeck,
@@ -194,7 +195,11 @@ function onTap(i: number, article: Article) {
 async function flingOff(dir: DeckDirection, vx = 0, vy = 0) {
   const w = typeof window === 'undefined' ? 800 : window.innerWidth
   const h = typeof window === 'undefined' ? 800 : window.innerHeight
-  const target = { left: -w * 1.2, right: w * 1.2, up: -h * 1.1, down: h * 1.1 }[dir]
+  const gone = deckExitDistance(w, h, dir)
+  const sign = dir === 'left' || dir === 'up' ? -1 : 1
+  // Keep the spring's tail off-screen; include rotated corners in the
+  // clearance instead of removing a tall card at just 1.02× viewport width.
+  const target = sign * gone / 0.85
   const mv = dir === 'left' || dir === 'right' ? x : y
   const velocity = dir === 'left' || dir === 'right' ? vx : vy
   const anim = animate(mv, target, { ...DECK.FLING, velocity })
@@ -203,7 +208,6 @@ async function flingOff(dir: DeckDirection, vx = 0, vy = 0) {
   // next card's promotion. The animation must be stopped before returning:
   // the MotionValue is shared, so a still-running tail would drive the card
   // promoted into the top slot.
-  const gone = Math.abs(target) * 0.85
   await settleWithin(new Promise<void>((resolve) => {
     if (Math.abs(mv.get()) >= gone) return resolve()
     const unsub = mv.on('change', (v: number) => {

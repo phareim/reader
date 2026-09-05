@@ -1,11 +1,12 @@
 <template>
   <!--
-    fixed inset-0 (not h-dvh in flow): the deck screen contributes no document
-    height, so the page itself can never scroll — no iOS rubber-band, no
-    URL-bar collapse creep. Grid mode scrolls inside its own scroller.
+    Clip at the viewport, not at the centered reading column: dragged cards
+    must stay visible all the way to the screen edge. The fixed shell still
+    contributes no document height; grid mode scrolls inside its own scroller.
   -->
+  <div class="fixed inset-0 overflow-hidden">
   <main
-    class="fixed inset-0 mx-auto flex max-w-xl flex-col overflow-hidden overscroll-none px-4 pt-4"
+    class="absolute inset-0 mx-auto flex max-w-xl flex-col overscroll-none px-4 pt-4"
     style="padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));"
   >
     <header class="flex items-baseline justify-between gap-3 pb-3">
@@ -86,6 +87,7 @@
 
     <HelpOverlay :open="helpOpen" :mode="viewMode" @close="helpOpen = false" />
   </main>
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -32,6 +32,16 @@ export const DECK = {
   FLING: { type: 'spring' as const, stiffness: 420, damping: 38 },
 } as const
 
+/** Conservative travel needed to clear the viewport, including the corner
+ * of a tall rotated card and its paper shadow. The card fits inside the
+ * viewport at rest, so viewport dimensions safely bound its footprint. */
+export function deckExitDistance(width: number, height: number, dir: DeckDirection): number {
+  const horizontal = dir === 'left' || dir === 'right'
+  const axis = horizontal ? width : height
+  const cross = horizontal ? height : width
+  return axis + cross * Math.sin(DECK.MAX_ROTATION * Math.PI / 180) / 2 + 32
+}
+
 export interface DeckHistoryEntry {
   id: string
   action: DeckDirection

@@ -1,5 +1,6 @@
 import {
   resolveDirection,
+  deckExitDistance,
   advance,
   retreat,
   undo,
@@ -105,4 +106,21 @@ describe('undo', () => {
     expect(result.history).toEqual([])
     expect(result.entry.action).toBe('down')
   })
+})
+
+describe('deckExitDistance', () => {
+  it.each([[320, 568], [390, 844], [390, 1600], [1280, 900], [1920, 600]])(
+    'clears the rotated paper edge in every direction at %i × %i', (width, height) => {
+      const angle = DECK.MAX_ROTATION * Math.PI / 180
+      // Worst case: a viewport-sized card, including its 1.015 press scale.
+      const rotatedWidth = 1.015 * (width * Math.cos(angle) + height * Math.sin(angle))
+      const rotatedHeight = 1.015 * (height * Math.cos(angle) + width * Math.sin(angle))
+      const right = width / 2 + rotatedWidth / 2
+      const bottom = height / 2 + rotatedHeight / 2
+      expect(right - deckExitDistance(width, height, 'left')).toBeLessThan(-12)
+      expect(width - right + deckExitDistance(width, height, 'right')).toBeGreaterThan(width + 12)
+      expect(bottom - deckExitDistance(width, height, 'up')).toBeLessThan(-12)
+      expect(height - bottom + deckExitDistance(width, height, 'down')).toBeGreaterThan(height + 12)
+    }
+  )
 })

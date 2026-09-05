@@ -1,6 +1,10 @@
 <template>
   <div class="relative h-full">
-    <div ref="scroller" class="h-full overflow-y-auto overscroll-contain">
+    <!-- Scroll vertically in a viewport-wide window; only the resting grid
+         has a narrow measure. overflow-x-visible + overflow-y-auto would
+         still clip sideways because CSS computes the visible axis to auto. -->
+    <div ref="scroller" class="grid-scroller h-full overflow-x-hidden overflow-y-auto overscroll-contain">
+      <div class="mx-auto h-full max-w-xl px-4">
       <!--
         Each cell is horizontally draggable (drag="x") while touch-action:
         pan-y leaves vertical pans to the native scroller — the gesture split
@@ -58,6 +62,7 @@
 
       <div v-if="slotArticles.length === 0" class="flex h-full items-center justify-center">
         <DeckEmptyState />
+      </div>
       </div>
     </div>
 
@@ -297,3 +302,10 @@ onUnmounted(() => {
 
 defineExpose({ undo: performUndo, commitCard })
 </script>
+
+<style scoped>
+.grid-scroller {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+</style>

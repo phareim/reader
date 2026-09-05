@@ -19,7 +19,7 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 
 ## Current suites
 
-- `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `retreat` skip-inverse rotation, `undo`)
+- `__tests__/utils/deck.test.ts` — pure deck state machine (`resolveDirection`, `advance`, `retreat` skip-inverse rotation, `undo`, rotated-card viewport clearance)
 - `__tests__/utils/grid.test.ts` — grid-view pure logic (`resolveGridDirection` distance/flick/wrong-sign-flick/diagonal-dominance, `nextPageOffset` read/saved/extraOffset accounting, `dedupeAppend` reference-preserving merge, `nextUnreadId`/`prevUnreadId` forward/backward-scan/wraparound/read+saved skipping/no-context null, `syncSlots`/`backfillSlot`/`restoreSlot` stable-slot reconciliation + in-place backfill + drift-tolerant undo round-trips)
 - `__tests__/utils/cardData.test.ts` — card derivations (`stripHtml`, `readingTimeMinutes`, `cardImageUrl`, `excerpt`)
 - `__tests__/server/feedImage.test.ts` — lead-image extraction from raw feed entries (fast-xml-parser `@_` attribute shape, arrays, media:group, enclosures, content fallback)
