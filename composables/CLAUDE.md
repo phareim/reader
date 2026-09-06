@@ -30,10 +30,6 @@ mechanics. All four are used by `pages/article/[id].vue`:
 - **`useReadingProgress(articleId, article)`** — keeping your place: debounced
   server-side save of the scroll fraction, flush on hide/unmount, restore on re-entry.
   The caller owns the listeners.
-- **`useReaderSwipe({ enabled, onCommit })`** — the swipe-away gesture: coarse-pointer
-  only, edge-guarded, committed by the picky `utils/readerSwipe.ts` rule. `enabled` is
-  the page's gate for everything else that can own the gesture space; `fling()` runs
-  the animation and resolves once it settles.
 
 These are **not** auto-shared: calling one twice gives two independent instances.
 Reach for this shape when logic belongs to a mounted surface, not to the app.

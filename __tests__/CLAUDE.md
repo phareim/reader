@@ -41,7 +41,6 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 - `__tests__/utils/truncation.test.ts` — `looksTruncated` (Ars "Read full article" footer, "Continue reading", `[…]` brackets, canonical-URL anchor; negatives for full bodies + inline read-more links)
 - `__tests__/utils/share.test.ts` — `xShareUrl` / `threadsShareUrl` / `xQuoteShareUrl` / `threadsQuoteShareUrl` (param shape, encoding, empty/null title, Threads link-only text, curly-quoted passage + link for quote shares)
 - `__tests__/utils/readingPosition.test.ts` — `shouldRestorePosition` (3%–95% band), `restoreScrollTop` (fraction → clamped scrollTop), `progressWorthSaving` (1% write threshold)
-- `__tests__/utils/readerSwipe.test.ts` — the reader's swipe-away resolver (`resolveReaderSwipe`: distance/flick commits, wrong-sign-flick rejection, 3:1 dominance gate, left/right edge-navigation guard; `readerSwipeProgress` label gating + ramp)
 - `__tests__/components/BottomBar.test.ts` — the four rooms render in order, Found active only on the found route, hidden on reader/login
 - `__tests__/components/FeedPickerOverlay.test.ts` — smart-add feed picker: row rendering + source host, add emit, Added/busy states, Cancel↔Done footer, Esc close
 - `__tests__/components/SaveArticleOverlay.test.ts` — smart-add article prompt: metadata rendering (optional author/description), save/close emits, saving-guard, Esc close

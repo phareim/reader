@@ -58,30 +58,9 @@
     <HairlineRule desk class="mt-4" />
 
     <template v-if="article">
-      <!--
-        The article itself is a swipe surface: a decisive leftward drag flings
-        it away — mark read + continue to the next unread, the touch analog of
-        the `r` key. drag="x" + touch-action: pan-y leaves vertical pans to
-        the native scroller (the grid's gesture split); the deliberately picky
-        commit rule (3:1 dominance, long distance, edge-navigation guard)
-        lives in utils/readerSwipe.ts. Coarse pointers only — a mouse drag
-        over text is a selection, never a swipe. Rightward is constrained to a
-        faint elastic give: there is no right verb here.
-      -->
-      <motion.div
-        class="tufte-sheet mt-5 px-5 pb-6 pt-1 sm:px-8 sm:pb-8"
-        :style="{ x: swipeX, opacity: swipeOpacity }"
-        style="touch-action: pan-y;"
-        :drag="swipeDragEnabled ? 'x' : false"
-        :drag-constraints="{ right: 0 }"
-        :drag-elastic="0.15"
-        :drag-momentum="false"
-        drag-snap-to-origin
-        @pointerdown="onSwipePointerDown"
-        @drag="(e: PointerEvent, info: PanInfo) => onSwipeDrag(info)"
-        @drag-end="(e: PointerEvent, info: PanInfo) => onSwipeDragEnd(info)"
-        @click.capture="onSwipeClickCapture"
-      >
+      <!-- The sheet is plain paper: no swipe verb here (removed 2026-09-06 —
+           the browser's own edge-swipe goes back, the deck does the swiping). -->
+      <div class="tufte-sheet mt-5 px-5 pb-6 pt-1 sm:px-8 sm:pb-8">
       <header class="mt-6">
         <div class="flex items-baseline justify-between">
           <MonoLabel dash>{{ article.feedTitle }}</MonoLabel>
@@ -137,18 +116,8 @@
           </ActionLabel>
         </template>
       </div>
-      </motion.div>
-      <div class="h-20" aria-hidden="true" />
-
-      <!-- Pending-verb label: the deck's left-swipe accent language — fixed
-           so it holds still while the article slides out from under it. -->
-      <div
-        v-if="swipeProgress > 0"
-        class="pointer-events-none fixed left-4 top-1/2 z-40 -translate-y-1/2"
-        :style="{ opacity: swipeProgress }"
-      >
-        <ActionLabel accent>Read</ActionLabel>
       </div>
+      <div class="h-20" aria-hidden="true" />
     </template>
 
     <p v-else-if="error" class="mt-10 italic text-mute">{{ error }}</p>
@@ -243,7 +212,6 @@
 </template>
 
 <script setup lang="ts">
-import { motion } from 'motion-v'
 import { formatRelativeDate } from '~/utils/formatDate'
 import { stripHtml } from '~/utils/cardData'
 import { processArticleContent } from '~/utils/processArticleContent'
@@ -268,7 +236,6 @@ const { elevate } = useElevate()
 const { personal } = useAuth()
 const { markAsRead, articles: contextArticles } = useArticles()
 const { showSuccess, showError } = useToast()
-const { tick } = useHaptics()
 
 const article = ref<any>(null)
 const error = ref<string | null>(null)
@@ -315,37 +282,6 @@ const {
   scrollPercent, updateProgress, persistProgress, scheduleProgressSave,
   restoreReadingPosition, onVisibilityChange,
 } = useReadingProgress(id, article)
-
-// The swipe surface is disabled while anything else owns the gesture space:
-// the voice player's bottom bar, an overlay, a text selection (the pill), or
-// an in-flight mark-read.
-const {
-  swipeX, swipeOpacity, swipeProgress, swipeExiting, dragEnabled: swipeDragEnabled,
-  onSwipePointerDown, onSwipeDrag, onSwipeDragEnd, onSwipeClickCapture, fling,
-} = useReaderSwipe({
-  enabled: computed(() =>
-    !markingRead.value &&
-    readAloud.value === 'idle' &&
-    !noteOverlay.value && !rsvpOpen.value && !popover.value && !pill.value
-  ),
-  onCommit: (vx) => swipeAway(vx),
-})
-
-/**
- * Fling the article off-screen left, mark it read (optimistic, like the
- * deck's left swipe), and continue to the next unread in the deck context —
- * the same continuation as `markReadAndReturn`, with the card physics.
- */
-async function swipeAway(vx = 0) {
-  if (swipeExiting.value || markingRead.value) return
-  markingRead.value = true
-  tick()
-  markAsRead(id, true).catch(() => showError('Mark-read failed'))
-  await fling(vx)
-  const nextId = nextUnreadId(contextArticles.value, savedArticleIds.value, id)
-  if (nextId !== null) navigateTo(`/article/${nextId}`, { replace: true })
-  else goBack()
-}
 
 // The body can re-render once (thin-RSS full-text upgrade); re-anchor the
 // highlights and re-measure the rail after.
