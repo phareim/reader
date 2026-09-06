@@ -1,9 +1,8 @@
 <template>
   <!-- The action row sits on the desk; the article below it is a sheet of
        paper lying there — on touch the sheet is what slides off the desk.
-       Reading progress is the desk itself: the whole background behind the
-       sheet is the scrollbar — the read share fills down from the top in a
-       darker tone (the --read custom property, see tufte.css). No bar. -->
+       Reading progress is the desk itself: it deepens from matte to walnut
+       as you scroll (the --read custom property, see tufte.css) — no bar. -->
   <main class="mx-auto max-w-measure px-3 py-4 sm:px-5 sm:py-6">
     <!-- Action row. On phones the buttons collapse to icons (see ActionLabel)
          so the four of them stay within the hairline rule's width; from sm: up
@@ -516,15 +515,15 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'l') toggleReadAloud()
 }
 
-// The desk is the scrollbar: scrollPercent → --read on <html>, which sets the
-// read band's height in tufte.css. Cleared on unmount so the decks sit on the
+// The desk deepens with progress: scrollPercent → --read on <html>, which the
+// desk tokens in tufte.css mix on. Cleared on unmount so the decks sit on the
 // resting desk.
 watch(scrollPercent, (p) => {
   if (import.meta.client) document.documentElement.style.setProperty('--read', (p / 100).toFixed(3))
 })
 
-// Hide the selection pill once the viewport shifts under it, grow the read
-// band, and note the new place for the (debounced) position save.
+// Hide the selection pill once the viewport shifts under it, deepen the
+// desk, and note the new place for the (debounced) position save.
 function onScroll() {
   pill.value = null
   updateProgress()
