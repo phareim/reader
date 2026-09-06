@@ -143,10 +143,14 @@ body {
    preference (prefers-color-scheme) instead of .tufte-dark, matching the
    colour tokens above; the desk re-maps the semantic text/rule aliases
    to context-specific ink, which every paper surface (.tufte-sheet) restores;
-   and the desk colour is a mix of two poles driven by --read (0–1), so the
-   reader page can deepen the desk as you scroll instead of drawing a
-   progress bar (2026-09-06). Everywhere else --read is unset and the desk
-   sits at --desk-rest.
+   and the desk is the reader's scrollbar: --read (0–1) splits the desk into
+   a read band on top (--desk-read) and the resting desk below, hard edge
+   between them, so the whole background behind the sheet fills as you
+   scroll instead of a progress bar (2026-09-06). Everywhere else --read is
+   unset and the desk is plain --desk. The band is a gradient sized to the
+   document, which lands its edge at read × viewport height — the same place
+   a viewport-fixed gradient would, without background-attachment: fixed
+   (iOS ignores it).
 
    The page becomes a sheet of paper lying on a desk; type and rules are
    letterpressed into it. Opt in with class="tufte-tactile" on <html> (set in
@@ -159,10 +163,10 @@ body {
 
 :root {
   /* ── Desk — the surface the paper lies on ────────────────────────────── */
-  --desk-rest:     #ded7ca;   /* matte desk, the article unread */
-  --desk-read:     #b6aea0;   /* the walnut desk of the first paper pass
-                                 (#7a7062), stopped where desk ink still reads */
-  --desk:          color-mix(in oklab, var(--desk-rest), var(--desk-read) calc(var(--read, 0) * 100%));
+  --desk:          #ded7ca;   /* matte desk */
+  --desk-read:     #a69e90;   /* the read band: toward the walnut desk of the
+                                 first paper pass (#7a7062), stopped where the
+                                 action row's desk ink still reads on it */
   --desk-edge:     #c6bdad;   /* darker rim for a bar/header cut into the desk */
   --text-on-desk:  #38352e;
   --desk-text-body:  #514b40;
@@ -224,8 +228,8 @@ body {
 /* Midnight desk */
 @media (prefers-color-scheme: dark) {
   :root {
-    --desk-rest:    #171612;
-    --desk-read:    #2a2622;   /* the warmer charcoal desk of the first paper pass */
+    --desk:         #171612;
+    --desk-read:    #2a2622;   /* the read band: the warmer charcoal desk of the first paper pass */
     --desk-edge:    #1a1714;
     --text-on-desk: #cfcabe;
     --desk-text-body:  #b7b1a4;
@@ -258,8 +262,8 @@ body {
    (.tufte-sheet, and the app's own chips/bars in main.css). Chrome that
    paints its own paper must restore them the same way. */
 .tufte-desk {
-  background: var(--desk);
-  transition: background-color .3s linear;
+  /* Read band on top, resting desk below; --read is 0 outside the reader. */
+  background: linear-gradient(to bottom, var(--desk-read) calc(var(--read, 0) * 100%), var(--desk) 0);
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -276,7 +280,9 @@ body {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: var(--grain-desk); mix-blend-mode: multiply; opacity: .35;
 }
-html.tufte-tactile { background: var(--desk); transition: background-color .3s linear; }
+html.tufte-tactile { background: var(--desk); transition: --read .2s linear; }
+/* Registered so the band edge glides between scroll events instead of stepping. */
+@property --read { syntax: '<number>'; inherits: true; initial-value: 0; }
 
 /* A sheet of paper. Grain multiplied in, a faint sheen from top-left. Restores
    the paper aliases the desk re-mapped. */

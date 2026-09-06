@@ -14,8 +14,8 @@ html {
   overflow-x: hidden;
 }
 
-/* No native scrollbar: in the reader the desk deepening under the paper is
-   the progress indicator, and the decks are short. */
+/* No native scrollbar: in the reader the desk behind the paper is the
+   scrollbar (the read share fills from the top), and the decks are short. */
 html {
   scrollbar-width: none; /* Firefox */
 }
