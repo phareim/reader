@@ -18,7 +18,7 @@ import { shouldRestorePosition, restoreScrollTop, progressWorthSaving } from '~/
  * `persistProgress()` on unmount.
  */
 export function useReadingProgress(articleId: number, article: Ref<any>) {
-  /** How far the page has scrolled, 0–100 — also drives the desk colour. */
+  /** How far the page has scrolled, 0–100 — also drives the header rail. */
   const scrollPercent = ref(0)
 
   let lastSavedProgress = 0

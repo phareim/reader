@@ -1,8 +1,12 @@
 <template>
+  <!-- Reading progress: a hairline-thin rail on the right edge that fills
+       downward as the reader scrolls through the article. -->
+  <div class="fixed right-0 top-0 z-40 h-screen w-[2px] bg-rule" aria-hidden="true">
+    <div class="w-full bg-mute" :style="{ height: scrollPercent + '%' }" />
+  </div>
+
   <!-- The action row sits on the desk; the article below it is a sheet of
-       paper lying there — on touch the sheet is what slides off the desk.
-       Reading progress is the desk itself: it deepens from matte to walnut
-       as you scroll (the --read custom property, see tufte.css) — no bar. -->
+       paper lying there — on touch the sheet is what slides off the desk. -->
   <main class="mx-auto max-w-measure px-3 py-4 sm:px-5 sm:py-6">
     <!-- Action row. On phones the buttons collapse to icons (see ActionLabel)
          so the four of them stay within the hairline rule's width; from sm: up
@@ -515,15 +519,8 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'l') toggleReadAloud()
 }
 
-// The desk deepens with progress: scrollPercent → --read on <html>, which the
-// desk tokens in tufte.css mix on. Cleared on unmount so the decks sit on the
-// resting desk.
-watch(scrollPercent, (p) => {
-  if (import.meta.client) document.documentElement.style.setProperty('--read', (p / 100).toFixed(3))
-})
-
-// Hide the selection pill once the viewport shifts under it, deepen the
-// desk, and note the new place for the (debounced) position save.
+// Hide the selection pill once the viewport shifts under it, advance the
+// rail, and note the new place for the (debounced) position save.
 function onScroll() {
   pill.value = null
   updateProgress()
@@ -544,7 +541,6 @@ onUnmounted(() => {
   window.removeEventListener('scroll', onScroll, true)
   window.removeEventListener('resize', updateProgress)
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  document.documentElement.style.removeProperty('--read')
   persistProgress()
   stopReadAloud()
 })
