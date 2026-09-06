@@ -8,12 +8,14 @@
    code blocks keep their own horizontal scroll instead of pushing the page.
    Clip horizontal overflow on the root element ONLY — putting overflow-x on
    <body> turns the body into its own scroll container, which moves the page's
-   scroll position off window/documentElement and breaks the progress rail. */
+   scroll position off window/documentElement and breaks reading progress
+   (the desk colour and the saved position both read window.scrollY). */
 html {
   overflow-x: hidden;
 }
 
-/* The right-edge progress rail replaces the native scrollbar. */
+/* No native scrollbar: in the reader the desk deepening under the paper is
+   the progress indicator, and the decks are short. */
 html {
   scrollbar-width: none; /* Firefox */
 }
