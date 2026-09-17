@@ -9,7 +9,12 @@ import { DECAY } from '~/utils/decay'
 // are push-curated and keep their backlog.
 const AGE_HOURS = `(julianday('now') - julianday(COALESCE(a.published_at, a.created_at))) * 24.0`
 const HALF_LIFE_HOURS = `COALESCE(NULLIF(NULLIF(f.half_life_hours, 0), ${DECAY.FOREVER_HOURS}), ${DECAY.DEFAULT_HALF_LIFE_HOURS})`
-const DECAY_AGE = `${AGE_HOURS} / ${HALF_LIFE_HOURS}`
+// Gentle re-rank from the TypeSafe interest score (server/utils/interest.ts,
+// migration 021): 0.75..1.25, unscored (NULL) is neutral 1.0. Mirrors
+// utils/decay.ts interestBoost — change in lockstep. Ordering only: the fade
+// filter below deliberately keeps using AGE_HOURS/HALF_LIFE_HOURS un-boosted.
+const INTEREST_BOOST = `(0.75 + 0.25 * COALESCE(a.interest, 1))`
+const DECAY_AGE = `${AGE_HOURS} / (${HALF_LIFE_HOURS} * ${INTEREST_BOOST})`
 
 export default defineEventHandler(async (event) => {
   // Auth required — results are always scoped to the caller's own feeds.

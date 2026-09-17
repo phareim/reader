@@ -121,9 +121,13 @@ NUXT_X_CLIENT_ID="..."
 NUXT_X_CLIENT_SECRET="..."
 NUXT_REDDIT_CLIENT_ID="..."
 NUXT_REDDIT_CLIENT_SECRET="..."
+
+# TypeSafe Jev interest scoring (server/utils/interest.ts) — gently boosts
+# deck ordering. Unset ⇒ scoring fails soft, articles stay unscored.
+NUXT_TYPESAFE_API_KEY="..."
 ```
 
-In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, and `NUXT_REDDIT_CLIENT_SECRET` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
+In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, `NUXT_REDDIT_CLIENT_SECRET`, and `NUXT_TYPESAFE_API_KEY` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
 
 ## Deployment
 

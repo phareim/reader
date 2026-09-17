@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS "Article" (
   -- set by the nightly rest-faded job when it marks a faded rss article read
   -- (migration 020); read_at stays NULL for those
   rested_at TEXT,
+  -- TypeSafe Jev interest score, 0..2, NULL = unscored (migration 021).
+  -- Filled by POST /api/internal/score-interest; boosts the deck's decay
+  -- half-life, never filters or fades.
+  interest REAL,
   UNIQUE(feed_id, guid)
 );
 

@@ -1,0 +1,13 @@
+[Unit]
+Description=Reader — score unread articles for TypeSafe interest every 30 minutes
+
+[Timer]
+# TypeSafe is ~0.5s/call and essentially free, but each call is still a
+# Worker subrequest — batches of 60 every 30 min keep new articles scored
+# soon after ingestion (they feed the deck's decay boost) without flooding.
+OnCalendar=*:0/30
+RandomizedDelaySec=120
+Persistent=true
+
+[Install]
+WantedBy=timers.target

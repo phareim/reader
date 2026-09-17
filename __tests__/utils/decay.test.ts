@@ -3,6 +3,7 @@ import {
   decayAge,
   hasFaded,
   halfLifeLabel,
+  interestBoost,
   nextHalfLife,
   softCount,
 } from '~/utils/decay'
@@ -74,6 +75,28 @@ describe('the ∞ pace and ordering', () => {
     expect(decayAge(aWeekAgo, DECAY.FOREVER_HOURS, NOW)).toBeCloseTo(
       decayAge(aWeekAgo, DECAY.DEFAULT_HALF_LIFE_HOURS, NOW)
     )
+  })
+})
+
+describe('interestBoost', () => {
+  it('is neutral (1.0) for unscored articles', () => {
+    expect(interestBoost(null)).toBe(1)
+    expect(interestBoost(undefined)).toBe(1)
+  })
+
+  it('spans 0.75..1.25 across the 0..2 score range', () => {
+    expect(interestBoost(0)).toBeCloseTo(0.75)
+    expect(interestBoost(1)).toBeCloseTo(1)
+    expect(interestBoost(2)).toBeCloseTo(1.25)
+  })
+
+  it('a boosted article ages slower — wider effective half-life', () => {
+    const halfLife = 72
+    const boosted = decayAge(NOW - 72 * HOUR, halfLife * interestBoost(2), NOW)
+    const neutral = decayAge(NOW - 72 * HOUR, halfLife * interestBoost(1), NOW)
+    const suppressed = decayAge(NOW - 72 * HOUR, halfLife * interestBoost(0), NOW)
+    expect(boosted).toBeLessThan(neutral)
+    expect(suppressed).toBeGreaterThan(neutral)
   })
 })
 

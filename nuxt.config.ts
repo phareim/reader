@@ -62,6 +62,7 @@ export default defineNuxtConfig({
     xClientSecret: '', // NUXT_X_CLIENT_SECRET (Worker secret) — X OAuth2 app client secret
     redditClientId: '', // NUXT_REDDIT_CLIENT_ID — Reddit OAuth2 app client id (link-your-Reddit-account)
     redditClientSecret: '', // NUXT_REDDIT_CLIENT_SECRET (Worker secret) — Reddit OAuth2 app client secret
+    typesafeApiKey: '', // NUXT_TYPESAFE_API_KEY (Worker secret) — TypeSafe Jev interest scoring (server/utils/interest.ts); unset ⇒ scoring fails soft (article.interest stays NULL)
   },
 
   typescript: {

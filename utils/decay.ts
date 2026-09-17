@@ -10,6 +10,10 @@
  *
  * The SQL in `server/api/articles/index.get.ts` mirrors `decayAge`/`hasFaded`;
  * keep them in lockstep.
+ *
+ * `interestBoost` (2026-09-17) widens or narrows the half-life used for
+ * *ordering* by an article's TypeSafe interest score (`server/utils/interest.ts`)
+ * — a gentle re-rank, deliberately not part of `hasFaded`'s fade horizon.
  */
 
 export const DECAY = {
@@ -49,6 +53,20 @@ export function decayAge(
   if (Number.isNaN(t)) return 0
   const halfLife = halfLifeHours && halfLifeHours > 0 ? halfLifeHours : DECAY.DEFAULT_HALF_LIFE_HOURS
   return (now - t) / (halfLife * 3_600_000)
+}
+
+/**
+ * Half-life multiplier from a TypeSafe interest score (0..2, NULL/undefined
+ * = unscored). Range 0.75..1.25: a high-interest article's effective
+ * half-life is stretched (ages slower, ranks higher for longer), a
+ * low-interest one is compressed — unscored articles stay neutral at 1.0.
+ * Mirrored in the `INTEREST_BOOST` SQL fragment in
+ * `server/api/articles/index.get.ts`'s `DECAY_AGE`; deliberately NOT used by
+ * `hasFaded` — interest reorders the deck, it never hides or keeps an article.
+ */
+export function interestBoost(interest: number | null | undefined): number {
+  const score = interest ?? 1
+  return 0.75 + 0.25 * score
 }
 
 /** True once an article is past the fade horizon. The ∞ pace never fades. */

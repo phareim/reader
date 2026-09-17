@@ -69,6 +69,7 @@ Routes follow REST conventions:
 - `POST /api/discover/candidates` - **The source-agnostic ingest seam** (the `/api/ingest` of candidates): external collectors POST `{ source, label?, candidates: [{url, feedUrl?, title?}] }` (≤50; MCP-token auth scopes to the calling user) and the crawl's resolve/probe stages take it from there. Idempotent; existing candidates of any status only gain the labeled edge. Collectors today: `scripts/hn-frontpage-candidates.mjs` (source `hn-frontpage`), `scripts/feed-candidates.mjs` (source `sfl-saves`), and `scripts/ooh-directory-candidates.mjs` (source `ooh-directory`)
 - `POST /api/discover/refresh` - Session-authed "Look now": a small crawl scoped to the current user (2 sites / 2 resolves / 3 probes ≈ 32 fetches — sized for ONE invocation's budget); self-limiting via the 7-day floor
 - `POST /api/internal/rest-faded` - Nightly rest (Bearer `NUXT_CRON_KEY`, `reader-rest-faded.timer` 03:20, trigger `scripts/rest-faded.mjs`; added 2026-09-04). Marks rss articles past the fade horizon (3 half-lives, same SQL as the decay filter — change in lockstep) as read with `rested_at` set and `read_at` NULL (reading stats never count them; migration `020`). Exempt: found/manual feeds, the ∞ pace, starred articles, anything with a saved reading position. `?limit=` batch (default 2000); returns `{ rested, done }`, the script repeats until done. Motivation: 12.5K unread rows of which most were faded made every feed-list and deck load a full-backlog scan (D1 rows read 100K–2.8M/day)
+- `POST /api/internal/score-interest` - TypeSafe interest scoring (Bearer `NUXT_CRON_KEY`, `reader-score-interest.timer` every 30 min, trigger `scripts/score-interest.mjs`; added 2026-09-17). Fills `Article.interest` for unscored, unread articles from the last 7 days (up to `?limit=` per call, default 60, through a 5-wide concurrency pool). See "Interest score (TypeSafe Jev)" below.
 - `POST /api/internal/discover-crawl` - Cron entry (Bearer `NUXT_CRON_KEY`, `reader-discover-crawl.timer` every 6h). Body `{ stage: 'crawl'|'resolve'|'probe' }` runs ONE stage per invocation — the Worker's per-invocation fetch budget is **~50 in practice** (free-plan cap; seed runs proved it), so the trigger script POSTs a 5-call sequence (crawl ×1, resolve ×3, probe ×1), each call its own invocation with its own budget. No body ⇒ whole pipeline with tiny batches (hand-testing)
 
 **Sync**:
@@ -110,6 +111,32 @@ Routes follow REST conventions:
 ## Database access
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content (R2). Both read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`. D1's `.run()` reports insert metadata under `meta` — read ids/changes via `lastRowId()` / `rowsChanged()` from `server/utils/d1Result.ts`, never `result.lastRowId` (always undefined on D1). Worker invocations are capped at 1000 subrequests; storing article content costs ~3 per article, which is why per-sync intake defaults to 100 (`MAX_ARTICLES_PER_FEED` overrides).
+
+## Interest score (TypeSafe Jev)
+
+**`Article.interest`** (REAL 0..2, NULL = unscored; migration `021`, 2026-09-17): a
+gentle deck-ranking boost from [TypeSafe Jev](https://api.typesafe.ai) (`POST
+/v1/systemone`, `model: 'jev-latest'`), a hosted decision model (~0.5s/call,
+essentially free). `server/utils/interest.ts` builds the exact request — a fixed
+reader-profile string + the article's feed title/title/summary (HTML stripped,
+clamped 600 chars) — and `scoreInterest()` calls it with a 15s timeout, **failing
+soft to `null`** on any error (unset `NUXT_TYPESAFE_API_KEY`, network error, timeout,
+non-OK response, or a malformed body). `POST /api/internal/score-interest` (above)
+fills the column for unscored, unread articles from the last 7 days; found/manual
+articles are scored too (harmless — the column only feeds the ranking boost, feed
+`kind` still governs fading).
+
+Evaluated 2026-09-17 on 400 of 480 labeled Reader articles: the `interest` question
+separated saved/good-read/highlighted articles from untouched ones with **AUC 0.80
+overall, 0.70 within the same feed**; combined with the feed half-life signal it
+improved ranking. So it's wired in as a boost, never a filter: the deck/grid decay
+mode (`server/api/articles/index.get.ts` `DECAY_AGE`) multiplies the half-life by
+`INTEREST_BOOST = 0.75 + 0.25 * COALESCE(a.interest, 1)` (0.75..1.25, unscored
+articles get the neutral 1.0) before dividing by it — a high-interest article's
+effective age grows slower, so it ranks higher for longer, while an ordinary one
+still eventually fades on the *unboosted* age/half-life (the fade `WHERE` clause is
+untouched — interest reorders, it never hides or keeps an article). Mirrored as the
+pure `interestBoost()` in `utils/decay.ts` (not used by `hasFaded`, deliberately).
 
 ## Feed parsing and sync
 

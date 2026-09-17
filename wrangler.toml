@@ -44,5 +44,6 @@ NUXT_X_CLIENT_ID = "VUxRd2UyR19DZmdiNWdlbUxoYks6MTpjaQ"
 # NUXT_INVITE_CODE (sign-up is closed while unset),
 # NUXT_CRON_KEY (auth for POST /api/internal/sync-{stale,sources}),
 # NUXT_X_CLIENT_SECRET (X OAuth2 app client secret),
-# NUXT_REDDIT_CLIENT_SECRET (Reddit OAuth2 app client secret).
+# NUXT_REDDIT_CLIENT_SECRET (Reddit OAuth2 app client secret),
+# NUXT_TYPESAFE_API_KEY (TypeSafe Jev interest scoring — server/utils/interest.ts).
 
