@@ -181,7 +181,7 @@ Tail: `journalctl --user -u ai-digest-sync`. Run now: `systemctl --user start ai
    elevate→SFL works.
 6. Enable the timer.
 7. Doc: add an "AI digest" row to the collector list in
-   [`found-feed.md`](found-feed.md) and a one-liner in the repo `CLAUDE.md`
+   [`found-feed.md`](found-feed.md) and a one-liner in the repo `AGENTS.md`
    "Found feed" section (the digest is `source='ai-digest'`).
 
 ## Why this shape

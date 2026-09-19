@@ -230,7 +230,7 @@ Layered, outermost first:
   (`server/api/internal/email-ingest.post.ts`, ~80 lines — it reuses
   `resolveFoundFeed` + `insertArticleWithContent`, which already handle
   R2, `url_norm` dedup, and FTS indexing), one line in `.env.example`,
-  CLAUDE.md + `docs/found-feed.md` updates.
+  AGENTS.md + `docs/found-feed.md` updates.
 
 ## Rollout
 

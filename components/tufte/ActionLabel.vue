@@ -28,7 +28,7 @@ const emit = defineEmits<{ click: [] }>()
 </script>
 
 <style scoped>
-/* The one button in the system that lacked the focus ring components/CLAUDE.md
+/* The one button in the system that lacked the focus ring components/AGENTS.md
    asks every mono-label button to carry — and the one a keyboard reaches most
    (Sync all, Add, Mark as read, Undo). */
 .action-label:focus-visible {
