@@ -339,7 +339,7 @@ Each run:
 3. POSTs each via `/api/ingest` as `source=sleeper-articles`,
    `externalId=<article id>` → guid `sleeper-articles:<id>`, **idempotent**.
 
-The list/read endpoints are public today, so `ARTICLES_API_KEY` is optional.
+Every articles route except `/health` requires the Bearer since 2026-09-22, so `ARTICLES_API_KEY` must be set in `~/.config/sleeper-articles/env`.
 **First run:** the service already holds hundreds of ready items, so run once with
 `--seed` to mark the current backlog seen *without* ingesting (baseline; done
 2026-07-01 — 500 seeded, 3 kept as a live test). Normal runs then pull only new
