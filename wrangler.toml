@@ -47,3 +47,9 @@ NUXT_X_CLIENT_ID = "VUxRd2UyR19DZmdiNWdlbUxoYks6MTpjaQ"
 # NUXT_REDDIT_CLIENT_SECRET (Reddit OAuth2 app client secret),
 # NUXT_TYPESAFE_API_KEY (TypeSafe Jev interest scoring — server/utils/interest.ts).
 
+
+# Cloudflare Images — width-capped WebP copies of remote article images
+# (server/api/img.get.ts). Free tier: 5,000 unique transformations a month;
+# past that the proxy serves originals.
+[images]
+binding = "IMAGES"

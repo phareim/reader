@@ -9,13 +9,14 @@ const saveArticle = jest.fn().mockResolvedValue(undefined)
 const unsaveArticle = jest.fn().mockResolvedValue(undefined)
 const markAsRead = jest.fn().mockResolvedValue(undefined)
 const prefetchArticle = jest.fn().mockResolvedValue(undefined)
+const warmArticle = jest.fn()
 const elevate = jest.fn().mockResolvedValue({ ideaId: 'idea-1', existing: false })
 const unElevate = jest.fn().mockResolvedValue(undefined)
 const showError = jest.fn()
 
 // Nuxt auto-imported composables don't exist under Jest — provide globals.
 ;(globalThis as any).useSavedArticles = () => ({ saveArticle, unsaveArticle })
-;(globalThis as any).useArticles = () => ({ markAsRead, prefetchArticle })
+;(globalThis as any).useArticles = () => ({ markAsRead, prefetchArticle, warmArticle })
 ;(globalThis as any).useElevate = () => ({ elevate, unElevate })
 ;(globalThis as any).useToast = () => ({ showError })
 ;(globalThis as any).useHaptics = () => ({ tick: jest.fn() })
@@ -42,6 +43,22 @@ function mountStack(props: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks()
   __setManualAnimations(false)
+})
+
+describe('CardStack reader warm-up', () => {
+  afterEach(() => jest.useRealTimers())
+
+  it('warms the top card once it has settled, not cards flicked past', async () => {
+    jest.useFakeTimers()
+    const w = mountStack()
+    jest.advanceTimersByTime(100)
+    expect(warmArticle).not.toHaveBeenCalled()
+    await (w.vm as any).commit('down')
+    await flushPromises()
+    jest.advanceTimersByTime(400)
+    expect(warmArticle).toHaveBeenCalledTimes(1)
+    expect(warmArticle).toHaveBeenCalledWith(2)
+  })
 })
 
 describe('CardStack commit wiring', () => {

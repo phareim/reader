@@ -13,10 +13,12 @@
          keeps its own ink and contrast, even for bright or broken images. -->
     <div v-if="image" class="article-card-image relative mx-5 mt-4 overflow-hidden sm:mx-6">
       <img
-        :src="image"
+        :src="proxiedImage(image, IMAGE_WIDTH.full)!"
         alt=""
         class="absolute inset-0 h-full w-full object-cover"
         style="filter: saturate(.85);"
+        decoding="async"
+        :fetchpriority="priority ? 'high' : 'low'"
         draggable="false"
         @error="failedImage = image"
       />
@@ -39,8 +41,10 @@ import { computed, ref } from 'vue'
 import type { Article } from '~/types'
 import { cardImageUrl, excerpt, readingTimeMinutes } from '~/utils/cardData'
 import { formatRelativeDate } from '~/utils/formatDate'
+import { IMAGE_WIDTH, proxiedImage } from '~/utils/imageProxy'
 
-const props = defineProps<{ article: Article }>()
+// `priority`: the top card of the deck — its image jumps the network queue.
+const props = defineProps<{ article: Article; priority?: boolean }>()
 const failedImage = ref<string | null>(null)
 const image = computed(() => {
   const url = cardImageUrl(props.article.imageUrl)

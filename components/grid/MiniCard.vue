@@ -4,11 +4,12 @@
     <!-- With lead image: side thumbnail on phones, hero on top ≥sm -->
     <div v-if="image" class="relative w-28 shrink-0 overflow-hidden sm:w-auto sm:aspect-[4/3]">
       <img
-        :src="image"
+        :src="proxiedImage(image, IMAGE_WIDTH.thumb)!"
         alt=""
         class="absolute inset-0 h-full w-full object-cover"
         style="filter: saturate(.85);"
         loading="lazy"
+        decoding="async"
         draggable="false"
         @error="failedImage = image"
       />
@@ -33,6 +34,7 @@ import { computed, ref } from 'vue'
 import type { Article } from '~/types'
 import { cardImageUrl } from '~/utils/cardData'
 import { formatRelativeDate } from '~/utils/formatDate'
+import { IMAGE_WIDTH, proxiedImage } from '~/utils/imageProxy'
 
 const props = defineProps<{ article: Article }>()
 

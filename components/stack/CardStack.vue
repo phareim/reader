@@ -36,7 +36,7 @@
         :animate="{ scale: 1 - i * 0.03, y: i * 12, opacity: 1 - i * 0.18 }"
         :transition="DECK.PROMOTE"
       >
-        <ArticleCard :article="article" class="h-full" />
+        <ArticleCard :article="article" :priority="i === 0" class="h-full" />
       </motion.div>
     </motion.div>
 
@@ -93,7 +93,7 @@ const props = withDefaults(
 const emit = defineEmits<{ count: [n: number] }>()
 
 const { saveArticle, unsaveArticle } = useSavedArticles()
-const { markAsRead, prefetchArticle } = useArticles()
+const { markAsRead, prefetchArticle, warmArticle } = useArticles()
 const { elevate, unElevate } = useElevate()
 const { showError } = useToast()
 const { tick } = useHaptics()
@@ -132,6 +132,21 @@ watch(
   },
   { immediate: true },
 )
+
+// Warm the reader payload of the top card once it has settled there, so a
+// tap opens the article without waiting on the network. The short dwell skips
+// cards that are only flicked past.
+const WARM_DWELL_MS = 400
+let warmTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => deckIds.value[0],
+  (topId) => {
+    clearTimeout(warmTimer)
+    if (topId) warmTimer = setTimeout(() => warmArticle(Number(topId)), WARM_DWELL_MS)
+  },
+  { immediate: true },
+)
+onUnmounted(() => clearTimeout(warmTimer))
 
 /* ── Drag physics ──────────────────────────────────────────────────── */
 const x = useMotionValue(0)

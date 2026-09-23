@@ -1,6 +1,7 @@
 import DOMPurify from 'isomorphic-dompurify'
 import { looksLikePlainText, paragraphize } from '~/utils/paragraphize'
 import { cleanArticleDom } from '~/utils/cleanArticleContent'
+import { proxyContentImages } from '~/utils/imageProxy'
 
 /**
  * Utility for processing article HTML content
@@ -56,6 +57,9 @@ export function processArticleContent(
   // Runs on the sanitized DOM so display, RSVP, and read-aloud all see the
   // cleaned body; the stored article body is never mutated.
   cleanArticleDom(div, { title: opts.title })
+
+  // Images through the resizing proxy, lazily loaded (utils/imageProxy.ts).
+  proxyContentImages(div)
 
   // Find all links and add target="_blank" and rel attributes
   const links = div.querySelectorAll('a')

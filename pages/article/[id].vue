@@ -230,11 +230,11 @@ const route = useRoute()
 const router = useRouter()
 const id = Number(route.params.id)
 
-const { isSaved, saveArticle, unsaveArticle, fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
+const { isSaved, saveArticle, unsaveArticle, ensureSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { isGoodRead, seedGoodRead, toggleGoodRead } = useGoodReads()
 const { elevate } = useElevate()
 const { personal } = useAuth()
-const { markAsRead, articles: contextArticles } = useArticles()
+const { markAsRead, loadArticle, articles: contextArticles } = useArticles()
 const { showSuccess, showError } = useToast()
 
 const article = ref<any>(null)
@@ -296,9 +296,10 @@ watch(sanitizedContent, () => nextTick().then(updateProgress))
 const THIN_CHARS = 1200
 
 onMounted(async () => {
-  fetchSavedArticleIds().catch(() => {})
+  ensureSavedArticleIds().catch(() => {})
   try {
-    article.value = await $fetch(`/api/articles/${id}`)
+    // Usually already in hand: the deck warms the top card (useArticles).
+    article.value = await loadArticle(id)
   } catch (err: any) {
     error.value = err.statusMessage || 'Could not load the article'
     return

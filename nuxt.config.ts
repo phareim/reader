@@ -33,6 +33,9 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        // Body face on every page: start it with the HTML instead of after
+        // the CSS that names it.
+        { rel: 'preload', href: '/tufte/fonts/et-book-roman.woff', as: 'font', type: 'font/woff', crossorigin: '' },
       ]
     }
   },
@@ -43,7 +46,12 @@ export default defineNuxtConfig({
   ],
 
   nitro: {
-    preset: 'cloudflare-module'
+    preset: 'cloudflare-module',
+    // The ET Book files never change; without this they were revalidated
+    // (a 304 round trip per face) on every page load.
+    publicAssets: [
+      { baseURL: '/tufte/fonts', dir: 'public/tufte/fonts', maxAge: 60 * 60 * 24 * 365 }
+    ]
   },
 
   runtimeConfig: {
@@ -116,7 +124,7 @@ export default defineNuxtConfig({
       additionalManifestEntries: [
         { url: '/', revision: buildRevision }
       ],
-      globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+      globPatterns: ['**/*.{js,css,html,png,svg,ico,woff}'],
       // Workbox tests urlPattern regexes against the FULL request URL
       // (https://…), so path-anchored /^\/api\/…/ patterns never match.
       runtimeCaching: [

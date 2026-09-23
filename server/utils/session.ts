@@ -78,6 +78,19 @@ export async function getSessionUser(event: H3Event): Promise<any | null> {
   return user
 }
 
+/**
+ * Cheap yes/no session check for hot paths (the image proxy): one indexed
+ * lookup, no user join, and no cookie re-set on the response.
+ */
+export async function hasValidSession(event: H3Event): Promise<boolean> {
+  const token = getCookie(event, SESSION_COOKIE)
+  if (!token) return false
+  const row = await getD1(event).prepare(
+    'SELECT 1 FROM "session" WHERE token = ? AND expires_at > ?'
+  ).bind(token, new Date().toISOString()).first()
+  return !!row
+}
+
 export async function destroySession(event: H3Event): Promise<void> {
   const token = getCookie(event, SESSION_COOKIE)
   if (token) {

@@ -46,7 +46,8 @@ describe('MiniCard', () => {
     const w = mountCard({ ...baseArticle, imageUrl: 'https://example.com/lead.jpg' })
     const img = w.find('img')
     expect(img.exists()).toBe(true)
-    expect(img.attributes('src')).toBe('https://example.com/lead.jpg')
+    // Through the resizing proxy (utils/imageProxy.ts).
+    expect(img.attributes('src')).toBe(`/api/img?w=480&u=${encodeURIComponent('https://example.com/lead.jpg')}`)
     // Image variant carries no typographic hairline head
     expect(w.find('[data-testid="hairline"]').exists()).toBe(false)
   })
@@ -82,6 +83,6 @@ describe.each([['MiniCard', MiniCard], ['ArticleCard', ArticleCard]])('%s image 
     expect(w.text()).toContain(article.title)
     expect(w.find('[data-testid="hairline"]').exists()).toBe(true)
     await w.setProps({ article: { ...article, imageUrl: 'https://example.com/replacement.jpg' } })
-    expect(w.get('img').attributes('src')).toBe('https://example.com/replacement.jpg')
+    expect(w.get('img').attributes('src')).toContain(encodeURIComponent('https://example.com/replacement.jpg'))
   })
 })

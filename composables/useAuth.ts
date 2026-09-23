@@ -2,6 +2,8 @@
  * Minimal auth composable — email/password only.
  * Talks to our own /api/auth/* endpoints.
  */
+let sessionRequest: Promise<void> | null = null
+
 export const useAuth = () => {
   const user = useState<{ id: string; email: string; name: string; image?: string } | null>('auth_user', () => null)
   const loggedIn = computed(() => !!user.value)
@@ -13,7 +15,14 @@ export const useAuth = () => {
   // read-aloud) — false for guest accounts, so the UI hides those verbs.
   const personal = useState<boolean>('auth_personal', () => false)
 
-  const fetchSession = async () => {
+  const fetchSession = () => {
+    // Every useAuth() caller shares one in-flight check — several components
+    // mount at once and each used to fire its own /api/auth/session.
+    sessionRequest ??= loadSession().finally(() => { sessionRequest = null })
+    return sessionRequest
+  }
+
+  const loadSession = async () => {
     try {
       const res = await $fetch<{ user: any; features?: { personal?: boolean } }>('/api/auth/session')
       user.value = res.user
@@ -26,8 +35,10 @@ export const useAuth = () => {
     }
   }
 
-  // Fetch session on first call (SSR + client)
-  if (user.value === null) {
+  // Check the session on first use, client-side only: the server-side $fetch
+  // carries no cookie, so it could only ever answer "signed out" (and did,
+  // on every SSR render).
+  if (import.meta.client && user.value === null && !checked.value) {
     fetchSession()
   }
 

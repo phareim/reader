@@ -2,6 +2,16 @@ import type { Article, ArticlesResponse } from '~/types'
 import { cardImageUrl } from '~/utils/cardData'
 import { GRID, nextPageOffset, dedupeAppend } from '~/utils/grid'
 
+// Client-only, per-tab caches for the deck → reader hand-off (module scope,
+// never useState: they hold promises and must not reach the SSR payload).
+// fullTextInflight: running prefetchArticle full-text fetches, so a warm-up
+// of the same article waits for the richer body instead of racing it.
+// warmArticles: GET /api/articles/:id responses fetched while the card sat
+// on top of the deck — opening it then renders without a network wait.
+const fullTextInflight = new Map<number, Promise<unknown>>()
+const warmArticles = new Map<number, { at: number; promise: Promise<any> }>()
+const WARM_TTL_MS = 5 * 60 * 1000
+
 interface ListQuery {
   feedId?: number
   feedIds?: number[]
@@ -244,10 +254,12 @@ export const useArticles = () => {
     prefetched.value.add(id)
 
     try {
-      const res = await $fetch<{ status: string; imageUrl: string | null }>(
+      const request = $fetch<{ status: string; imageUrl: string | null }>(
         `/api/articles/${id}/fetch-fulltext`,
         { method: 'POST' }
       )
+      fullTextInflight.set(id, request.catch(() => {}))
+      const res = await request.finally(() => fullTextInflight.delete(id))
       // Mutating the object in place is reactive (Vue tracks the array element),
       // and the deck's card snapshot shares these same object references.
       const target = articles.value.find(a => a.id === id)
@@ -259,6 +271,35 @@ export const useArticles = () => {
       // Best-effort — the reader still fetches on open. Leave it in the deduped
       // set so a flaky page isn't hammered on every deck shuffle.
     }
+  }
+
+  /**
+   * Fetch an article's reader payload ahead of the tap that opens it. The
+   * reader takes it with loadArticle(); one use per warm-up, and entries
+   * expire so a long-open deck never hands the reader a stale body.
+   */
+  const warmArticle = (id: number) => {
+    if (!import.meta.client) return
+    const existing = warmArticles.get(id)
+    if (existing && Date.now() - existing.at < WARM_TTL_MS) return
+    const promise = Promise.resolve(fullTextInflight.get(id))
+      .then(() => $fetch(`/api/articles/${id}`))
+    promise.catch(() => warmArticles.delete(id))
+    warmArticles.set(id, { at: Date.now(), promise })
+  }
+
+  /** The reader's article load: a warm copy when there is one, else the network. */
+  const loadArticle = async (id: number): Promise<any> => {
+    const warm = warmArticles.get(id)
+    warmArticles.delete(id)
+    if (warm && Date.now() - warm.at < WARM_TTL_MS) {
+      try {
+        return await warm.promise
+      } catch {
+        // fall through to a fresh fetch
+      }
+    }
+    return $fetch(`/api/articles/${id}`)
   }
 
   // Clear articles immediately (for navigation transitions)
@@ -288,6 +329,8 @@ export const useArticles = () => {
     markAsRead,
     markAllAsRead,
     prefetchArticle,
+    warmArticle,
+    loadArticle,
     clearArticles
   }
 }

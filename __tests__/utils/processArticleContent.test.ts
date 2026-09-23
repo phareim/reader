@@ -36,12 +36,14 @@ describe('processArticleContent', () => {
     expect(result).toContain('<dt>Term</dt>')
   })
 
-  it('keeps srcset/sizes/loading on images', () => {
-    const html = '<img src="https://a.example/x.png" srcset="https://a.example/x-2x.png 2x" sizes="100vw" loading="lazy" alt="x">'
+  it('routes images through the resizing proxy from their largest source', () => {
+    const html = '<img src="https://a.example/x.png" srcset="https://a.example/x-2x.png 2x" sizes="100vw" alt="x">'
     const result = processArticleContent(html)!
-    expect(result).toContain('srcset=')
-    expect(result).toContain('sizes="100vw"')
+    expect(result).toContain(`src="/api/img?w=1080&amp;u=${encodeURIComponent('https://a.example/x-2x.png')}"`)
+    expect(result).not.toContain('srcset=')
+    expect(result).not.toContain('sizes=')
     expect(result).toContain('loading="lazy"')
+    expect(result).toContain('decoding="async"')
   })
 
   it('strips scripts and event handlers', () => {

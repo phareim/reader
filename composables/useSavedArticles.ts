@@ -2,6 +2,7 @@ export const useSavedArticles = () => {
   const savedArticleIds = useState<Set<number>>('savedArticleIds', () => new Set())
   const loading = useState<boolean>('savedArticlesLoading', () => false)
   const error = useState<string | null>('savedArticlesError', () => null)
+  const loaded = useState<boolean>('savedArticlesLoaded', () => false)
 
   const isSaved = (articleId: number) => {
     return savedArticleIds.value.has(articleId)
@@ -12,14 +13,23 @@ export const useSavedArticles = () => {
     error.value = null
 
     try {
-      const response = await $fetch<{ articles: Array<{ id: number }> }>('/api/saved-articles')
-      savedArticleIds.value = new Set(response.articles.map(a => a.id))
+      const response = await $fetch<{ ids: number[] }>('/api/saved-articles', {
+        params: { fields: 'ids' }
+      })
+      savedArticleIds.value = new Set(response.ids)
+      loaded.value = true
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch saved articles'
       console.error('Error fetching saved articles:', err)
     } finally {
       loading.value = false
     }
+  }
+
+  // For surfaces that only read saved state (the reader): reuse the set the
+  // deck already loaded this session instead of refetching on every open.
+  const ensureSavedArticleIds = async () => {
+    if (!loaded.value) await fetchSavedArticleIds()
   }
 
   const saveArticle = async (articleId: number) => {
@@ -72,6 +82,7 @@ export const useSavedArticles = () => {
     error: readonly(error),
     isSaved,
     fetchSavedArticleIds,
+    ensureSavedArticleIds,
     saveArticle,
     unsaveArticle,
     toggleSave

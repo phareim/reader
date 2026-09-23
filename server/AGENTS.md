@@ -49,7 +49,7 @@ Routes follow REST conventions:
 - `DELETE /api/highlights/:id` - Delete a highlight (id in path, no body) + its SFL idea + best-effort taste-maker undo
 
 **Saved Articles**:
-- `GET /api/saved-articles` - List user's saved articles (optional tag filter)
+- `GET /api/saved-articles` - List user's saved articles (optional tag filter); `?fields=ids` returns just `{ ids }` — what the deck and reader use for "is this saved?"
 - `GET /api/saved-articles/counts` - Saved counts
 - `PATCH /api/saved-articles/:id/tags` - Update saved article tags
 
@@ -111,6 +111,10 @@ Routes follow REST conventions:
 ## Database access
 
 **Database Access**: Use `getD1()` from `~/server/utils/cloudflare` to query data and `getArticleBucket()` for article content (R2). Both read `event.context.cloudflare.env` and throw a 500 if the binding is missing — so they only work inside a request handler with the Cloudflare runtime (i.e. via `npm run dev`/`preview` or deployed, not in a bare Node script). Table names are quoted PascalCase in SQL (`"Feed"`, `"Article"`), and every query is scoped by `user_id`. D1's `.run()` reports insert metadata under `meta` — read ids/changes via `lastRowId()` / `rowsChanged()` from `server/utils/d1Result.ts`, never `result.lastRowId` (always undefined on D1). Worker invocations are capped at 1000 subrequests; storing article content costs ~3 per article, which is why per-sync intake defaults to 100 (`MAX_ARTICLES_PER_FEED` overrides).
+
+## Image proxy
+
+`GET /api/img?w=<1080|480>&u=<url>` (`server/api/img.get.ts`, added 2026-09-23) serves remote article images as width-capped WebP through the Worker's **Cloudflare Images binding** (`IMAGES` in `wrangler.toml`). Feeds ship multi-megabyte PNG masters; the first one measured went 1.66 MB → 38 KB. Order: edge cache (`caches.default`, keyed by the full URL) → session check (`hasValidSession`, cache misses only — no open proxy) → upstream fetch (10 s) → transform when the image is over 150 KB and not SVG/GIF, else pass the bytes through untouched. Responses are cached a year (`immutable`). Anything that fails — upstream error, non-image, over 25 MB — answers a day-cached 302 to the original, and a failed transform (including a spent quota) serves the original bytes, so images never break because of the proxy. Quota: the free tier allows 5,000 unique transformations a month (each image × width counts once); the pass-through threshold and the two fixed widths keep usage down. Clients build the URLs with `utils/imageProxy.ts` (see [`components/AGENTS.md`](../components/AGENTS.md)). Local `npm run dev` has no `IMAGES` binding, so everything passes through.
 
 ## Interest score (TypeSafe Jev)
 

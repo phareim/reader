@@ -10,6 +10,15 @@ export default defineEventHandler(async (event) => {
 
     // Get optional tag filter from query params
     const query = getQuery(event)
+
+    // `?fields=ids`: just the saved article ids — what the deck and the reader
+    // need to know "is this saved?", without the full shelf rows (~1 KB
+    // instead of ~56 KB).
+    if (query.fields === 'ids') {
+      const ids = await db.prepare('SELECT article_id FROM "SavedArticle" WHERE user_id = ?')
+        .bind(user.id).all()
+      return { ids: (ids.results || []).map((row: any) => row.article_id as number) }
+    }
     const tagFilter = query.tag as string | undefined
 
     const params: any[] = [user.id]

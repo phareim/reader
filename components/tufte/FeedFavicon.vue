@@ -1,7 +1,7 @@
 <template>
   <img
     v-if="src && !failed"
-    :src="src"
+    :src="directFaviconUrl(src)!"
     alt=""
     aria-hidden="true"
     class="feed-favicon"
@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { directFaviconUrl } from '~/utils/imageProxy'
 
 /**
  * A feed's tiny favicon (Feed.favicon_url — Google S2, 32px source).
