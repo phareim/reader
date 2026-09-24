@@ -18,7 +18,7 @@ mutating it — Vue's reactivity doesn't track Set mutations.
 Created and torn down with one component, holding no global state. These exist so a
 page that owns several independent surfaces stays readable — the page keeps the
 wiring (which surface may act, and what happens after), each composable keeps its own
-mechanics. All four are used by `pages/article/[id].vue`:
+mechanics. All three are used by `pages/article/[id].vue`:
 
 - **`useArticleHighlights(articleId, articleEl)`** — the yellow pen: selection →
   offsets → note overlay → painted `<mark>`, plus the popover and removal. Saving is
