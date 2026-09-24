@@ -74,9 +74,9 @@ toolchain gotchas (the `motion-v` mock, the `linkedom/worker` mapping) are in
 - **Content Sanitization**: isomorphic-dompurify via `utils/processArticleContent.ts`
 - **Knowledge pipeline**: swipe-up "elevate" sends an article into the SFL idea tracker (see [`docs/architecture/integrations.md`](docs/architecture/integrations.md))
 
-## Removed surfaces (2026-06 rebuild)
+## Legacy image URLs
 
-The AI features were torn out with the UX rebuild: newsletter-style summaries (`/api/articles/summarize`), per-tag summaries (`/api/tags/:name/summary`), the one-shot `/api/claude` endpoint, and the Unsplash fallback image endpoint are all **gone**. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are no longer needed, and the Worker has no `AI` binding. Legacy article rows may still carry Unsplash filler image URLs from the old feed parser — `utils/cardData.ts` (`cardImageUrl`) filters them client-side; never show them. (Full-text fetch also replaces filler/missing `image_url` server-side with the page's og:image when it runs — see "Full-text fetching" in [`server/AGENTS.md`](server/AGENTS.md).)
+The Worker has no LLM keys and no `AI` binding. Old article rows may carry Unsplash filler image URLs — `utils/cardData.ts` (`cardImageUrl`) filters them client-side; never show them. Full-text fetch replaces filler or missing `image_url` with the page's og:image (see "Full-text fetching" in [`server/AGENTS.md`](server/AGENTS.md)).
 
 ## Environment Variables
 
@@ -127,13 +127,13 @@ NUXT_REDDIT_CLIENT_SECRET="..."
 NUXT_TYPESAFE_API_KEY="..."
 ```
 
-In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, `NUXT_REDDIT_CLIENT_SECRET`, and `NUXT_TYPESAFE_API_KEY` are Worker secrets (`wrangler secret put …`). The old `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are no longer used by anything.
+In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, `NUXT_REDDIT_CLIENT_SECRET`, and `NUXT_TYPESAFE_API_KEY` are Worker secrets (`wrangler secret put …`).
 
 ## Deployment
 
 Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`, `migrations_dir = "database/migrations"`), `ARTICLE_BUCKET` (R2 `reader-articles`), `IMAGES` (Cloudflare Images — the `/api/img` resizing proxy, see [`server/AGENTS.md`](server/AGENTS.md)). CI in `.github/workflows/deploy.yml` runs **`npm test`** (the gate — a red suite ships nothing, not even the migrations), then `npm run build`, then **`wrangler d1 migrations apply reader-service --remote`**, then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). **Schema changes = a new numbered file in `database/migrations/`** (keep the `NNN-name.sql` convention; also mirror the change into `database/d1-schema.sql` for fresh installs) — commit it and CI applies it before the Worker ships. Applied migrations are tracked in the `d1_migrations` table (`wrangler d1 migrations list reader-service --remote` shows what's pending); the manually-applied history 003–018 was backfilled into it 2026-07-21, so never re-apply those by hand. Local dev DB: `wrangler d1 migrations apply reader-service --local`.
 
-Two Workers **secrets** must exist: `npx wrangler secret put NUXT_SFL_API_KEY` (the SFL API key, for elevate) and `npx wrangler secret put NUXT_TTS_API_KEY` (the `READER_TTS_KEY` from `~/.config/reader-tts/env` on Sleeper, for read-aloud). The matching URLs (`NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`) ship in `wrangler.toml` `[vars]`. Without a secret, that feature returns 503 and everything else works.
+Each secret above gates one feature; without it that feature fails soft (503, or its row hidden) and everything else works. Sources: the SFL API key for `NUXT_SFL_API_KEY`, `READER_TTS_KEY` from `~/.config/reader-tts/env` on Sleeper for `NUXT_TTS_API_KEY`.
 
 **PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`): `registerType: 'prompt'` — a new SW waits until the user taps Reload in `PwaUpdatePrompt.vue` (which is built for prompt mode), so a deploy never yanks the running build's chunks out of the precache mid-session. **`navigateFallback` must stay `null`** (fixed 2026-07-29): with `navigateFallback: '/'` the SW answered every hard navigation (refresh, deep link) with the precached home shell, whose SSR payload says `path: '/'` — and Nuxt initializes the router from `payload.path`, so `/comics`, `/shelf`, or `/article/…` rendered the bare home deck. Page navigations are instead a `NetworkFirst` runtimeCaching route (`request.mode === 'navigate'`, `/api/` excluded so OAuth dances aren't cached, cache `pages-cache`): online gets the real SSR page, offline serves the last cached copy of that URL; `'/'` itself stays precached so a cold offline PWA launch still boots. The precached app shell `'/'` is stamped with a **per-build revision** (`buildRevision` at the top of `nuxt.config.ts`); never set it back to `revision: null` — Workbox then pins the first-ever cached shell forever while each deploy purges the hashed `_nuxt/*` chunks it references, and the app boots a shell pointing at 404'd JS and goes dead (bit us 2026-07-02, felt like "the app is unresponsive"). Workbox tests `runtimeCaching` regexes against the **full URL**, so path-anchored `/^\/api\/…/` patterns silently never match — the API routes use `({ url }) => url.pathname.startsWith(…)` functions instead (NetworkFirst, 5s network timeout, for offline reads). Recovery for a device stuck on a dead shell: open the app once so the fixed SW installs in the background, force-quit, reopen (worst case: Safari → Settings → clear website data for the domain and re-add the PWA).
 
@@ -189,7 +189,5 @@ change and its migration in one commit.
 
 **Adding a new component**: Create in `components/` or subdirectory. Will be auto-imported (`components/tufte/` without prefix). Use `<script setup>` with TypeScript. Compose the Tufte primitives rather than re-inventing labels/buttons/rules.
 
-**Modifying database schema**:
-1. Update `database/d1-schema.sql`
-2. Apply via `wrangler d1 execute reader-service --file=database/d1-schema.sql` (add a numbered file under `database/migrations/` for incremental changes)
+**Modifying database schema**: add a numbered `database/migrations/NNN-name.sql`, mirror it into `database/d1-schema.sql`, and let CI apply it (see Deployment). Never run the schema file against the remote DB.
 

@@ -93,7 +93,6 @@ Routes follow REST conventions:
 - `DELETE /api/sources/links/:source` - Unlink one source: best-effort token revoke upstream (X/Reddit), drop the row. Already-ingested Found articles stay
 - `POST /api/internal/sync-sources` - Worker-side sync for **every** `LinkedSource` row (Bearer `NUXT_CRON_KEY`, systemd timer `reader-sources-sync.timer` twice daily), dispatching per source. Shared shape: refresh OAuth credentials near expiry (X and Reddit **rotate** refresh tokens — persisted to D1 immediately; this endpoint is the credentials' only refresher), page newest-first (X 25/page ≤5 pages; Reddit 50/page ≤5; HN 30/page ≤2; GitHub 30/page ≤2), stop once a page isn't all-new (D1 guid check — no local seen-set), render via the pure per-source renderer (`server/utils/{xRender,redditRender,hn,githubStars}.ts`), insert into that user's Found feed. A failing source records `last_error` on its row and never blocks the others (GitHub's unauthenticated API is 60 req/h per Worker-egress IP — a 403 burst just lands in `last_error` and the next run retries)
 
-
 ## Authentication, identity, and multi-user
 
 **Authentication**: `getOptionalUser()` is the core auth primitive — it resolves MCP token (via `X-MCP-Token` header) or session cookie, returning `null` if unauthenticated. `getAuthenticatedUser()` wraps it and throws 401. Use `toPublicUser(user)` from `server/utils/auth.ts` to shape user objects for API responses. Password hashing in `server/utils/password.ts` (PBKDF2 via Web Crypto, constant-time comparison), session management in `server/utils/session.ts`, client composable in `composables/useAuth.ts`. Auth API routes: `POST /api/auth/sign-in`, `POST /api/auth/sign-up`, `POST /api/auth/sign-out`, `GET /api/auth/session`.
@@ -118,29 +117,7 @@ Routes follow REST conventions:
 
 ## Interest score (TypeSafe Jev)
 
-**`Article.interest`** (REAL 0..2, NULL = unscored; migration `021`, 2026-09-17): a
-gentle deck-ranking boost from [TypeSafe Jev](https://api.typesafe.ai) (`POST
-/v1/systemone`, `model: 'jev-latest'`), a hosted decision model (~0.5s/call,
-essentially free). `server/utils/interest.ts` builds the exact request — a fixed
-reader-profile string + the article's feed title/title/summary (HTML stripped,
-clamped 600 chars) — and `scoreInterest()` calls it with a 15s timeout, **failing
-soft to `null`** on any error (unset `NUXT_TYPESAFE_API_KEY`, network error, timeout,
-non-OK response, or a malformed body). `POST /api/internal/score-interest` (above)
-fills the column for unscored, unread articles from the last 7 days; found/manual
-articles are scored too (harmless — the column only feeds the ranking boost, feed
-`kind` still governs fading).
-
-Evaluated 2026-09-17 on 400 of 480 labeled Reader articles: the `interest` question
-separated saved/good-read/highlighted articles from untouched ones with **AUC 0.80
-overall, 0.70 within the same feed**; combined with the feed half-life signal it
-improved ranking. So it's wired in as a boost, never a filter: the deck/grid decay
-mode (`server/api/articles/index.get.ts` `DECAY_AGE`) multiplies the half-life by
-`INTEREST_BOOST = 0.75 + 0.25 * COALESCE(a.interest, 1)` (0.75..1.25, unscored
-articles get the neutral 1.0) before dividing by it — a high-interest article's
-effective age grows slower, so it ranks higher for longer, while an ordinary one
-still eventually fades on the *unboosted* age/half-life (the fade `WHERE` clause is
-untouched — interest reorders, it never hides or keeps an article). Mirrored as the
-pure `interestBoost()` in `utils/decay.ts` (not used by `hasFaded`, deliberately).
+`Article.interest` (0..2, NULL = unscored) gently boosts deck ranking and never filters; it fails soft to `null`. Request shape, boost formula and evaluation: [`../docs/architecture/interest-score.md`](../docs/architecture/interest-score.md).
 
 ## Feed parsing and sync
 
@@ -154,7 +131,7 @@ pure `interestBoost()` in `utils/decay.ts` (not used by `hasFaded`, deliberately
 
 **Relative URLs in RSS bodies** (fixed 2026-08-03): publisher HTML in `content:encoded`/`descriptionHtml` frequently carries root- or document-relative `img`/`a` URLs — they render fine on the publisher's own site but break once stored verbatim and rendered on `reader.phareim.no`'s origin (bjorg.bjornroche.com was the article that surfaced it: `<img src="/assets/…">`). `server/utils/resolveContentUrls.ts` (pure, unit-tested) rewrites `a[href]`/`img[src]`/`[srcset]` to absolute via `new URL(value, base)`; `parseFeed` runs it over the raw body before storing (`base` = the entry's own link, else the feed's site URL, else the feed URL) and passes the same `base` into `extractImageUrl()`'s content-`<img>` fallback (`server/utils/feedImage.ts`). The full-text Readability path (`extractContent.ts`) uses the same shared util post-parse (Readability's own `_fixRelativeUris` only covers `img`/`a`/`media` attributes it recognizes on the *pre-parse* DOM; ours is the belt-and-braces pass on the serialized output).
 
-Pre-fix rows were repaired via a one-shot `POST /api/internal/backfill-relative-urls` (Bearer `NUXT_CRON_KEY`, `?afterId=` cursor + `?limit=` batch override, default 50/batch — re-fetches each stored R2 body, rewrites in place only if changed; repeat until `done: true`), run 2026-08-03: 7,867 articles processed, 1,990 rewritten. Re-parsing every body through linkedom is CPU-heavy enough that dense articles tripped the Worker's per-request CPU limit (error 1102) even at `limit=1` — **13 LessWrong.com posts (MathJax-rendered math, thousands of `<mjx-*>` elements) still carry unresolved relative URLs** and were skipped rather than block the sweep: ids 339487, 346425, 348152, 391389, 404438, 406302, 423266-423268, 425679, 430773, 438307, 468307 (`SELECT id, url FROM Article WHERE id IN (…)` to look them up). Fixing those would need a cheaper resolution pass than a full linkedom re-parse (e.g. a regex-based `src=`/`href=` rewrite instead of DOM traversal) — not done as of this writing.
+Known gap: a small number of LessWrong posts (MathJax-heavy) still carry relative URLs because a linkedom re-parse exceeds the Worker CPU limit; a regex-based `src=`/`href=` rewrite would fix them. `POST /api/internal/backfill-relative-urls` (Bearer `NUXT_CRON_KEY`, `?afterId=`/`?limit=`) is the repair tool.
 
 ## Full-text fetching
 
@@ -162,35 +139,11 @@ Pre-fix rows were repaired via a one-shot `POST /api/internal/backfill-relative-
 
 ## Per-feed rigs
 
-> Adding a rig is a short, repeatable procedure — see the **`feed-rigs` skill**
-> (`.claude/skills/feed-rigs/`) for the step-by-step.
-
-**Per-feed rigs** (`server/utils/feedRigs/`): bespoke handling for the feeds Petter actually reads — the seam for "do a little extra work for this one feed". A `FeedRig` owns one or more hosts (matched www-insensitively by `rigForUrl`) and offers two optional hooks, both **fail-soft into the generic pipeline** (a throw or null return falls back; a rig bug can never break sync or full-text): **`entry`** (pure, no fetch) runs at parse time in `parseFeed` on every entry of a rigged feed — clean the RSS body, fix titles, set the card image; **`extract`** runs in `fetchFullText` *before* Readability, receiving the fetched page HTML plus a `fetchPage` helper (same-host only, 12-fetch budget, for multi-page stories) and returning the finished body + card image. Adding a rig = one new file exporting a `FeedRig` + one line in the `RIGS` registry in `index.ts`; shared regex helpers in `rigHtml.ts` (`tagWithId`, `attrOf`, `sectionAfterId`, `nextLinkHref`, `absoluteUrl`, `escapeHtml`). An entry rig can also set **`fullTextComplete: true`** on an item — "the feed body IS the article" — which inserts the row with `full_text_status='skipped'` so the full-text fetch never fires (the mechanism that protects link-blogs, where the article URL points at the *linked* page and a fetch would overwrite the author's commentary with it; plumbed `ParsedArticle` → `feedSync`/`addFeed` → `insertArticleWithContent`). Current rigs: **`smbc`** (smbc-comics.com — entry: rebuild the RSS body as comic + hovertext, dropping "Click here to go see the bonus panel!" and the dangling "Today's News:", trim the redundant title prefix; extract: `#cc-comic` (src + `title` hovertext) + the hidden `#aftercomic` bonus panel), **`oglaf`** (oglaf.com — the age gate is client-side JS only, so a plain server fetch gets the real page; extract walks `<img id="strip">` + the hover-joke `title` across multi-page stories via `rel="next"` links, stopping when the next path leaves the story slug; entry drops the archive banner), **`daringfireball`** (daringfireball.net — entry marks every item `fullTextComplete`; Gruber's commentary is the article), **`xkcd`** (xkcd.com — entry renders image + `<em>` caption from the RSS `title` attribute and marks complete, no page fetch ever; extract mirrors it from the page's `#comic` for pre-rig rows, protocol-relative srcs resolved), **`oatmeal`** (theoatmeal.com — RSS carries only a teaser thumbnail; extract collects the `theoatmeal-img/comics/` panel sequence, recirculation thumbnails live under `/thumbnails/` and are skipped; entry drops the "View on my website" link), **`pluralistic`** (pluralistic.net — entry-only `trimPluralisticBody`: strips the leading HTML-comment metadata block and the "Today's links" ToC, and cuts the recurring tail from the stable `<a name="upcoming">` anchor — appearances/books/colophon/ISSN — keeping the essay, linkdump, and retro sections), and **`anthropic`** (anthropic.com — extract-only, paired with the Anthropic bridge feeds below: scopes to the **innermost** `<article>` (the outer one wraps the hero header; taking the inner also drops the "Related content" tail), rewrites the `LatestUpdates` banner as `<p><em>Update (date): …</em></p>` prose, unwraps `/_next/image?url=…` proxy srcs to the CDN originals, drops presentation attributes **by lowercased name** (linkedom preserves the source's JSX `srcSet` casing, so `removeAttribute('srcset')` alone misses it), and re-attaches the footnotes — they live in a `div[class*="footnotes"]` *outside* the article, which is why generic Readability loses them while the in-text `<sup>` markers survive; lead image from og:image), and **`kode24`** (kode24.no — extract-only: the RSS is excerpt-only and the CMS's class names make generic Readability drop **every** image while keeping the captions — the lead `<figure class="hello2 headerImage">` matches the unlikely-candidates regex via "header", and each image block's `<div class="media">` wrapper scores −25 via the negative-class regex ("media") and is conditionally cleaned; the rig renames both class names to neutral tokens (the replacement must not itself contain "header"/"media") and re-runs the generic `extractReadableContent` on the treated page, accepting only when an `<img>` actually survived). Note: articles whose `full_text_status` already settled as `skipped`/`failed` before a rig shipped won't auto-upgrade (the reader's thin-body trigger skips settled rows) — `POST /api/articles/:id/fetch-fulltext` re-runs them on demand.
+`server/utils/feedRigs/`: per-host `entry`/`extract` hooks, both fail-soft into the generic pipeline. Procedure: the **`feed-rigs`** skill; current rigs and their quirks: [`../docs/architecture/feed-rigs.md`](../docs/architecture/feed-rigs.md).
 
 ## Anthropic bridge feeds
 
-Anthropic publishes **no RSS** for anthropic.com/news or /engineering, and the
-alignment blog serves its SPA shell on every feed-looking path (a 200 + HTML —
-exactly the catch-all trap `blogroll.ts` guards against); red.anthropic.com is
-301'd into the main site. Only transformer-circuits.pub has a real feed
-(`/feed.xml`, subscribe directly). So the reader bridges the rest itself:
-`GET /api/bridge/anthropic/[section]` (`news` | `engineering` | `alignment`,
-**public** — feed sync fetches without cookies) fetches the listing page and
-serves minimal RSS 2.0; the reader subscribes to its own bridge URLs like any
-feed. Parsing is pure in `server/utils/anthropicBridge.ts`: news/engineering
-mine the Next.js flight payload (`self.__next_f` chunks, decoded by
-`decodeFlightPayload` and scanned for balanced `{"_type":"post"}` /
-`{"_type":"engineeringArticle"}` objects — title/publishedOn/summary/cardPhoto
-live there, NOT in the DOM, and the payload is compact JSON so marker matching
-is exact) with the rendered DOM anchors as the section filter; alignment walks
-the static homepage (`a.note` entries, month-granularity `div.date` dividers
-that **precede** their group). Items are capped at 20 (`BRIDGE_ITEM_CAP`) so a
-fresh subscribe doesn't flood the deck; bodies are deliberately link-only —
-full-text fetch + the `anthropic` rig (above) render the article. An upstream
-failure **or an empty parse on a 200 page** (markup drift) returns 5xx so feed
-sync records the error and Sources shows the health note instead of silently
-syncing nothing. Fixtures for all three parsers are trimmed real captures in
-`__tests__/fixtures/anthropic-*.html`.
+`GET /api/bridge/anthropic/[news|engineering|alignment]` (public) serves RSS for sections Anthropic publishes without a feed; an empty parse returns 5xx on purpose. Parsers and fixtures: [`../docs/architecture/anthropic-bridge.md`](../docs/architecture/anthropic-bridge.md).
 
 ## Linked sources (Worker-side X / Reddit / HN / GitHub)
 
@@ -201,16 +154,7 @@ The Sleeper-side collectors live in [`../scripts/AGENTS.md`](../scripts/AGENTS.m
 
 ## Discover crawl (blogroll graph)
 
-Second-degree feed discovery: the sites you already subscribe to recommend the next ones. The crawl visits each RSS feed's site (`Feed.site_url`, else the feed URL's origin) looking for a **blogroll** — the explicit `<link rel="blogroll">` convention, the well-known OPML paths (`/.well-known/recommendations.opml`, `/blogroll.opml`), or a human `/blogroll`·`/links` page (body-gated: ≥3 external links, redirect-back-to-homepage rejected — status 200 + content-type prove nothing, SPA catch-alls lie). Each external blog becomes a per-user `DiscoverCandidate` with a `DiscoverEdge` per recommending feed; `/discover` ranks by edge count.
-
-- **Pure parsing** in `server/utils/blogroll.ts` (unit-tested, no fetch): `parseOpmlOutlines` (tag-regex + `decodeEntities`, NOT a strict XML parser — real-world OPML carries `&nbsp;`), `isOpml` body sniff, `extractBlogrollLink`, `extractExternalLinks` (linkedom, off-origin + non-platform hosts only, **page chrome excluded** — footer/nav/header/aside anchors are corporate-network links, not blogroll entries — and **article-style links dropped** (`looksLikeArticleLink`: >2 path segments or a `/20xx/` date; a media site's "/links" page is a wall of cross-network article cards, and dropping them lets the ≥3-links gate reject the page wholesale); deduped by host, capped 30), `PLATFORM_DOMAINS`/`isPlatformHost`, `candidateHost`.
-- **Orchestration** in `server/utils/blogrollCrawl.ts` — `runDiscoverCrawl(event, {siteBatch, resolveBatch, probeBatch, userId?})`, three bounded resumable stages: **A** crawl sites stalest-first under a ≥7-day per-site floor (`DiscoverCrawl` stamps found-or-not so no-blogroll sites aren't hammered; OPML ingest capped at 30 outlines/site), **B** resolve site-only candidates to feed URLs via `discoverFeeds(url, {maxProbes: 3})` (the expensive stage — ≤7 fetches per miss instead of ≤21; norm-duplicates fold edges into the older row, already-subscribed URLs go straight to `subscribed`), **C** probe via `parseFeed()` for title/description/`newest_article_at` → `candidate`. 3 failed attempts in B/C ⇒ `dead`. Candidates skip platform domains, the recommending site itself, and hosts the user already subscribes to (feed + site URLs).
-- **Statuses**: `unresolved → unprobed → candidate`, terminals `dismissed`/`subscribed`/`dead`. Terminal rows are **kept forever** — they're the fence that stops a re-crawl resurrecting a dismissed blog (existing rows of any status only ever gain edges).
-
-- **Cadence + budget**: `reader-discover-crawl.timer` (every 6h, units in `scripts/systemd/`, trigger `scripts/discover-crawl.mjs`, same `~/.config/reader/env` key as sync-stale). The script POSTs **one stage per call** (crawl, resolve ×3, probe) because the Worker's per-invocation fetch budget is ~50 in practice — a combined run dies with "Too many subrequests" (D1 statements appear not to count). 300s timeout per call: stage B's page fetches honor `FETCH_TIMEOUT` default 30s each, so a slow batch legitimately takes minutes. `runDiscoverCrawl` takes `stages?: DiscoverStage[]` for this.
-
-Candidate collectors that feed `POST /api/discover/candidates` live in
-[`../scripts/AGENTS.md`](../scripts/AGENTS.md).
+Three resumable stages (crawl → resolve → probe), one stage per Worker invocation because of the ~50-fetch budget. Parsing, statuses and cadence: [`../docs/architecture/discover-crawl.md`](../docs/architecture/discover-crawl.md).
 
 ## Testing feed discovery
 
