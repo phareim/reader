@@ -3,7 +3,7 @@
        vh-centred form sits low and the sign-in button can start below the
        fold on first paint. -->
   <main class="flex min-h-dvh items-center justify-center px-5">
-    <div class="tufte-sheet-stack w-full max-w-sm">
+    <div v-if="!handingOver" class="tufte-sheet-stack w-full max-w-sm">
     <div class="tufte-sheet w-full px-6 py-7">
       <MonoLabel dash>The Reader</MonoLabel>
       <h1 class="mt-2 text-3xl">{{ isSignUp ? 'Create account' : 'Sign in' }}</h1>
@@ -51,6 +51,8 @@
 </template>
 
 <script setup lang="ts">
+import { authLoginUrl, handsOverLogin } from '~/utils/authLogin'
+
 const { loggedIn, signIn, signUp } = useAuth()
 const route = useRoute()
 const loading = ref(false)
@@ -85,6 +87,19 @@ function goToTarget() {
   const target = safeRedirect(route.query.redirect)
   return navigateTo(target, { external: target.startsWith('https://') })
 }
+
+// Signing in lives on auth.phareim.no (utils/authLogin.ts). Full page
+// loads are handed over by server/middleware/loginHandover.ts; this covers
+// in-app navigations. The installed PWA keeps the local form: an iOS
+// home-screen app has its own cookie jar and would lose a session set in
+// the browser sheet that another origin opens in.
+const handingOver = ref(false)
+onMounted(() => {
+  if (route.query.direct || !handsOverLogin(window.location.hostname)) return
+  if (window.matchMedia('(display-mode: standalone)').matches) return
+  handingOver.value = true
+  window.location.replace(authLoginUrl(route.query.redirect, window.location.origin))
+})
 
 // Redirect if already authenticated
 watch(loggedIn, (isLoggedIn) => {
