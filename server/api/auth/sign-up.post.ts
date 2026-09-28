@@ -15,7 +15,9 @@ export default defineEventHandler(async (event) => {
   if (!config.inviteCode) {
     throw createError({ statusCode: 403, statusMessage: 'Sign-ups are closed' })
   }
-  if (typeof inviteCode !== 'string' || inviteCode.trim() !== config.inviteCode) {
+  // Case-insensitive, so "Ulrikke" on a phone keyboard still counts.
+  if (typeof inviteCode !== 'string'
+    || inviteCode.trim().toLowerCase() !== String(config.inviteCode).trim().toLowerCase()) {
     throw createError({ statusCode: 403, statusMessage: 'Invalid invite code' })
   }
 
