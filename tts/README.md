@@ -41,8 +41,7 @@ OPENAI_API_KEY=sk-...          # optional: Norwegian/Scandinavian voice
 EOF
 chmod 600 ~/.config/reader-tts/env
 
-pm2 start ./.venv/bin/python --name reader-tts -- server.py
-pm2 save
+pm2 start ecosystem.config.cjs && pm2 save   # clean environment; keys come from the env file
 ```
 
 The same `READER_TTS_KEY` value goes into the Reader Worker as the
