@@ -127,15 +127,15 @@ Behavior:
    collectors use.
 3. Insert via `insertArticleWithContent` with:
    - `source: 'email'`
-   - `guid: email:<message-id>` (Message-ID truncated/sha-256'd past 180
-     chars) — forwarding the same mail twice is a no-op, same idempotency
-     rule as every other Found source
+   - `guid: email:<message-id>` (`emailGuid`; Message-ID truncated/sha-256'd
+     past 180 chars) — forwarding the same mail twice is a no-op, same
+     idempotency rule as every other Found source
    - `title`: Subject with `Fwd:`/`Fw:`/`Re:`/`VS:` prefixes stripped
-   - `url`: no real URL exists — synthesize `mailto:<message-id-hash>`?
-     No: `Article.url` is NOT NULL and the reader's "view original" hides
-     when meaningless. Use the **first http(s) link found in the body**
-     (usually the newsletter's "view in browser" link — genuinely useful),
-     else `https://reader.phareim.no/` as inert filler. `url_norm` of a
+     (`stripForwardPrefixes`)
+   - `url` (`Article.url` is NOT NULL): a matching email rig's `pickUrl`,
+     else the newsletter's own "View Online" link (`viewInBrowserLink`),
+     else the first http(s) body link (`firstHttpLink`), else
+     `https://reader.phareim.no/` as inert filler. `url_norm` of a
      view-in-browser link also gives cross-source dedup against a bookmark
      of the same issue for free.
    - `content`: the rendered body (below)
@@ -192,7 +192,9 @@ Layered, outermost first:
    bounce?" is now answerable from the dashboard).
 3. **Spoof hardening**: the Worker parses `ARC-Authentication-Results` and
    requires `spf=pass` **or** `dkim=pass` *aligned with the sender domain*
-   (gmail.com mail must carry gmail.com auth). Envelope-From spoofing of a
+   (gmail.com mail must carry gmail.com auth; `email-worker/src/authResults.ts`,
+   pure + unit-tested). A missing header is allowed, since Cloudflare's edge
+   SPF/DKIM gate already ran. Envelope-From spoofing of a
    registered address from an unauthenticated server dies at layer 1
    anyway; this catches the "passed on some unrelated domain" edge.
 4. **Bearer seam**: the ingest endpoint accepts only

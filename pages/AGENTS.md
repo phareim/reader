@@ -1,12 +1,13 @@
 # Pages (the four rooms and their satellites)
 
-Four rooms switched by `BottomBar.vue`: **Deck** (`/`), **Found** (`/found`),
-**Shelf** (`/shelf`), **Sources** (`/sources`). The reader (`/article/:id`) and
-login sit outside the bar.
+Four rooms switched by `BottomBar.vue`: **Deck** (`/`, the card stack of unread
+articles), **Found** (`/found`, social bookmarks — a `DeckScreen` scoped to the
+Found feed), **Shelf** (`/shelf`, saved articles), **Sources** (`/sources`, feed
+management + account). The reader (`/article/:id`) and login sit outside the bar.
 
 Components these compose: [`../components/AGENTS.md`](../components/AGENTS.md).
 
-Since 2026-09-01 every room is one sheet of paper lying on the desk (`<body>`):
+Every room is one sheet of paper lying on the desk (`<body>`):
 the scrolling list pages wrap their `max-w-measure` block in
 `<div class="tufte-sheet room-sheet">`, the deck's cards are sheets on the bare
 desk, and the reader's action row sits on the desk above the article sheet
@@ -17,7 +18,7 @@ Pure logic: [`../utils/AGENTS.md`](../utils/AGENTS.md).
 ## The pages
 
 - `pages/index.vue` - thin wrapper — mounts `<DeckScreen />` with no props
-- `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
+- `pages/[tag].vue` - tag-scoped deck (`/TAG-NAME`, ASCII case-insensitive; the Sources page's tag group headers link here); Tufte not-found state for unknown tags; `BottomBar` shows Deck tab active; Nuxt static routes take precedence so `/shelf` etc. are safe
 - `pages/feed/[id].vue` - feed-scoped deck (`/feed/:id`); same `DeckScreen` as the tag deck (passes `feedId` + the feed's `title` for the header), resolves the title from `useFeeds()`, Tufte not-found for an unknown/NaN id; `BottomBar` shows Deck tab active. Each feed title on the Sources page links here
 - `pages/article/[id].vue` - the full-screen serif reader. **The page is wiring, not mechanics**: highlighting, read-aloud and reading position each live in a per-instance composable (`useArticleHighlights`, `useReadAloud`, `useReadingProgress` — see [`../composables/AGENTS.md`](../composables/AGENTS.md)); the page decides which surface may act (the `enabled` gate) and what happens after it does. What follows describes the behaviour, wherever it now lives. It (auto-fetches full text for thin RSS bodies). It **keeps your place**: the scroll position is saved server-side as a fraction of scrollable height (`Article.read_progress`, `PATCH /api/articles/:id/progress`) — debounced 1.5s on scroll, flushed on unmount and on `visibilitychange` hidden (the last signal an iOS PWA gets) — and restored on re-entry after the body settles. Pure logic in `utils/readingPosition.ts` (unit-tested): restore only in the 3%–95% band (a barely-started or finished article reopens at the top), skip writes under a 1% delta. Also owns **highlighting**: selecting text shows a floating `— HIGHLIGHT` pill (or press `h`) → `HighlightNoteOverlay` → paints a yellow `<mark>`; tapping a mark opens `HighlightPopover`. On mount (after the body settles) it fetches + paints stored highlights; a `watch(sanitizedContent)` re-anchors them after the one-time full-text re-render. The bottom of the article carries the **good-read star** (`:accent` + filled once marked, key `g`, toggles the `GoodRead` row — see `useGoodReads`) and X / Threads **share** buttons inline beside "Mark as read" (`v-if="article.url"`): non-accent `ActionLabel`s with brand glyphs that open the public web-intent compose URLs built by `utils/share.ts` (`xShareUrl` puts title in `text` + link in `url`; `threadsShareUrl` puts **only** the link in `text` since Threads has no `url` param and renders the bare link as a card — pure + unit-tested) in a new tab. No SDKs, no tracking. Non-accent so the lone crimson stays on "Mark as read". **No swipe on the article**: the browser's edge-swipe goes back and the deck/grid own the swipe verbs; mark-read-and-continue is `r` or the button at the end.
 - `pages/search.vue` - full-text search (`GET /api/search`): autofocused input, 250ms debounce with a sequence guard against out-of-order responses, hairline result rows (feed · date, title, `<mark>`-lit snippet via `renderSnippetHtml`). Reached from the Shelf header ("Search") and the `/` key on the deck (both modes); `search` is in the Sources RESERVED set
@@ -33,14 +34,15 @@ Pure logic: [`../utils/AGENTS.md`](../utils/AGENTS.md).
 
 There is no global shortcut composable — each page owns its handler (with guards: modifier keys other than shift are ignored, and keys are swallowed when focus is in an input/textarea/contentEditable). The one global exception is the **command palette** (`components/CommandPalette.vue`, mounted in `app.vue`): `⌘/Ctrl+Shift+P` (or `⌘/Ctrl+K`) on any page opens a centered input — a leading `>` filters the command list (rooms, view mode, sync), anything else searches articles (`GET /api/search`) and highlights (`GET /api/highlights?q=`) in parallel. Pure query/filter logic in `utils/palette.ts` (unit-tested).
 
-**Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — arrows drive the same `CardStack.commit(direction)` path as swipes; `x`/`e`/`j`/`k` are mail-reader aliases (`e` archives, as in Gmail):
-- `←` / `x` / `e` - Mark the top card read
-- `→` - Save (shelf) the top card
-- `↑` - Elevate to SFL
-- `↓` / `j` - Skip (move card to back of deck)
+**Deck (`components/DeckScreen.vue`, mounted by `/` and `/TAG-NAME`)** — the five verbs: one interaction model on touch and keys, all routed through `CardStack.commit(direction)`; `x`/`e`/`j`/`k` are mail-reader aliases (`e` archives, as in Gmail):
+- swipe ← / `←` / `x` / `e` - **Mark read** the top card (optimistic: fling, advance, `markAsRead(id, true).catch(toast)`)
+- swipe → / `→` - **Save** (shelf) the top card (optimistic: fling, advance, `saveArticle().catch(toast)`)
+- swipe ↑ / `↑` - **Elevate** to SFL (**non-optimistic**: the card holds mid-air awaiting SFL, springs back on failure; on success also marks read)
+- swipe ↓ / `↓` / `j` - **Skip** (`advance` rotates the id to the back of the deck; no API call)
+- tap - **Open** the reader, like `o` / `Enter` below (non-destructive, the card stays)
 - `k` - Bring the previous card back (`CardStack.retreat()` — the pure inverse rotation of skip, `utils/deck.ts retreat`; no history entry, undo entries are id-keyed so rotation is safe)
 - `o` / `Enter` - Open the reader for the top card (via `CardStack.openTop()` — the page's deck snapshot goes stale after commits)
-- `u` - Undo the last verb
+- `u` (or the `— UNDO` toast) - Undo the last destructive verb: unsave, mark-unread, or un-elevate (which deletes the SFL idea **only** when the elevate created it — `ideaExisting` entries are left alone — then marks unread)
 - `?` - Toggle the help overlay (`HelpOverlay.vue`; `Esc` closes it — takes a `mode` prop so the key table matches the active view)
 - `shift+r` - Sync all feeds (on a feed-scoped deck — `/feed/:id` — this syncs just that feed when it's a pull feed; the push-only Found feed falls back to sync-all)
 - `/` - Open search (both deck and grid modes)

@@ -8,9 +8,9 @@ systemd **user** timers (`Persistent=true`) are vendored under `scripts/systemd/
 
 ## The Found feed and its collector seam
 
-A push-only feed (`Feed.kind='found'`, `is_active=0`) that collects bookmarks/saves from social sources — X bookmarks today, more later. It behaves like any other feed (its unread articles flow into the main Deck and it lists under Sources) **and** has a dedicated **Found** tab in `BottomBar` (`pages/found.vue` → a `DeckScreen` scoped to the Found feed; the five verbs work, so swipe-up elevates a found item straight into SFL→wiki).
+A push-only feed (`Feed.kind='found'`, `is_active=0`) that collects bookmarks/saves from social sources and other collectors. It behaves like any other feed (its unread articles flow into the main Deck and it lists under Sources) **and** has a dedicated **Found** tab in `BottomBar` (`pages/found.vue` → a `DeckScreen` scoped to the Found feed; the five verbs work, so swipe-up elevates a found item straight into SFL).
 
-- **Reader stays source-agnostic.** Source-specific logic lives in per-source collectors that normalize each item and POST to `/api/ingest` — except X, which is now **in-Worker** (see next bullet). Adding a new source = a new collector, zero Reader changes. `Article.source` records per-item origin (`'x-bookmark'`, `'bluesky'`, `'reddit'`, `'instapaper'`, `'ai-digest'`, `'sleeper-articles'`, …). Five Sleeper-side collector scripts exist (all Sleeper-only, like `feed-candidates.mjs`), but only the Bluesky and Sleeper Articles timers are installed on the host (checked 2026-09-24); each reads Reader creds from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Three normalize *one social item → one card*; the AI digest reads *many* SFL ideas and synthesizes *one* card; the Sleeper Articles collector mirrors *one already-extracted article → one card*.
+- **Reader stays source-agnostic.** Source-specific logic lives in per-source collectors that normalize each item and POST to `/api/ingest` — except the four linked sources, which the Worker syncs itself (below). Adding a new source = a new collector, zero Reader changes. `Article.source` records per-item origin (`'x-bookmark'`, `'bluesky'`, `'reddit'`, `'instapaper'`, `'ai-digest'`, `'sleeper-articles'`, …). Five Sleeper-side collector scripts exist (all Sleeper-only, like `feed-candidates.mjs`), but only the Bluesky and Sleeper Articles timers are installed on the host (checked 2026-10-14); each reads Reader creds from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Three normalize *one social item → one card*; the AI digest reads *many* SFL ideas and synthesizes *one* card; the Sleeper Articles collector mirrors *one already-extracted article → one card*.
 
 The four **linked sources** (X, Reddit, Hacker News, GitHub) are Worker-side instead —
 see [`../server/AGENTS.md`](../server/AGENTS.md).
@@ -25,28 +25,26 @@ see [`../server/AGENTS.md`](../server/AGENTS.md).
 
 ## Schedules
 
-- **Schedules**: systemd **user** timers (`Persistent=true`, units vendored under `scripts/systemd/`). The Worker-side linked-sources sync (`reader-sources-sync.timer` → `scripts/sync-sources.mjs`) runs at 07/19:30; the Bluesky collector runs twice daily at 07/19:40 (Reddit 08/20:10 and Instapaper 07/19:50 units are vendored but not installed); the Sleeper Articles collector runs twice daily at 08/20:20; the AI digest timer (06:30) is not installed. `journalctl --user -u <name>` to tail; `systemctl --user start <name>.service` to run now.
+- **Collector timers**: the Bluesky collector runs twice daily at 07/19:40 and the Sleeper Articles collector at 08/20:20. Reddit (08/20:10), Instapaper (07/19:50) and the AI digest (06:30) units are vendored but not installed. The trigger timers are under "Other scripts" below.
 
 - **Full reference + native-app integration spec**: [`docs/found-feed.md`](../docs/found-feed.md).
 
 ## Discover candidate collectors
 
-These normalize their finds and POST to `POST /api/discover/candidates` — Reader stays
-source-agnostic, exactly like the Found feed's collector seam. The crawl itself is
-Worker-side ([`../server/AGENTS.md`](../server/AGENTS.md)).
+The crawl itself is Worker-side ([`../server/AGENTS.md`](../server/AGENTS.md)).
 
 - **More sources** (beyond the blogroll graph): collectors normalize their finds and POST to `POST /api/discover/candidates` — Reader stays source-agnostic, exactly like the Found feed's collector seam. `scripts/hn-frontpage-candidates.mjs` (weekly `reader-hn-candidates.timer`, Mon 07:10): one Algolia HN API call for 30 days of front-page stories → domains with ≥3 appearances (capped 20, big-media/platform hosts excluded) → source `hn-frontpage`, label "Hacker News front page". `scripts/feed-candidates.mjs` (the monthly SFL-saves miner) now also pushes its shortlist (only candidates with a working feed) as source `sfl-saves`, label "Your SFL saves" — `--no-push` opts out; it still never auto-subscribes. `scripts/ooh-directory-candidates.mjs` (weekly `reader-ooh-candidates.timer`, Wed 07:15): mines [ooh.directory](https://ooh.directory) (Phil Gyford's hand-curated ~2,400-blog directory) — a hand-written `TAG_CATEGORIES` map in the script turns the user's feed tags into directory categories, a round-robin cursor covers 3 categories per run, entries quiet >365 days are skipped, and each new blog's "More info" page is scraped for the exact RSS URL so candidates POST **with `feedUrl`** and skip the expensive resolve stage; seen-set + cursor persist in `~/.config/reader/ooh-state.json`; polite scraping (first category page only, ≤20 info pages/run, 400ms delays, honest bot UA). Flags: `--dry-run`, `--verbose`, `--categories a/b,c/d`, `--per-run N`, `--max N`, `--max-age-days N`. Labeled sources render in the via-line just like feed titles (`COALESCE(f.title, e.label)`), and a candidate recommended by both a blogroll and HN ranks `via 2`.
 
 ## Feed-candidate report
 
-`node scripts/feed-candidates.mjs` mines the SFL save stream (`~/chat/articles/data/articles.db`) for domains worth subscribing to, weighted by thoughts-wiki provenance folds (`~/thoughts/sync/provenance.json` + raw frontmatter; frozen since the wiki was retired 2026-09-29, so the fold signal no longer grows), excludes domains already subscribed (via `GET /api/feeds`), and probes survivors for working RSS/Atom feeds. Reader API auth from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Runs monthly via recurring sleeper-task #73 (`DO-PADDLE-CRISPED-CLASP`, cron `0 8 1 * *`), which posts the shortlist as a task comment — it never auto-subscribes. Since 2026-07-18 it also pushes candidates with a working feed into `/discover` via `POST /api/discover/candidates` (source `sfl-saves`; `--no-push` opts out). Flags: `--json`, `--min-score N` (default 4), `--no-push`.
+`node scripts/feed-candidates.mjs` mines the SFL save stream (`~/chat/articles/data/articles.db`) for domains worth subscribing to, weighted by thoughts-wiki provenance folds (`~/thoughts/sync/provenance.json` + raw frontmatter; frozen since the wiki was retired 2026-09-29, so the fold signal no longer grows), excludes domains already subscribed (via `GET /api/feeds`), and probes survivors for working RSS/Atom feeds. Reader API auth from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Runs monthly via recurring sleeper-task #73 (`DO-PADDLE-CRISPED-CLASP`, cron `0 8 1 * *`), which posts the shortlist as a task comment — it never auto-subscribes. It also pushes candidates with a working feed into `/discover` via `POST /api/discover/candidates` (source `sfl-saves`; `--no-push` opts out). Flags: `--json`, `--min-score N` (default 4), `--no-push`.
 
 ## Other scripts
 
 - `scripts/sync-stale.mjs` — trigger for `POST /api/internal/sync-stale` (`reader-sync-stale.timer`, every 10 min)
 - `scripts/sync-sources.mjs` — trigger for `POST /api/internal/sync-sources` (`reader-sources-sync.timer`, 07/19:30)
-- `scripts/rest-faded.mjs` — trigger for `POST /api/internal/rest-faded` (`reader-rest-faded.timer`, nightly 03:20; marks faded rss articles read, added 2026-09-04)
-- `scripts/score-interest.mjs` — trigger for `POST /api/internal/score-interest` (`reader-score-interest.timer`, every 30 min; fills `Article.interest` via TypeSafe Jev, added 2026-09-17 — see [`../server/AGENTS.md`](../server/AGENTS.md))
+- `scripts/rest-faded.mjs` — trigger for `POST /api/internal/rest-faded` (`reader-rest-faded.timer`, nightly 03:20; marks faded rss articles read)
+- `scripts/score-interest.mjs` — trigger for `POST /api/internal/score-interest` (`reader-score-interest.timer`, every 30 min; fills `Article.interest` via TypeSafe Jev — see [`../server/AGENTS.md`](../server/AGENTS.md))
 - `scripts/discover-crawl.mjs` — five-call stage sequence for the Discover crawl (`reader-discover-crawl.timer`, every 6h)
 - `scripts/taste-highlight-backfill.mjs` — mirrors highlights into taste-maker (see [`../docs/architecture/integrations.md`](../docs/architecture/integrations.md))
 - `scripts/gen_icon.py` — regenerates the app icon family (see [`../components/AGENTS.md`](../components/AGENTS.md))

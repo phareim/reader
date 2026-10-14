@@ -47,19 +47,13 @@ npm run preview
 # MCP server for Claude Desktop
 npm run mcp
 
-# Tests (Jest + ts-jest + @vue/vue3-jest, jsdom) — CI runs these before every deploy
+# Tests — CI runs them before every deploy
 npm run test
-npm run test:watch
-npm run test:coverage
-
-# Run a single test file / pattern
-npx jest __tests__/utils/deck.test.ts
-npx jest -t "name of test"
 ```
 
-Tests mirror the source tree under `__tests__/`. Suite inventory and the Jest
-toolchain gotchas (the `motion-v` mock, the `linkedom/worker` mapping) are in
-[`__tests__/AGENTS.md`](__tests__/AGENTS.md).
+Test commands (single file, single test, watch, coverage), the suite layout and
+the Jest toolchain gotchas (the `motion-v` mock, the `linkedom/worker` mapping)
+are in [`__tests__/AGENTS.md`](__tests__/AGENTS.md).
 
 ## Tech Stack
 
@@ -131,11 +125,11 @@ In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `
 
 ## Deployment
 
-Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`, `migrations_dir = "database/migrations"`), `ARTICLE_BUCKET` (R2 `reader-articles`), `IMAGES` (Cloudflare Images — the `/api/img` resizing proxy, see [`server/AGENTS.md`](server/AGENTS.md)). CI in `.github/workflows/deploy.yml` runs **`npm test`** (the gate — a red suite ships nothing, not even the migrations), then `npm run build`, then **`wrangler d1 migrations apply reader-service --remote`**, then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). **Schema changes = a new numbered file in `database/migrations/`** (keep the `NNN-name.sql` convention; also mirror the change into `database/d1-schema.sql` for fresh installs) — commit it and CI applies it before the Worker ships. Applied migrations are tracked in the `d1_migrations` table (`wrangler d1 migrations list reader-service --remote` shows what's pending); the manually-applied history 003–018 was backfilled into it 2026-07-21, so never re-apply those by hand. Local dev DB: `wrangler d1 migrations apply reader-service --local`.
+Deployed as a Cloudflare Worker (SSR via Nitro `cloudflare-module` preset) at `reader.phareim.no`. Config in `wrangler.toml` — bindings: `DB` (D1 `reader-service`, `migrations_dir = "database/migrations"`), `ARTICLE_BUCKET` (R2 `reader-articles`), `IMAGES` (Cloudflare Images — the `/api/img` resizing proxy, see [`server/AGENTS.md`](server/AGENTS.md)). CI in `.github/workflows/deploy.yml` runs **`npm test`** (the gate — a red suite ships nothing, not even the migrations), then `npm run build`, then **`wrangler d1 migrations apply reader-service --remote`**, then `wrangler deploy` on every push to `main` (needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets). **Schema changes = a new numbered file in `database/migrations/`** (keep the `NNN-name.sql` convention; also mirror the change into `database/d1-schema.sql` for fresh installs) — commit it and CI applies it before the Worker ships. Applied migrations are tracked in the `d1_migrations` table (`wrangler d1 migrations list reader-service --remote` shows what's pending); migrations 003–018 were applied by hand and backfilled into it, so never re-apply those by hand. Local dev DB: `wrangler d1 migrations apply reader-service --local`.
 
 Each secret above gates one feature; without it that feature fails soft (503, or its row hidden) and everything else works. Sources: the SFL API key for `NUXT_SFL_API_KEY`, `READER_TTS_KEY` from `~/.config/reader-tts/env` on Sleeper for `NUXT_TTS_API_KEY`.
 
-**PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`): `registerType: 'prompt'` — a new SW waits until the user taps Reload in `PwaUpdatePrompt.vue` (which is built for prompt mode), so a deploy never yanks the running build's chunks out of the precache mid-session. **`navigateFallback` must stay `null`** (fixed 2026-07-29): with `navigateFallback: '/'` the SW answered every hard navigation (refresh, deep link) with the precached home shell, whose SSR payload says `path: '/'` — and Nuxt initializes the router from `payload.path`, so `/comics`, `/shelf`, or `/article/…` rendered the bare home deck. Page navigations are instead a `NetworkFirst` runtimeCaching route (`request.mode === 'navigate'`, `/api/` excluded so OAuth dances aren't cached, cache `pages-cache`): online gets the real SSR page, offline serves the last cached copy of that URL; `'/'` itself stays precached so a cold offline PWA launch still boots. The precached app shell `'/'` is stamped with a **per-build revision** (`buildRevision` at the top of `nuxt.config.ts`); never set it back to `revision: null` — Workbox then pins the first-ever cached shell forever while each deploy purges the hashed `_nuxt/*` chunks it references, and the app boots a shell pointing at 404'd JS and goes dead (bit us 2026-07-02, felt like "the app is unresponsive"). Workbox tests `runtimeCaching` regexes against the **full URL**, so path-anchored `/^\/api\/…/` patterns silently never match — the API routes use `({ url }) => url.pathname.startsWith(…)` functions instead (NetworkFirst, 5s network timeout, for offline reads). Recovery for a device stuck on a dead shell: open the app once so the fixed SW installs in the background, force-quit, reopen (worst case: Safari → Settings → clear website data for the domain and re-add the PWA).
+**PWA / service worker** (`@vite-pwa/nuxt` in `nuxt.config.ts`, prompt-mode updates): **`navigateFallback` must stay `null`** (a fallback serves the home shell for every deep link and Nuxt renders the home deck), and the precached `'/'` shell keeps its **per-build revision** — never `revision: null` (the app boots a stale shell pointing at purged chunks and goes dead). Navigation caching, API caching and recovering a stuck device: [`docs/architecture/pwa.md`](docs/architecture/pwa.md).
 
 ## Dependency pins (read before touching package.json)
 
@@ -183,7 +177,7 @@ change and its migration in one commit.
 
 ## Common Development Patterns
 
-**Adding a new composable**: Create in `composables/` directory. Will be auto-imported. Use `useState` for global reactive state; use plain refs for a per-instance surface owned by one mounted component. See [`composables/AGENTS.md`](composables/AGENTS.md) for the distinction.
+**Adding a new composable**: Create in `composables/` (auto-imported). Global state vs per-instance surfaces: [`composables/AGENTS.md`](composables/AGENTS.md).
 
 **Adding a new API route**: Create in `server/api/` following the existing pattern. Use `defineEventHandler`, `getAuthenticatedUser`, and return typed responses.
 
