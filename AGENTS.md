@@ -4,7 +4,7 @@ Guidance for coding agents (Claude Code, Codex, OpenCode) working in this reposi
 
 ## Project Overview
 
-**The Reader** — a calm, self-hosted RSS reader built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2). The entrance is a swipeable **card deck** of unread articles (one card, five verbs); supporting rooms are the **shelf** (saved articles) and **sources** (feed management). The whole surface is styled in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one crimson accent per screen). Deployed at `reader.phareim.no`.
+**The Reader** — a calm, self-hosted RSS reader built with Nuxt 4, Vue 3, and Cloudflare (Workers + D1 + R2). The entrance is a swipeable **card deck** of unread articles (one card, five verbs); supporting rooms are the **shelf** (saved articles) and **sources** (feed management). The whole surface is styled in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one crimson accent per screen). Deployed at `reader.phareim.no`.
 
 ## Where things are documented
 
@@ -57,7 +57,7 @@ are in [`__tests__/AGENTS.md`](__tests__/AGENTS.md).
 
 ## Tech Stack
 
-- **Frontend**: Nuxt 3 (Vue 3) with auto-imported components and composables
+- **Frontend**: Nuxt 4 (Vue 3) with auto-imported components and composables
 - **Styling**: Tailwind CSS themed by the **Tufte Viz design system** (see [`components/AGENTS.md`](components/AGENTS.md)), `@tailwindcss/typography` for reader prose
 - **Animation**: `motion-v` (Motion for Vue) — drag physics, springs, and flings on the card deck
 - **Backend**: Nitro server routes (REST-style API)

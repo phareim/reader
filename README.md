@@ -1,6 +1,6 @@
 # The Librarian
 
-A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 3, Vue 3, and Cloudflare (Workers + D1 + R2).
+A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 4, Vue 3, and Cloudflare (Workers + D1 + R2).
 
 ## Features
 
@@ -12,7 +12,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 - ✅ Cloudflare D1 for relational data
 - ✅ Cloudflare R2 for article content + saved notes storage
 - ✅ HTML sanitization for safe article rendering
-- ✅ Fast, lightweight Nuxt 3 frontend
+- ✅ Fast, lightweight Nuxt 4 frontend
 - ✅ Discover — new feeds recommended by the blogs you already read (blogroll/OPML crawl of your subscriptions' sites, ranked by recommender count)
 
 ## Quick Start
@@ -64,7 +64,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 ## Architecture
 
 ```
-Nuxt 3 SPA ↔ Nitro server routes ↔ Cloudflare Workers/D1/R2
+Nuxt 4 SPA ↔ Nitro server routes ↔ Cloudflare Workers/D1/R2
 ```
 
 ### Database Schema
@@ -86,7 +86,7 @@ See `database/d1-schema.sql` for the full schema. Article content is stored in R
 
 | Layer        | Technology                | Purpose                    |
 |--------------|---------------------------|----------------------------|
-| Frontend     | Nuxt 3 (Vue 3)            | UI & routing               |
+| Frontend     | Nuxt 4 (Vue 3)            | UI & routing               |
 | Styling      | Tailwind CSS              | Utility-first styling      |
 | State        | Nuxt composables          | Client-side state          |
 | Backend      | Nitro server routes       | REST-style API             |

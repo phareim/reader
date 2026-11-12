@@ -10,6 +10,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
   devtools: { enabled: true },
 
+  // Nuxt 4 inlines only component CSS by default; keep Nuxt 3's behaviour of
+  // inlining the global CSS (Tailwind + Tufte + main.css) into the SSR HTML.
+  features: { inlineStyles: true },
+
   // Tufte base layer first (fonts + tokens + dark palette), then the app's
   // own main.css can override on top.
   css: ['~/assets/css/tufte.css', '~/assets/css/main.css'],

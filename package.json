@@ -1,7 +1,7 @@
 {
   "name": "reader",
   "version": "1.0.0",
-  "description": "The Reader — a calm, self-hosted RSS reader on Nuxt 3 + Cloudflare (Workers, D1, R2)",
+  "description": "The Reader — a calm, self-hosted RSS reader on Nuxt 4 + Cloudflare (Workers, D1, R2)",
   "main": "index.js",
   "scripts": {
     "dev": "nuxt dev",
@@ -39,7 +39,7 @@
     "isomorphic-dompurify": "^2.35.0",
     "linkedom": "0.18.12",
     "motion-v": "^2.3.0",
-    "nuxt": "^3.17.7",
+    "nuxt": "^4.6.4",
     "zod": "^4.6.7"
   },
   "overrides": {
