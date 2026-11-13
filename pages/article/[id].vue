@@ -301,7 +301,7 @@ onMounted(async () => {
     // Usually already in hand: the deck warms the top card (useArticles).
     article.value = await loadArticle(id)
   } catch (err: any) {
-    error.value = err.statusMessage || 'Could not load the article'
+    error.value = err.data?.statusMessage || 'Could not load the article'
     return
   }
   seedGoodRead(id, !!article.value?.isGoodRead)
