@@ -37,7 +37,7 @@ The crawl itself is Worker-side ([`../server/AGENTS.md`](../server/AGENTS.md)).
 
 ## Feed-candidate report
 
-`node scripts/feed-candidates.mjs` mines the SFL save stream (`~/chat/articles/data/articles.db`) for domains worth subscribing to, weighted by thoughts-wiki provenance folds (`~/thoughts/sync/provenance.json` + raw frontmatter; the wiki is retired, so the fold signal is frozen), excludes domains already subscribed (via `GET /api/feeds`), and probes survivors for working RSS/Atom feeds. Reader API auth from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Runs monthly via recurring sleeper-task #73 (`DO-PADDLE-CRISPED-CLASP`, cron `0 8 1 * *`), which posts the shortlist as a task comment — it never auto-subscribes. It also pushes candidates with a working feed into `/discover` via `POST /api/discover/candidates` (source `sfl-saves`; `--no-push` opts out). Flags: `--json`, `--min-score N` (default 4), `--no-push`.
+`node scripts/feed-candidates.mjs` mines the SFL save stream (`~/chat/articles/data/articles.db`) for domains worth subscribing to, weighted by stars, excludes domains already subscribed (via `GET /api/feeds`), and probes survivors for working RSS/Atom feeds. Reader API auth from `~/.config/reader/env` (`READER_API_URL` + `READER_MCP_TOKEN`). Runs monthly via recurring sleeper-task #73 (`DO-PADDLE-CRISPED-CLASP`, cron `0 8 1 * *`), which posts the shortlist as a task comment — it never auto-subscribes. It also pushes candidates with a working feed into `/discover` via `POST /api/discover/candidates` (source `sfl-saves`; `--no-push` opts out). Flags: `--json`, `--min-score N` (default 4), `--no-push`.
 
 ## Other scripts
 

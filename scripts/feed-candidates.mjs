@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 /**
- * Feed-candidate report: mine the SFL save stream and the thoughts wiki for
- * domains worth subscribing to, subtract current Reader subscriptions, and
+ * Feed-candidate report: mine the SFL save stream for domains worth
+ * subscribing to, subtract current Reader subscriptions, and
  * probe the survivors for working RSS/Atom feeds.
  *
- * Signals (strongest first):
- *   - folded: the saved article became a source of a wiki article
- *     (~/thoughts/sync/provenance.json + raw frontmatter)
- *   - starred / saved: rows in the sleeper-articles DB (~/chat/articles)
+ * Signals: starred (counts double) and saved rows in the sleeper-articles DB
+ * (~/chat/articles).
  *
  * Runs on Sleeper only — reads local service data. Auth for the Reader API
  * comes from ~/.config/reader/env (READER_API_URL + READER_MCP_TOKEN).
@@ -21,14 +19,12 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 const HOME = homedir()
 const ARTICLES_DB = join(HOME, 'chat/articles/data/articles.db')
-const PROVENANCE = join(HOME, 'thoughts/sync/provenance.json')
-const RAW_DIR = join(HOME, 'thoughts/raw')
 const ENV_FILE = join(HOME, '.config/reader/env')
 
 const argv = process.argv.slice(2)
@@ -97,60 +93,25 @@ const rows = execFileSync('sqlite3', ['-json', ARTICLES_DB,
 ], { encoding: 'utf8' })
 const saves = JSON.parse(rows || '[]')
 
-// --- 3. Folded-into-wiki signal ----------------------------------------------
-const foldedIds = new Set()
-try {
-  const prov = JSON.parse(readFileSync(PROVENANCE, 'utf8'))
-  for (const entries of Object.values(prov.by_slug ?? {})) {
-    for (const e of entries) {
-      const id = typeof e === 'string' ? e : e?.sfl_id
-      if (id) foldedIds.add(String(id))
-    }
-  }
-} catch {
-  console.error(`warn: could not read ${PROVENANCE}; fold signal disabled`)
-}
-
-const foldedDomains = new Map()
-for (const file of readdirSync(RAW_DIR).filter((f) => f.endsWith('.md'))) {
-  let head
-  try {
-    head = readFileSync(join(RAW_DIR, file), 'utf8').slice(0, 2000)
-  } catch {
-    continue
-  }
-  const url = head.match(/^url:\s*"?([^"\n]+?)"?\s*$/m)?.[1]
-  const sflId = head.match(/^sfl_id:\s*(\S+)/m)?.[1]
-  const d = url && domainOf(url)
-  if (d && sflId && foldedIds.has(sflId)) {
-    foldedDomains.set(d, (foldedDomains.get(d) ?? 0) + 1)
-  }
-}
-
-// --- 4. Score per domain ------------------------------------------------------
+// --- 3. Score per domain ------------------------------------------------------
 const stats = new Map()
 for (const { url, starred } of saves) {
   const d = domainOf(url)
   if (!d) continue
-  const s = stats.get(d) ?? { saves: 0, starred: 0, folds: 0 }
+  const s = stats.get(d) ?? { saves: 0, starred: 0 }
   s.saves += 1
   s.starred += starred ? 1 : 0
   stats.set(d, s)
 }
-for (const [d, folds] of foldedDomains) {
-  const s = stats.get(d) ?? { saves: 0, starred: 0, folds: 0 }
-  s.folds = folds
-  stats.set(d, s)
-}
 
 const candidates = [...stats.entries()]
-  .map(([domain, s]) => ({ domain, ...s, score: s.saves + 2 * s.starred + 3 * s.folds }))
+  .map(([domain, s]) => ({ domain, ...s, score: s.saves + 2 * s.starred }))
   .filter((c) => c.score >= minScore)
   .filter((c) => !PLATFORM_DOMAINS.has(c.domain))
   .filter((c) => !subscribed.has(c.domain))
   .sort((a, b) => b.score - a.score)
 
-// --- 5. Probe candidates for working feeds ------------------------------------
+// --- 4. Probe candidates for working feeds ------------------------------------
 const fetchOk = async (url) => {
   try {
     const ctl = new AbortController()
@@ -195,7 +156,7 @@ for (const c of candidates) {
   c.feedUrl = await discoverFeed(c.domain)
 }
 
-// --- 6. Report -----------------------------------------------------------------
+// --- 5. Report -----------------------------------------------------------------
 if (asJson) {
   console.log(JSON.stringify({ generated_at: new Date().toISOString(), candidates }, null, 2))
 } else {
@@ -207,12 +168,12 @@ if (asJson) {
   for (const c of candidates) {
     const feed = c.feedUrl ? `feed: ${c.feedUrl}` : 'no feed found'
     console.log(
-      `- **${c.domain}** — score ${c.score} (${c.saves} saved, ${c.starred} starred, ${c.folds} folded to wiki) — ${feed}`
+      `- **${c.domain}** — score ${c.score} (${c.saves} saved, ${c.starred} starred) — ${feed}`
     )
   }
 }
 
-// --- 7. Push into Discover -----------------------------------------------------
+// --- 6. Push into Discover -----------------------------------------------------
 // Only candidates with a working feed — /discover shows subscribable things.
 const pushable = candidates.filter((c) => c.feedUrl)
 if (!noPush && pushable.length) {
