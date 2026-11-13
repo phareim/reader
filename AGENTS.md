@@ -150,10 +150,9 @@ Dependabot PR or running an update.
   to `^7.0.0` in a *patch* release; css-select 7 is ESM-only, which breaks
   linkedom's own CJS build — the one `jest.config.js` maps `linkedom/worker` to.
   Both extraction suites fail to parse. Unpin only together with a Jest ESM story.
-- **`typescript: ^5.9.3` (devDependency).** TypeScript was never declared, so it
-  drifted in transitively; `npm update` jumped it to 6.0, whose `rootDir`
-  enforcement failed all 45 suites at once (`TS5011`). Declared so the toolchain is
-  deterministic.
+- **`typescript: ^5.9.3` (devDependency).** Declared so the toolchain is
+  deterministic: an undeclared version drifts, and 6.0's `rootDir`
+  enforcement fails all 45 suites at once (`TS5011`).
 - **`@hono/node-server: ^2.0.11` (override).** Patches a path-traversal advisory
   that the current `@modelcontextprotocol/sdk` still ships un-fixed. Not reachable
   here — our MCP server is `StdioServerTransport` only, and the flaw is Windows
