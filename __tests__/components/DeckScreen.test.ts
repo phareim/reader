@@ -30,6 +30,7 @@ let setViewMode: jest.Mock
 let authUser: ReturnType<typeof ref<boolean>>
 let authChecked: ReturnType<typeof ref<boolean>>
 let navigateToMock: jest.Mock
+let fetchSessionMock: jest.Mock
 let syncAllMock: jest.Mock
 let refreshFeedMock: jest.Mock
 let feedsList: ReturnType<typeof ref<any[]>>
@@ -64,11 +65,13 @@ beforeEach(() => {
   ;(globalThis as any).useViewMode = () => ({ viewMode, setViewMode })
   authUser = ref(true)
   authChecked = ref(true)
+  fetchSessionMock = jest.fn().mockResolvedValue(undefined)
   navigateToMock = jest.fn()
   ;(globalThis as any).useAuth = () => ({
     personal: ref(true),
     loggedIn: computed(() => authUser.value),
     checked: authChecked,
+    fetchSession: fetchSessionMock,
   })
   ;(globalThis as any).navigateTo = navigateToMock
 })
@@ -157,6 +160,25 @@ describe('DeckScreen', () => {
 
     await btn.trigger('click')
     expect(navigateToMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('signed out — asks no protected API (no articles, saved ids or feeds)', async () => {
+    authUser.value = false
+    mountScreen()
+    await flushPromises()
+
+    expect(fetchArticles).not.toHaveBeenCalled()
+    expect(fetchSavedArticleIds).not.toHaveBeenCalled()
+  })
+
+  it('session not checked yet — waits for the check, then loads the deck when signed in', async () => {
+    authChecked.value = false
+    fetchSessionMock.mockImplementation(async () => { authChecked.value = true })
+    mountScreen()
+    await flushPromises()
+
+    expect(fetchSessionMock).toHaveBeenCalledTimes(1)
+    expect(fetchArticles).toHaveBeenCalledTimes(1)
   })
 
   it('session still checking — never flashes the sign-in doorstep', async () => {

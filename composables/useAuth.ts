@@ -37,7 +37,9 @@ export const useAuth = () => {
 
   // Check the session on first use, client-side only: the server-side $fetch
   // carries no cookie, so it could only ever answer "signed out" (and did,
-  // on every SSR render).
+  // on every SSR render). On the signed-in-only rooms the login gate
+  // (middleware/auth.global.ts) fills this state during SSR with the
+  // request's cookie; then `checked` is already true here after hydration.
   if (import.meta.client && user.value === null && !checked.value) {
     fetchSession()
   }

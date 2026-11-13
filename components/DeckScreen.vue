@@ -101,7 +101,7 @@ const { fetchArticles, loadMoreArticles, unreadArticles, articles, total, hasMor
 const { fetchSavedArticleIds, savedArticleIds } = useSavedArticles()
 const { syncAll: syncFeeds, refreshFeed, feeds, fetchFeeds } = useFeeds()
 const { viewMode, setViewMode } = useViewMode()
-const { personal, loggedIn, checked } = useAuth()
+const { personal, loggedIn, checked, fetchSession } = useAuth()
 
 // "Definitely signed out" (session check done, no user) — drives the
 // doorstep state and hides the deck chrome that only makes sense signed in.
@@ -156,6 +156,11 @@ watch(viewMode, (mode) => {
 const loadArticles = () => fetchArticles(props.feedId, undefined, props.tag)
 
 onMounted(async () => {
+  // Signed out (the doorstep on `/`): don't ask the protected APIs for a
+  // deck nobody can see. On the gated decks SSR's login gate has settled
+  // `checked` already; on `/` this shares useAuth's in-flight check.
+  if (!checked.value) await fetchSession()
+  if (signedOut.value) return
   let is404 = false
   try {
     await Promise.all([loadArticles(), fetchSavedArticleIds()])
