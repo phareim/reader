@@ -161,8 +161,9 @@ if [ $? -eq 0 ]; then
   echo "3. Look for the 🔌 icon to verify the connection"
   echo "4. Try asking Claude: 'What are my recent articles?'"
   echo ""
-  echo -e "${YELLOW}Note:${NC} Your Reader app must be running for the MCP server to work."
-  echo "      Start it with: cd $REPO_PATH && npm run dev"
+  echo -e "${YELLOW}Note:${NC} Claude Desktop starts the MCP server from $REPO_PATH, so keep that clone"
+  echo "      (and its node_modules) in place. The server talks to $API_URL;"
+  echo "      nothing else needs to run locally unless --api-url points at a dev server."
 else
   echo -e "${RED}Error: Failed to update configuration${NC}"
   exit 1

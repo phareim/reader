@@ -100,7 +100,7 @@
             <div>
               <h3 class="text-xl">One-line setup</h3>
               <p class="text-[14px] text-mute leading-[1.55] mt-1 mb-4">
-                Run this command in your terminal to set up everything automatically:
+                Run this command in your terminal, from your clone of the Reader repository, to set up everything automatically:
               </p>
               <div class="relative">
                 <div class="tufte-code overflow-x-auto pr-12"><code>{{ oneLineCommand }}</code></div>
@@ -251,10 +251,6 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({
-  middleware: 'auth'
-})
-
 const loading = ref(false)
 const error = ref<string | null>(null)
 const successMessage = ref<string | null>(null)

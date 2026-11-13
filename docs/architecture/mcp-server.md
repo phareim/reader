@@ -132,4 +132,5 @@ Once connected, you can ask Claude:
 - `server/api/user/mcp-config.get.ts` - Get token status and config template
 - `server/api/articles/manual.post.ts` - Manual article addition endpoint
 - `pages/mcp-settings.vue` - User-facing MCP setup page
+- `setup-mcp.sh` - One-shot Claude Desktop setup (writes the `the-librarian` entry); served by `GET /api/setup-mcp` (download) and `GET /api/install-mcp` (`curl … | bash`, run from the repo clone). Both are public and serve the copy bundled into the Worker by `server/utils/setupMcpScript.ts` (Nitro `raw:` import — a Worker has no filesystem to read it from)
 - `types/api.ts` - Shared TypeScript types for API responses

@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, getRequestURL } from 'h3'
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { platform, homedir } from 'os'
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
   const db = getD1(event)
   const query = getQuery(event)
-  let repoPath = query.repoPath as string | undefined
+  const repoPath = query.repoPath as string | undefined
 
   // Get current user with token
   const userData = await db.prepare(
@@ -23,15 +23,19 @@ export default defineEventHandler(async (event) => {
     `
   ).bind(user.id).first()
 
-  // Get the public app URL from runtime config
-  const config = useRuntimeConfig()
-  const appUrl = config.public.authOrigin || 'http://localhost:3000'
-
-  // Auto-detect repository path if not provided
-  if (!repoPath) {
-    repoPath = process.cwd()
+  // The app's own origin, from the request (there is no runtimeConfig for
+  // it: the old `config.public.authOrigin` was never defined, so every
+  // command on /mcp-settings pointed at http://localhost:3000). On the
+  // Worker the scheme can come through as http:, and Reader is only served
+  // over https, so a non-local http origin is lifted to https.
+  const url = getRequestURL(event)
+  if (url.protocol === 'http:' && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(url.hostname)) {
+    url.protocol = 'https:'
   }
+  const appUrl = url.origin
 
+  // The repository lives on the user's machine; the Worker cannot see it
+  // (process.cwd() is "/" there), so only use a path the caller passes.
   // Detect Claude Desktop config path based on platform
   const os = platform()
   let claudeConfigPath = ''

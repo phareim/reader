@@ -1,27 +1,16 @@
-import { defineEventHandler } from 'h3'
-import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { defineEventHandler, setResponseHeader } from 'h3'
+import { setupMcpScript } from '~/server/utils/setupMcpScript'
 
 /**
  * GET /api/install-mcp
- * Serves the MCP setup script for curl pipe to bash
- * Usage: curl -s https://reader.phareim.no/api/install-mcp | bash -s -- --token YOUR_TOKEN
+ * Serves the MCP setup script for curl pipe to bash. Public on purpose: the
+ * script holds no secret (the user passes their own token) and curl carries
+ * no session cookie.
+ * Usage (from your Reader clone): curl -s https://reader.phareim.no/api/install-mcp | bash -s -- --token YOUR_TOKEN
  */
-export default defineEventHandler(async (event) => {
-  const scriptPath = join(process.cwd(), 'setup-mcp.sh')
-
-  try {
-    const scriptContent = await readFile(scriptPath, 'utf-8')
-
-    // Set headers for plain text (for piping to bash)
-    event.node.res.setHeader('Content-Type', 'text/plain')
-    event.node.res.setHeader('Cache-Control', 'no-cache')
-
-    return scriptContent
-  } catch (error) {
-    throw createError({
-      statusCode: 500,
-      message: 'Failed to load setup script'
-    })
-  }
+export default defineEventHandler((event) => {
+  // Plain text (for piping to bash)
+  setResponseHeader(event, 'Content-Type', 'text/plain; charset=utf-8')
+  setResponseHeader(event, 'Cache-Control', 'no-cache')
+  return setupMcpScript
 })
