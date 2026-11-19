@@ -1,10 +1,12 @@
 import { getD1 } from '~/server/utils/cloudflare'
+import { requireJson } from '~/server/utils/requireJson'
 import { verifyPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
 import { toPublicUser } from '~/server/utils/auth'
 import { assertNotRateLimited, recordFailedAttempt, clearAttempts } from '~/server/utils/authRateLimit'
 
 export default defineEventHandler(async (event) => {
+  requireJson(event)
   const body = await readBody(event)
   const { email, password } = body || {}
 

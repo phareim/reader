@@ -1,10 +1,12 @@
 import { getD1 } from '~/server/utils/cloudflare'
+import { requireJson } from '~/server/utils/requireJson'
 import { hashPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
 import { toPublicUser } from '~/server/utils/auth'
 import { checkPassword } from '~/server/utils/passwordPolicy'
 
 export default defineEventHandler(async (event) => {
+  requireJson(event)
   const body = await readBody(event)
   const { email, password, name, inviteCode } = body || {}
 
@@ -35,6 +37,16 @@ export default defineEventHandler(async (event) => {
 
   // Check if user already exists (e.g., migrated from Google OAuth)
   const existing = await db.prepare('SELECT * FROM "User" WHERE email = ?').bind(email).first() as any
+
+  // Emails are stored as typed and compared exactly, but the allowlisted apps
+  // compare them lowercased: a case variant of an existing address
+  // (Petter@… for petter@…) would pass their allowlist as a new account.
+  if (!existing) {
+    const variant = await db.prepare('SELECT id FROM "User" WHERE lower(email) = lower(?)').bind(email.trim()).first()
+    if (variant) {
+      throw createError({ statusCode: 409, statusMessage: 'An account with this email already exists. Please sign in.' })
+    }
+  }
 
   if (existing) {
     if (existing.password_hash) {
