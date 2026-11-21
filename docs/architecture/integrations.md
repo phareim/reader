@@ -2,7 +2,7 @@
 
 Reader writes to three external systems and reads from one voice service. All four
 **fail soft**: unset config means that feature 503s or silently skips, and everything
-else keeps working.
+else keeps working. The last two rows are neighbours that call into Reader.
 
 | Integration | Direction | Config | Failure mode |
 |---|---|---|---|
@@ -10,6 +10,8 @@ else keeps working.
 | SFL — highlights | Reader → SFL | same | mark stored locally, `sfl_idea_id = NULL` |
 | taste-maker | Reader → taste | `NUXT_TASTE_API_URL` + `NUXT_TASTE_INGEST_KEY` | silent skip, `taste_item_id = NULL` |
 | Read aloud (TTS) | Reader → Sleeper → NVIDIA/OpenAI | `NUXT_TTS_API_URL` + `NUXT_TTS_API_KEY` | 503, button fails soft |
+| Workbook (thoughts.phareim.no) | workbook → Reader | reads `session` and `User` (incl. `mcp_token`) from this D1; calls `GET /api/saved-articles`, `/api/highlights`, `/api/search`, `/api/articles/<id>` with `X-MCP-Token`; «Legg i Reader» calls `POST /api/articles/manual` then `POST /api/articles/<id>/fetch-fulltext` over a service binding with the visitor's own session cookie | a revoked or regenerated `mcp_token` stops its reads until it picks up the new one |
+| journal-mcp | journal-mcp → Reader | `GET /api/auth/session` over HTTP | — |
 
 ## Elevate to SFL
 

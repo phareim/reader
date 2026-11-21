@@ -9,7 +9,7 @@ Claude Desktop
     ↓ (stdio via MCP protocol)
 MCP Server (mcp-server/index.ts)
     ↓ (HTTP + X-MCP-Token header)
-Nuxt API (http://localhost:3000/api/*)
+Reader API (https://reader.phareim.no/api/*, or http://localhost:3000 in dev)
     ↓
 Database (Cloudflare D1 + R2)
 ```
@@ -43,7 +43,7 @@ The MCP server uses per-user token-based authentication stored in the database:
 
 **Server-side** (`server/utils/auth.ts`):
 - `getAuthenticatedUser()` checks for `X-MCP-Token` header first
-- Looks up user by token in the database (User.mcpToken field)
+- Looks up user by token in the database (`User.mcp_token` column)
 - Falls back to session authentication for browser requests
 - Both methods return the same authenticated user
 
@@ -56,8 +56,8 @@ The MCP server uses per-user token-based authentication stored in the database:
 6. Restart Claude Desktop
 
 **Database schema**:
-- `User.mcpToken` - Unique token per user (nullable, 64-char hex)
-- `User.mcpTokenCreatedAt` - Token creation timestamp
+- `User.mcp_token` - Unique token per user (nullable, 64-char hex)
+- `User.mcp_token_created_at` - Token creation timestamp
 
 **Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
@@ -83,6 +83,17 @@ The MCP server uses per-user token-based authentication stored in the database:
 - Tokens can be regenerated or revoked at any time via `/mcp-settings`
 - No shared credentials or environment variables needed
 - Token identifies the user, eliminating need for MCP_USER_EMAIL
+
+**Who else uses the token.** The MCP server is not the only client of `User.mcp_token`, and no agent
+config on Sleeper registers the MCP server itself:
+- The Sleeper-side collector scripts (`scripts/*.mjs`, `READER_MCP_TOKEN` in `~/.config/reader/env`)
+  and the inbox (`~/chat/inbox`) send it as `X-MCP-Token` to `POST /api/ingest`.
+- The workbook's Worker (`~/github/arbeidsbok/worker/mcp.ts`) reads the token from this D1 and calls
+  `GET /api/saved-articles`, `GET /api/highlights`, `GET /api/search` and `GET /api/articles/<id>`
+  with it.
+
+Regenerating or revoking the token on `/mcp-settings` therefore stops all of these until each picks
+up the new one.
 
 ## Running the MCP Server
 

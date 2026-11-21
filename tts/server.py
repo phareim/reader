@@ -183,10 +183,14 @@ def synthesize():
     global synth_count
     if not authorized():
         return jsonify(error="unauthorized"), 401
-    body = request.get_json(silent=True) or {}
-    text = (body.get("text") or "").strip()
-    if not text:
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        body = {}
+    text = body.get("text")
+    # A non-string text (a number, a list) is a bad request, not a crash.
+    if not isinstance(text, str) or not text.strip():
         return jsonify(error="text is required"), 400
+    text = text.strip()
     if len(text) > MAX_CHARS:
         return jsonify(error=f"text exceeds {MAX_CHARS} chars"), 413
     voice = body.get("voice") or DEFAULT_VOICE

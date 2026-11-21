@@ -107,6 +107,16 @@ describe('POST /api/articles/mark-all-read', () => {
     expect(scoped).toHaveLength(120)
   })
 
+  it('marks nothing for an empty articleIds array', async () => {
+    const db = fakeD1(authAs(user, (call) => (/COUNT\(\*\) AS total/.test(call.sql) ? { total: 4321 } : undefined)))
+
+    const { status, body } = await run(db, { articleIds: [] })
+
+    expect(status).toBe(200)
+    expect(body).toEqual({ markedCount: 0 })
+    expect(db.matching(/UPDATE "Article"/)).toHaveLength(0)
+  })
+
   it('answers 404 for an unknown tag or feed', async () => {
     expect((await run(fakeD1(authAs(user)), { tag: 'nope' })).status).toBe(404)
     expect((await run(fakeD1(authAs(user)), { feedId: 99 })).status).toBe(404)

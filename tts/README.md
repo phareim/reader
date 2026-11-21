@@ -56,3 +56,5 @@ The same `READER_TTS_KEY` value goes into the Reader Worker as the
 - ä/ö deliberately do NOT trigger the Scandinavian route: they'd misroute
   German, which Magpie speaks natively. Swedish detection therefore rests on
   å and explicit `language_code=sv`.
+- Request validation is tested without Flask or Riva installed:
+  `python3 tts/test_server.py` (stand-ins for both; no network).

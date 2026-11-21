@@ -123,6 +123,23 @@ describe('POST /api/auth/sign-in', () => {
     expect(wrongDb.matching(/INSERT INTO "session"/)).toHaveLength(0)
   })
 
+  it('answers 400 for an email that is not a string, without touching D1', async () => {
+    const db = authDb(await userRow())
+    expect((await post(signIn, db, { email: { a: 1 }, password: PASSWORD })).status).toBe(400)
+    expect((await post(signIn, db, { email: 123, password: PASSWORD })).status).toBe(400)
+    expect(db.calls).toHaveLength(0)
+  })
+
+  it('trims the email before looking it up', async () => {
+    const user = await userRow()
+    const db = authDb(user)
+
+    const { status } = await post(signIn, db, { email: `  ${user.email} `, password: PASSWORD })
+
+    expect(status).toBe(200)
+    expect(db.matching(/FROM "User" WHERE email = \?/)[0].binds).toEqual(['petter@example.com'])
+  })
+
   it('answers 429 after ten failures in the window, even with the right password', async () => {
     const user = await userRow()
     const db = authDb(user, { failures: 10 })
@@ -150,6 +167,45 @@ describe('POST /api/auth/sign-up', () => {
   it('answers 403 for a wrong or missing invite code', async () => {
     expect((await post(signUp, authDb(null), { ...fresh, inviteCode: 'nope' }, { config })).status).toBe(403)
     expect((await post(signUp, authDb(null), { ...fresh, inviteCode: undefined }, { config })).status).toBe(403)
+  })
+
+  it('counts a wrong invite code as a failed attempt against that email', async () => {
+    const db = authDb(null)
+
+    const { status } = await post(signUp, db, { ...fresh, email: ' New@Example.com ', inviteCode: 'nope' }, { config })
+
+    expect(status).toBe(403)
+    expect(db.matching(/INSERT INTO "auth_attempt"/)[0].binds[0]).toBe('new@example.com')
+  })
+
+  it('answers 429 past the attempt limit, even with the right invite code', async () => {
+    const db = authDb(null, { failures: 10 })
+    // h3 warns that this statusMessage holds a non-ASCII dash; not under test.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const { status } = await post(signUp, db, fresh, { config })
+    warn.mockRestore()
+
+    expect(status).toBe(429)
+    expect(db.matching(/INSERT INTO "User"/)).toHaveLength(0)
+  })
+
+  it('answers 400 for an email that is not a string', async () => {
+    const db = authDb(null)
+    const { status } = await post(signUp, db, { ...fresh, email: 123 }, { config })
+    expect(status).toBe(400)
+    expect(db.calls).toHaveLength(0)
+  })
+
+  it('stores the email trimmed and matches case variants on the trimmed form', async () => {
+    const db = authDb(null)
+    const { status, body } = await post(signUp, db, { ...fresh, email: '  new@example.com ' }, { config })
+    expect(status).toBe(200)
+    expect(body.user.email).toBe('new@example.com')
+    expect(db.matching(/INSERT INTO "User"/)[0].binds[2]).toBe('new@example.com')
+
+    const variant = await post(signUp, authDb(await userRow()), { ...fresh, email: ' Petter@Example.com ' }, { config })
+    expect(variant.status).toBe(409)
   })
 
   it('enforces the password policy with 400', async () => {

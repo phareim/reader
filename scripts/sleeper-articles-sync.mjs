@@ -7,8 +7,8 @@
  * instapaper / ai-digest). Where the social collectors read *one bookmark → one
  * card*, this one reads the already-extracted articles the Sleeper Articles API
  * serves (full Markdown bodies, summaries, key points) and normalizes each into
- * one Found card. Every `status=ready` item flows in regardless of kind
- * (article / video / post / digest). Each run:
+ * one Found card. Every `status=ready` item of a wanted kind flows in
+ * (article / video / post / digest — see --kinds / --sources below). Each run:
  *   1. pages the articles list newest-first (GET /?status=ready&cursor=…),
  *      stopping once it has caught up to already-ingested ids (bounded by
  *      PAGE_SIZE / MAX_PAGES / MAX_ITEMS),
@@ -29,9 +29,9 @@
  *
  * Config (files, not env — cron has no shell):
  *   ~/.config/sleeper-articles/env   ARTICLES_API_URL   (default http://127.0.0.1:3003)
- *                                    ARTICLES_API_KEY   (optional Bearer; the
- *                                       list/read endpoints are public today,
- *                                       but it is sent if present)
+ *                                    ARTICLES_API_KEY   (required Bearer: every
+ *                                       Articles route but /health takes it; the
+ *                                       run stops at start when it is empty)
  *   ~/.config/sleeper-articles/state.json  { seen_ids, last_run, total_ingested }
  *   ~/.config/reader/env             READER_API_URL, READER_MCP_TOKEN
  *
@@ -101,6 +101,10 @@ if (!READER_URL || !READER_TOKEN) throw new Error('missing READER_API_URL / READ
 
 const ARTICLES_URL = (aenv.ARTICLES_API_URL || 'http://127.0.0.1:3003').replace(/\/$/, '');
 const ARTICLES_KEY = aenv.ARTICLES_API_KEY || '';
+if (!ARTICLES_KEY) {
+  console.error('missing ARTICLES_API_KEY in ~/.config/sleeper-articles/env — every Articles route but /health needs it');
+  process.exit(1);
+}
 
 // Kind filter: `--kinds a,b` or READER_SYNC_KINDS in the env file (comma list;
 // empty = all kinds). Filtered-out items are still marked seen so lifting the

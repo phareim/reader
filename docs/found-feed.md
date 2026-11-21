@@ -21,10 +21,19 @@ AI digest ────────┤   (synthesizes many → one)
 Sleeper Articles ─┘   (extracted articles → one card each)
 ```
 
+**What reaches Found today:** the Worker-side linked-source sync (X, Reddit,
+HN, GitHub — below), the Bluesky collector, the inbox (`~/chat/inbox`, which
+posts article links straight to `POST /api/ingest` with `X-MCP-Token`), mail
+to reader@phareim.no (`docs/email-ingest.md`), and from the Sleeper Articles
+mirror only digests and iOS share-sheet saves. Nothing saved through SFL
+reaches Found through the mirror, and starring an article does not bypass the
+filter (see the Sleeper Articles collector below).
+
 Adding a new source = a new collector that POSTs the same shape. **Zero Reader
-changes.** Six collectors ship today (`source=x-bookmark`, `bluesky`,
-`reddit`, `instapaper`, `ai-digest`, `sleeper-articles`); each is a
-standalone `scripts/*-sync.mjs` + a systemd user timer. (A Mastodon collector
+changes.** Six collector scripts exist (`source=x-bookmark`, `bluesky`,
+`reddit`, `instapaper`, `ai-digest`, `sleeper-articles`), each a standalone
+`scripts/*-sync.mjs` with a vendored systemd user timer; only the Bluesky and
+Sleeper Articles timers are installed (see Schedules). (A Mastodon collector
 existed but was removed 2026-08-31 — never enabled; Petter doesn't use
 Mastodon.) Four normalize *one social
 item → one card*; the AI digest is the odd one out — it reads *many* items and
@@ -339,7 +348,7 @@ Each run:
 3. POSTs each via `/api/ingest` as `source=sleeper-articles`,
    `externalId=<article id>` → guid `sleeper-articles:<id>`, **idempotent**.
 
-Every articles route except `/health` requires the Bearer since 2026-09-22, so `ARTICLES_API_KEY` must be set in `~/.config/sleeper-articles/env`.
+Every articles route except `/health` requires the Bearer since 2026-09-22, so `ARTICLES_API_KEY` must be set in `~/.config/sleeper-articles/env`; the collector stops at start with one line when it is empty.
 **First run:** the service already holds hundreds of ready items, so run once with
 `--seed` to mark the current backlog seen *without* ingesting (baseline; done
 2026-07-01 — 500 seeded, 3 kept as a live test). Normal runs then pull only new
@@ -351,9 +360,12 @@ keeps it safe. The same X post can appear both as an `x-bookmark` card and a
 `sleeper-articles` `post` card; drop `kind=post` in the collector if that
 redundancy is unwanted.
 
-**Kind filter + source pass-through:** since 2026-08-05 the host env sets
+**Kind filter + source pass-through:** it does **not** mirror every ready
+item. Since 2026-08-05 the host env sets
 `READER_SYNC_KINDS=digest` — only digest cards flow in, the full SFL mirror is
-off (it duplicated elevated Reader articles back into Found). Since 2026-09-01
+off (it duplicated elevated Reader articles back into Found). The filter also
+applies to `--ids` pushes, so an article saved through SFL never reaches Found
+this way, starred or not. Since 2026-09-01
 `READER_SYNC_SOURCES=share` (or `--sources a,b`) lets articles whose `source`
 matches bypass the kind filter: the SleeperChat iOS share extension POSTs the
 saved url to the Articles service with `source: "share"`, so deliberate saves
@@ -364,7 +376,7 @@ else.
 
 | File | Holds |
 |---|---|
-| `~/.config/sleeper-articles/env` | `ARTICLES_API_URL` (default `http://127.0.0.1:3003`), optional `ARTICLES_API_KEY` (Bearer) |
+| `~/.config/sleeper-articles/env` | `ARTICLES_API_URL` (default `http://127.0.0.1:3003`), `ARTICLES_API_KEY` (Bearer, required), `READER_SYNC_KINDS=digest`, `READER_SYNC_SOURCES=share` |
 | `~/.config/sleeper-articles/state.json` | `seen_ids[]` (article ids), `last_run`, `total_ingested` |
 | `~/.config/reader/env` | `READER_API_URL`, `READER_MCP_TOKEN` |
 
@@ -378,9 +390,10 @@ skips paging **and** the seen-set, so it reaches seeded-out backlog items too),
 
 The Articles service itself now triggers this collector, so cards land in Found
 within a minute instead of waiting for the twice-daily timer: on every article
-that flips to `ready`, on `PATCH` transitions to `starred: true` (Petter's
-"best content" signal — reaches even pre-seed backlog items via `--ids`), and on
-`POST /digest` upserts (the Sunday obsession brief). The hook lives at
+that flips to `ready`, on `PATCH` transitions to `starred: true`, and on
+`POST /digest` upserts (the Sunday obsession brief). Each push runs with
+`--ids`, and the kind/source filter still applies, so with the host env above
+only digests and share-sheet saves land; a starred SFL article is dropped. The hook lives at
 `~/chat/articles/src/services/reader-push.ts` (debounced 45s, killswitch
 `READER_PUSH_ENABLED`). Both the push spawn and the systemd unit wrap the run in
 `flock ~/.config/sleeper-articles/.lock`, so concurrent runs serialize instead
@@ -393,12 +406,13 @@ don't fire on the same second:
 
 | Timer | OnCalendar |
 |---|---|
-| `ai-digest-sync.timer` | `06:30` (daily — first in Found at breakfast) |
-| `reader-sources-sync.timer` | `07,19:30` (Worker-side X + Reddit + HN sync; replaced `x-bookmark-sync.timer` / `reader-x-bookmarks.timer`) |
-| `bluesky-bookmark-sync.timer` | `07,19:40` (enabled + creds live, verified 2026-08-06) |
-| `instapaper-sync.timer` | `07,19:50` |
-| `reddit-saved-sync.timer` | (superseded — never enabled; Reddit runs in `reader-sources-sync`) |
-| `sleeper-articles-sync.timer` | `08,20:20` |
+| `ai-digest-sync.timer` | `06:30` — **not installed**, does not run (last run 2026-08-05) |
+| `reader-sources-sync.timer` | `07,19:30` — installed (Worker-side X + Reddit + HN + GitHub sync; replaced `x-bookmark-sync.timer`) |
+| `bluesky-bookmark-sync.timer` | `07,19:40` — installed |
+| `instapaper-sync.timer` | `07,19:50` — **not installed**, does not run |
+| `reddit-saved-sync.timer` | **not installed**, does not run (Reddit runs in `reader-sources-sync`) |
+| `x-bookmark-sync.timer` | **not installed**, does not run (X runs in `reader-sources-sync`) |
+| `sleeper-articles-sync.timer` | `08,20:20` — installed |
 
 All `Persistent=true`, `RandomizedDelaySec=600`. Install any of them with:
 ```

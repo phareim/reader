@@ -8,7 +8,9 @@ import { assertNotRateLimited, recordFailedAttempt, clearAttempts } from '~/serv
 export default defineEventHandler(async (event) => {
   requireJson(event)
   const body = await readBody(event)
-  const { email, password } = body || {}
+  const { password } = body || {}
+  // Trimmed before lookup, like sign-up stores it; a non-string is a 400.
+  const email = typeof body?.email === 'string' ? body.email.trim() : ''
 
   if (!email || !password) {
     throw createError({ statusCode: 400, statusMessage: 'Email and password are required' })

@@ -56,7 +56,8 @@ export default defineEventHandler(async (event) => {
         a.is_read,
         f.title AS feed_title,
         f.favicon_url AS feed_favicon,
-        GROUP_CONCAT(DISTINCT t.name) AS tags
+        -- json_group_array, not GROUP_CONCAT: a tag name may contain a comma.
+        json_group_array(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL) AS tags
       FROM "SavedArticle" sa
       JOIN "Article" a ON a.id = sa.article_id
       JOIN "Feed" f ON f.id = a.feed_id
@@ -84,7 +85,7 @@ export default defineEventHandler(async (event) => {
         isRead: Boolean(saved.is_read),
         savedAt: saved.saved_at,
         savedId: saved.saved_id,
-        tags: saved.tags ? String(saved.tags).split(',').sort() : []
+        tags: (JSON.parse(saved.tags || '[]') as string[]).sort()
       }))
     }
   } catch (error: any) {

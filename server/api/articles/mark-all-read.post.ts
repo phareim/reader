@@ -9,6 +9,12 @@ export default defineEventHandler(async (event) => {
 
   const db = getD1(event)
 
+  // A present articleIds array is the scope: an empty one marks nothing
+  // (it used to fall through to "every unread article").
+  if (Array.isArray(articleIds) && articleIds.length === 0) {
+    return { markedCount: 0 }
+  }
+
   // If specific article IDs are provided, mark exactly those as read
   if (articleIds && Array.isArray(articleIds) && articleIds.length > 0) {
     const ids = articleIds.map(Number).filter(id => !Number.isNaN(id))

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# The Librarian MCP Setup Script
+# Reader MCP setup script (registers the server as "the-librarian" in Claude Desktop)
 # Automatically configures Claude Desktop to connect to your Reader instance
 
 set -e  # Exit on error
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}The Librarian MCP Setup${NC}"
+echo -e "${BLUE}Reader MCP Setup${NC}"
 echo "================================"
 echo ""
 

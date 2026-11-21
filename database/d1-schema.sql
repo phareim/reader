@@ -140,6 +140,8 @@ CREATE TABLE IF NOT EXISTS "Highlight" (
   user_id TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
   article_id INTEGER NOT NULL REFERENCES "Article"(id) ON DELETE CASCADE,
   sfl_idea_id TEXT,
+  -- taste-maker mirror item (migration 015); NULL when the mirror missed
+  taste_item_id TEXT,
   quote TEXT NOT NULL,
   note TEXT,
   start_offset INTEGER NOT NULL,

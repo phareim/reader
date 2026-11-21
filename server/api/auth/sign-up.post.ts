@@ -4,11 +4,14 @@ import { hashPassword } from '~/server/utils/password'
 import { createSession } from '~/server/utils/session'
 import { toPublicUser } from '~/server/utils/auth'
 import { checkPassword } from '~/server/utils/passwordPolicy'
+import { assertNotRateLimited, recordFailedAttempt } from '~/server/utils/authRateLimit'
 
 export default defineEventHandler(async (event) => {
   requireJson(event)
   const body = await readBody(event)
-  const { email, password, name, inviteCode } = body || {}
+  const { password, name, inviteCode } = body || {}
+  // Trimmed before it is looked up or stored; a non-string is a 400.
+  const email = typeof body?.email === 'string' ? body.email.trim() : ''
 
   // Sign-up is invite-only: without a configured code it is closed, and the
   // client must send the matching code. This also guards the claim branch
@@ -17,14 +20,21 @@ export default defineEventHandler(async (event) => {
   if (!config.inviteCode) {
     throw createError({ statusCode: 403, statusMessage: 'Sign-ups are closed' })
   }
-  // Case-insensitive, so "Ulrikke" on a phone keyboard still counts.
-  if (typeof inviteCode !== 'string'
-    || inviteCode.trim().toLowerCase() !== String(config.inviteCode).trim().toLowerCase()) {
-    throw createError({ statusCode: 403, statusMessage: 'Invalid invite code' })
-  }
 
   if (!email || !password) {
     throw createError({ statusCode: 400, statusMessage: 'Email and password are required' })
+  }
+
+  // Wrong invite codes count against the same per-email window as failed
+  // sign-ins (auth_attempt), so the code cannot be guessed at full speed.
+  const db = getD1(event)
+  await assertNotRateLimited(event, db, email)
+
+  // Case-insensitive, so "Ulrikke" on a phone keyboard still counts.
+  if (typeof inviteCode !== 'string'
+    || inviteCode.trim().toLowerCase() !== String(config.inviteCode).trim().toLowerCase()) {
+    await recordFailedAttempt(event, db, email)
+    throw createError({ statusCode: 403, statusMessage: 'Invalid invite code' })
   }
 
   const policy = checkPassword(password)
@@ -32,7 +42,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: policy.reason })
   }
 
-  const db = getD1(event)
   const passwordHash = await hashPassword(password)
 
   // Check if user already exists (e.g., migrated from Google OAuth)
@@ -42,7 +51,7 @@ export default defineEventHandler(async (event) => {
   // compare them lowercased: a case variant of an existing address
   // (Petter@… for petter@…) would pass their allowlist as a new account.
   if (!existing) {
-    const variant = await db.prepare('SELECT id FROM "User" WHERE lower(email) = lower(?)').bind(email.trim()).first()
+    const variant = await db.prepare('SELECT id FROM "User" WHERE lower(email) = lower(?)').bind(email).first()
     if (variant) {
       throw createError({ statusCode: 409, statusMessage: 'An account with this email already exists. Please sign in.' })
     }

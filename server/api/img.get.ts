@@ -54,8 +54,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  // Cache and return. Redirect fallbacks are cached for a day so a host that
-  // blocks the Worker isn't re-fetched on every view.
+  // Cache and return.
   const respond = async (response: Response) => {
     if (cache) {
       const put = cache.put(cacheKey, response.clone()).catch(() => {})
@@ -63,10 +62,13 @@ export default defineEventHandler(async (event) => {
     }
     return response
   }
-  const fallback = () => respond(new Response(null, {
+  // The redirect fallback stays out of the edge cache: a cache hit skips the
+  // session check, so a cached 302 would redirect anyone, signed in or not, to
+  // a URL a signed-in user picked. The browser may keep it for a day.
+  const fallback = () => new Response(null, {
     status: 302,
-    headers: { location: upstreamUrl.toString(), 'cache-control': 'public, max-age=86400' },
-  }))
+    headers: { location: upstreamUrl.toString(), 'cache-control': 'private, max-age=86400' },
+  })
 
   let upstream: Response
   try {

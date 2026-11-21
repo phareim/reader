@@ -1,37 +1,43 @@
-# The Librarian MCP Server
+# Reader MCP server
 
-A Model Context Protocol (MCP) server that allows Claude to interact with your Librarian RSS application. With this integration, you can ask Claude to read articles, manage your saved content, and organize your reading list.
+A Model Context Protocol (MCP) server that lets Claude Desktop read and manage your Reader
+(`reader.phareim.no`): feeds, articles, full-text search, the shelf and tags. It is a local stdio
+process that calls the Reader API with your personal MCP token. In Claude Desktop's config it is
+registered under the key `the-librarian` (the project's first name); installed configs use that key,
+so it stays.
 
-## Features
+No agent config on Sleeper registers this server; it is only used from a Claude Desktop install that
+points at a clone of this repo.
 
-### Read Tools
-- **list_feeds** - Get all your subscribed RSS feeds
-- **get_recent_articles** - Fetch recent articles with filtering options
-- **search_articles** - Search for articles by criteria
-- **get_article** - Get full content of a specific article
+## Tools (11)
 
-### Write Tools
-- **save_article** - Save articles for later reading
-- **unsave_article** - Remove articles from saved
-- **get_saved_articles** - View all saved articles (with optional tag filtering)
-- **tag_article** - Add or update tags on saved articles
+Read:
+- **list_feeds** — subscribed feeds with unread counts and tags (`GET /api/feeds`)
+- **get_recent_articles** — articles filtered by feed and read status, with `limit`/`offset` (`GET /api/articles`)
+- **search_articles** — with `q`, ranked full-text search with snippets (`GET /api/search`); without, a filtered list
+- **get_article** — one article with its full body (`GET /api/articles/:id`)
+- **get_saved_articles** — the shelf, optionally by tag (`__inbox__` = untagged) (`GET /api/saved-articles`)
+- **list_tags** — tags with usage counts (`GET /api/tags`)
+
+Write:
+- **save_article** / **unsave_article** — `POST` / `DELETE /api/articles/:id/save`
+- **tag_article** — replace a saved article's tags (`PATCH /api/saved-articles/:id/tags`)
+- **add_article** — add a non-RSS article and save it (`POST /api/articles/manual`)
+- **delete_article** — delete a manual or Found article (`DELETE /api/articles/:id/delete`)
 
 ## Setup
 
-### 1. Prerequisites
+1. Sign in to Reader and open `/mcp-settings`; generate a token there.
+2. From your clone of this repo (with `npm install` done), run:
+   ```bash
+   ./setup-mcp.sh --token YOUR_TOKEN
+   ```
+   or `curl -s https://reader.phareim.no/api/install-mcp | bash -s -- --token YOUR_TOKEN`.
+   The script writes the `the-librarian` entry into Claude Desktop's config
+   (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
+3. Quit and restart Claude Desktop.
 
-- Your Librarian app running locally (usually on `http://localhost:3001`)
-- Claude Desktop installed
-- Logged in to your Reader account
-
-### 2. Configure Claude Desktop
-
-You need to add the MCP server configuration to Claude Desktop's config file.
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-Add this configuration (update the paths to match your system):
+The entry it writes looks like this:
 
 ```json
 {
@@ -39,128 +45,40 @@ Add this configuration (update the paths to match your system):
     "the-librarian": {
       "command": "node",
       "args": [
-        "/Users/YOUR_USERNAME/path/to/reader/node_modules/.bin/tsx",
-        "/Users/YOUR_USERNAME/path/to/reader/mcp-server/index.ts"
+        "/absolute/path/to/reader/node_modules/.bin/tsx",
+        "/absolute/path/to/reader/mcp-server/index.ts"
       ],
       "env": {
-        "READER_API_URL": "http://localhost:3001"
+        "READER_API_URL": "https://reader.phareim.no",
+        "MCP_TOKEN": "your-token"
       }
     }
   }
 }
 ```
 
-**Important**: Replace `/Users/YOUR_USERNAME/path/to/reader` with the actual absolute path to your Reader project.
+## Environment variables
 
-### 3. Get the Absolute Path
-
-To find your project's absolute path, run this in your Reader project directory:
-
-```bash
-pwd
-```
-
-Then use that path in the configuration above.
-
-### 4. Restart Claude Desktop
-
-After updating the configuration, completely quit and restart Claude Desktop for the changes to take effect.
-
-### 5. Verify Connection
-
-In Claude Desktop, you can verify the MCP server is connected by:
-1. Looking for the 🔌 icon in the chat interface
-2. Asking Claude: "What MCP tools do you have access to?"
-3. Claude should list the 10 Librarian tools
-
-## Usage Examples
-
-Once configured, you can interact with your Reader through Claude:
-
-### Reading Articles
-
-```
-"What are my recent unread articles?"
-"Show me articles from TechCrunch"
-"What's in my RSS feeds today?"
-```
-
-### Saving & Organizing
-
-```
-"Save the article about renewable energy"
-"Show me all my saved articles"
-"Tag this article with 'machine-learning' and 'tutorial'"
-"What articles have I saved with the tag 'AI'?"
-```
-
-### Managing Feeds
-
-```
-"List all my RSS feeds"
-"How many unread articles do I have?"
-```
-
-## Environment Variables
-
-- `READER_API_URL` - Base URL of your Reader API (default: `http://localhost:3001`)
-- `READER_API_KEY` - Optional: API key for authentication (if your deployment requires it)
+- `READER_API_URL` — base URL of the Reader API. `setup-mcp.sh` writes `https://reader.phareim.no`;
+  without it the server falls back to `http://localhost:3000` (`npm run dev`).
+- `MCP_TOKEN` — your token from `/mcp-settings`, sent as `X-MCP-Token`. Regenerating or revoking it
+  on that page stops this server (and every other client using the token) until the config has the new one.
 
 ## Troubleshooting
 
-### Claude Can't See the Tools
-
-1. Make sure the paths in `claude_desktop_config.json` are absolute, not relative
-2. Verify Claude Desktop is completely restarted
-3. Check that your Reader app is running
-
-### Authentication Errors
-
-The MCP server connects to your Reader API. Make sure:
-1. Your Reader app is running (`npm run dev`)
-2. You're logged in to the Reader web interface
-3. The API URL is correct in the configuration
-
-### Tool Errors
-
-If a tool fails:
-1. Check that your Reader app is running and accessible
-2. Look at the error message - it will include details
-3. Verify the article/feed IDs are correct (use `list_feeds` or `get_recent_articles` first)
+- **No tools in Claude:** the paths in the config must be absolute, and Claude Desktop must be fully
+  restarted.
+- **401 errors:** the token is wrong, regenerated or revoked — generate a new one and re-run the script.
+- **Tool errors:** the message includes the API status and body; use `list_feeds` or
+  `get_recent_articles` to find valid ids.
 
 ## Development
 
-### Testing the Server Manually
-
-You can test the MCP server directly:
-
 ```bash
-npm run mcp
+npm run mcp   # starts the server on stdio; it waits for MCP messages
 ```
 
-This starts the server in stdio mode. It will wait for MCP protocol messages on stdin.
+To add a tool: add it to the `tools` array in `mcp-server/index.ts`, add its case to the
+`CallToolRequestSchema` handler, and extend `types/api.ts` if the response needs a new type.
 
-### Adding New Tools
-
-1. Add the tool definition to the `tools` array in `mcp-server/index.ts`
-2. Add a case handler in the `CallToolRequestSchema` handler
-3. Update `types/api.ts` if you need new type definitions
-4. Restart Claude Desktop to see the new tool
-
-## Architecture
-
-```
-Claude Desktop
-    ↓ (stdio via MCP)
-MCP Server (mcp-server/index.ts)
-    ↓ (HTTP)
-Reader Nuxt API (http://localhost:3001/api/*)
-    ↓
-Database (Cloudflare D1 + R2)
-```
-
-The MCP server:
-- Runs as a separate Node.js process launched by Claude Desktop
-- Communicates with Claude via stdin/stdout using the MCP protocol
-- Makes HTTP requests to your Reader API
-- Shares TypeScript types with the main app
+More: [`docs/architecture/mcp-server.md`](../docs/architecture/mcp-server.md).

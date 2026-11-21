@@ -6,6 +6,35 @@ Guidance for coding agents (Claude Code, Codex, OpenCode) working in this reposi
 
 **The Reader** — a calm, self-hosted RSS reader built with Nuxt 4, Vue 3, and Cloudflare (Workers + D1 + R2). The entrance is a swipeable **card deck** of unread articles (one card, five verbs); supporting rooms are the **shelf** (saved articles) and **sources** (feed management). The whole surface is styled in the **Tufte Viz design system** (warm paper, ET Book serif, hairline rules, one crimson accent per screen). Deployed at `reader.phareim.no`.
 
+## Where Reader sits
+
+The reading surface (feeds, saved articles, highlights, Found) and the login every `*.phareim.no` app checks.
+
+| In | What |
+|---|---|
+| inbox (`~/chat/inbox`) | article links into Found, `POST /api/ingest` |
+| collector scripts on Sleeper | sources, and the sleeper-articles mirror for digests and shares (`scripts/`) |
+| email worker (`email-worker/`) | mail to reader@phareim.no into Found |
+| workbook | «Legg i Reader» (`POST /api/articles/manual`, then `fetch-fulltext`) |
+
+| Out | What |
+|---|---|
+| SFL | a highlight becomes a quote, an elevated article a page (`server/utils/sfl.ts`) |
+| Taste | each highlight mirrored as a quote item (`server/utils/taste.ts`) |
+| reader-tts | the Listen button (`tts/`) |
+
+| Read by | What |
+|---|---|
+| every app behind the login | a read of `session` and `User`, and the `session_token` cookie on `.phareim.no`; those two tables and the cookie are a contract with about twenty apps |
+| auth.phareim.no | service binding to the four auth routes |
+| the workbook | `session`, `User` (incl. `mcp_token`) and the read routes |
+| the stats collector | D1 through Cloudflare's API |
+
+| Redundant when | |
+|---|---|
+| the login | never, without a replacement |
+| the reading part | if RSS is no longer wanted |
+
 ## Where things are documented
 
 This file is the **map**. Detailed docs live next to the code they describe, so they
