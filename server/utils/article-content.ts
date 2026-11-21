@@ -32,6 +32,21 @@ export const deleteArticleContent = async (event: any, key?: string | null) => {
   await bucket.delete(key)
 }
 
+/**
+ * Delete many stored objects (article bodies, notes) in as few R2 calls as
+ * possible: R2 takes up to 1000 keys per delete, and every call is one of
+ * the Worker invocation's 1000 subrequests.
+ */
+export const deleteStoredObjects = async (event: any, keys: Array<string | null | undefined>) => {
+  const present = keys.filter((key): key is string => !!key)
+  if (!present.length) return
+  const bucket = getArticleBucket(event)
+  const BATCH = 1000
+  for (let i = 0; i < present.length; i += BATCH) {
+    await bucket.delete(present.slice(i, i + BATCH))
+  }
+}
+
 export const buildNoteKey = (savedArticleId: number) => {
   return `${NOTE_PREFIX}/${savedArticleId}.txt`
 }

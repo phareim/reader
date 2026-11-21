@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   const body = await readBody(event)
-  const { url } = body
+  const { url } = body ?? {}
 
   if (!url || typeof url !== 'string') {
     throw createError({

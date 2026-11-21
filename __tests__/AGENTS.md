@@ -20,5 +20,17 @@ Tests live here mirroring the source tree, and **CI runs them before every deplo
 ## Suites
 
 Suites mirror the source tree: `__tests__/utils/` covers `utils/`, `__tests__/server/` covers
-`server/utils/` and the email Worker, `__tests__/components/` covers components and pages.
+`server/utils/` and the email Worker, `__tests__/server/routes/` covers route handlers,
+`__tests__/components/` covers components and pages.
+
+**Route-handler tests** import `__tests__/mocks/nitro.ts` first: it installs the real h3
+functions Nitro auto-imports (`defineEventHandler`, `createError`, `readBody`, …) as globals and
+offers `makeEvent`, a fake D1 (records every statement, rejects more than 100 bound parameters
+like D1 does), a fake R2 bucket and `mockFetch`, which fails the test on any request it was not
+told to answer — so no test reaches a live service. Those files start with
+`/** @jest-environment node */` (the default jsdom environment has no `fetch`/`Response`).
+`server/utils/feedParser.ts` does not load under Jest (its parser's dependencies are ESM-only),
+so a route that subscribes to a feed stubs `~/server/utils/addFeed` with `jest.mock`.
+The seam contracts — the login routes and `session_token` cookie, SFL, taste-maker, `/api/ingest`,
+`/api/articles/manual` and `fetch-fulltext` — are pinned there with hand-written responses.
 `ls __tests__/*/` gives the current set; each file's `describe` blocks say what it pins down.

@@ -40,8 +40,13 @@ export function useReadingProgress(articleId: number, article: Ref<any>) {
     if (!article.value) return
     const p = Math.min(1, Math.max(0, scrollPercent.value / 100))
     if (!progressWorthSaving(p, lastSavedProgress)) return
+    const previous = lastSavedProgress
     lastSavedProgress = p
-    $fetch(`/api/articles/${articleId}/progress`, { method: 'PATCH', body: { progress: p } }).catch(() => {})
+    $fetch(`/api/articles/${articleId}/progress`, { method: 'PATCH', body: { progress: p } }).catch(() => {
+      // A failed write does not count as saved — otherwise the flush on
+      // leaving the article is skipped as "no change" and the place is lost.
+      if (lastSavedProgress === p) lastSavedProgress = previous
+    })
   }
 
   function scheduleProgressSave() {

@@ -52,10 +52,14 @@ export function isPlatformHost(host: string): boolean {
   return false
 }
 
-/** Lowercase hostname with a leading `www.` stripped; null if unparsable. */
+/** Lowercase hostname with a leading `www.` stripped; null if unparsable or
+ *  not http(s) — OPML urls are third-party text that becomes a link on
+ *  /discover, and `javascript://host/…` parses with a hostname too. */
 export function candidateHost(url: string): string | null {
   try {
-    const host = new URL(url).hostname.toLowerCase()
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    const host = parsed.hostname.toLowerCase()
     return host.startsWith('www.') ? host.slice(4) : host
   } catch {
     return null

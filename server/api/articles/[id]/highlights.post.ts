@@ -1,6 +1,6 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
-import { getSflConfig, createQuoteIdea, findOrCreateTag, tagIdea } from '~/server/utils/sfl'
+import { getSflConfig, createQuoteIdea, findOrCreateTag, tagIdea, deleteIdea } from '~/server/utils/sfl'
 import { getTasteConfig, createQuoteItem } from '~/server/utils/taste'
 import { lastRowId } from '~/server/utils/d1Result'
 import { extractHashtags } from '~/utils/hashtags'
@@ -15,7 +15,7 @@ import { isPersonalUser } from '~/server/utils/personal'
  * After the row exists, the passage is also mirrored to taste-maker as a
  * `quote` item (needs the row id for its idempotency key, hence post-insert).
  * That mirror is fully best-effort — `taste_item_id = NULL` marks a miss,
- * repairable via scripts/taste-highlight-sync.mjs.
+ * repairable via scripts/taste-highlight-backfill.mjs.
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
@@ -76,13 +76,28 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date().toISOString()
-  const insert = await db.prepare(
-    `
-    INSERT INTO "Highlight"
-      (user_id, article_id, sfl_idea_id, quote, note, start_offset, end_offset, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `
-  ).bind(user.id, articleId, sflIdeaId, quote, note || null, startOffset, endOffset, now).run()
+  let insert
+  try {
+    insert = await db.prepare(
+      `
+      INSERT INTO "Highlight"
+        (user_id, article_id, sfl_idea_id, quote, note, start_offset, end_offset, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `
+    ).bind(user.id, articleId, sflIdeaId, quote, note || null, startOffset, endOffset, now).run()
+  } catch (err) {
+    // Compensate like elevate.post.ts: the quote idea exists in SFL but the
+    // local row does not, and quotes carry no url for SFL to dedupe a retry
+    // on — so undo it rather than leave an orphan per failed attempt.
+    if (sflIdeaId) {
+      try {
+        await deleteIdea(getSflConfig(event), sflIdeaId)
+      } catch {
+        // best-effort: the original write error is what the caller must see
+      }
+    }
+    throw err
+  }
 
   const highlightId = lastRowId(insert)
 

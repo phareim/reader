@@ -1,16 +1,17 @@
-# The Librarian
+# The Reader
 
-A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly librarian for organizing and curating the web's knowledge. Built with Nuxt 4, Vue 3, and Cloudflare (Workers + D1 + R2).
+A calm, self-hosted RSS feed reader inspired by Google Reader, for organizing and curating the web's knowledge. Built with Nuxt 4, Vue 3, and Cloudflare (Workers + D1 + R2). The bundled MCP server keeps the project's first name, The Librarian.
 
 ## Features
 
 - ✅ Subscribe to RSS/Atom feeds
 - ✅ Clean, distraction-free reading experience
 - ✅ Mark articles as read/unread or bulk mark all read
-- ✅ Manual feed syncing with per-user rate limiting
+- ✅ Manual feed syncing, plus a background sync of stale feeds (a timer calls `POST /api/internal/sync-stale` every 10 minutes)
 - ✅ Filter by feed, tag, or read status
 - ✅ Cloudflare D1 for relational data
-- ✅ Cloudflare R2 for article content + saved notes storage
+- ✅ Cloudflare R2 for article content
+- ✅ Full-text search over titles, summaries and article bodies
 - ✅ HTML sanitization for safe article rendering
 - ✅ Fast, lightweight Nuxt 4 frontend
 - ✅ Discover — new feeds recommended by the blogs you already read (blogroll/OPML crawl of your subscriptions' sites, ranked by recommender count)
@@ -64,7 +65,7 @@ A modern, self-hosted RSS feed reader inspired by Google Reader. Your friendly l
 ## Architecture
 
 ```
-Nuxt 4 SPA ↔ Nitro server routes ↔ Cloudflare Workers/D1/R2
+Nuxt 4 (server-rendered on a Cloudflare Worker) ↔ Nitro server routes ↔ Cloudflare D1/R2
 ```
 
 ### Database Schema
@@ -119,11 +120,11 @@ Optional environment variables in `.env.local`:
 ```bash
 FETCH_TIMEOUT=30000
 MAX_ARTICLES_PER_FEED=200
-ANTHROPIC_API_KEY="your-key"    # For AI features
-OPENAI_API_KEY="your-key"       # For AI features
 ```
 
-No auth-specific env vars needed — authentication uses the D1 database directly.
+The Worker uses no LLM keys. The full list of optional integration variables (SFL, taste-maker, read-aloud, linked sources, email ingest) is in `AGENTS.md`.
+
+No auth-specific env vars needed — authentication uses the D1 database directly; sign-up stays closed until `NUXT_INVITE_CODE` is set.
 
 ## Development
 
@@ -154,20 +155,20 @@ To reset D1 data during development, drop and re-run the SQL from `database/`.
 - ✅  Keyboard shortcuts (j/k navigation)
 - [ ] Three-pane Google Reader-style layout
 - ✅  Tags for feeds
-- [ ] Full-text search
+- ✅  Full-text search
 - [ ] OPML import/export
 - ✅  Dark mode
-- [ ] Automated background sync
+- ✅  Automated background sync
 - [ ] Mobile-responsive design improvements
 
 ## Quality Review Follow-Ups
 
-- [ ] Require authentication everywhere sensitive data is returned (lock down `/api/articles/[id].get.ts` and `/api/feeds/[id].get.ts` instead of letting anonymous callers enumerate other users’ content).
+- [x] Require authentication everywhere sensitive data is returned (`/api/articles/[id].get.ts` and `/api/feeds/[id].get.ts` require a signed-in user and answer 404 for another user’s row).
 - [x] Make the feed/article pages truly public or truly private— (private: `middleware/auth.global.ts` 302s signed-out visitors to `/login`; only `/` (doorstep) and `/login` are public) either stop hitting auth-only APIs when logged out or update those APIs to support the anonymous “share” views advertised by the UI.
 - [x] Ensure route protection actually runs (use a global middleware or add `middleware: 'auth'` to protected pages; the current `definePageMeta({ auth: true })` flag is inert).
-- [ ] Use D1 `INSERT OR IGNORE` (or similar) when backfilling articles so duplicate GUIDs do not abort the entire batch during feed creation/sync.
+- [x] Use D1 `INSERT OR IGNORE` when storing articles so duplicate GUIDs do not abort the entire batch during feed creation/sync (`insertArticleWithContent`).
 - [x] Skip fetching adjacent articles (or expose a readonly public endpoint) when the user is logged out so shared article pages don’t spam 401 errors and lose swipe navigation.
-- [ ] Expand the Jest suite to cover key composables/server handlers listed in `collectCoverageFrom`.
+- [ ] Expand the Jest suite to cover key composables/server handlers listed in `collectCoverageFrom` (the auth, SFL, taste-maker, ingest and MCP-read routes are covered in `__tests__/server/routes/`; composables and the remaining handlers are not).
 
 ## Contributing
 

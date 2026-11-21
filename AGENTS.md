@@ -92,10 +92,16 @@ NUXT_TTS_API_KEY="..."
 # Sign-up gate: required invite code (sign-up is closed while unset)
 NUXT_INVITE_CODE="..."
 
-# Personal integrations (SFL elevate, highlight mirror, read-aloud) — comma list
+# Highlight → taste-maker mirror. Fails soft (silently skipped) if unset.
+NUXT_TASTE_API_URL="https://taste.phareim.no"
+NUXT_TASTE_INGEST_KEY="..."
+
+# Personal integrations (SFL elevate, highlight mirrors) — comma list.
+# Read-aloud is open to every signed-in user.
 NUXT_PERSONAL_EMAILS="phareim@gmail.com"
 
-# Background sync: Bearer key for POST /api/internal/sync-{stale,sources}
+# Cron routes: Bearer key for every POST /api/internal/* except email-ingest
+# (sync-stale, sync-sources, rest-faded, score-interest, discover-crawl, backfill-*)
 NUXT_CRON_KEY="..."
 
 # Email ingest: Bearer key for POST /api/internal/email-ingest — must equal
@@ -121,7 +127,7 @@ NUXT_REDDIT_CLIENT_SECRET="..."
 NUXT_TYPESAFE_API_KEY="..."
 ```
 
-In production, `NUXT_SFL_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, `NUXT_X_CLIENT_ID`, and `NUXT_REDDIT_CLIENT_ID` are set in `wrangler.toml` `[vars]`; `NUXT_SFL_API_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_X_CLIENT_SECRET`, `NUXT_REDDIT_CLIENT_SECRET`, and `NUXT_TYPESAFE_API_KEY` are Worker secrets (`wrangler secret put …`).
+In production, `NUXT_SFL_API_URL`, `NUXT_TASTE_API_URL`, `NUXT_TTS_API_URL`, `NUXT_PERSONAL_EMAILS`, `NUXT_EMAIL_DEFAULT_ACCOUNT`, and `NUXT_X_CLIENT_ID` are set in `wrangler.toml` `[vars]` (`NUXT_REDDIT_CLIENT_ID` is there commented out, so Reddit's row is hidden); `NUXT_SFL_API_KEY`, `NUXT_TASTE_INGEST_KEY`, `NUXT_TTS_API_KEY`, `NUXT_INVITE_CODE`, `NUXT_CRON_KEY`, `NUXT_EMAIL_INGEST_KEY`, `NUXT_X_CLIENT_SECRET`, `NUXT_REDDIT_CLIENT_SECRET`, and `NUXT_TYPESAFE_API_KEY` are Worker secrets (`wrangler secret put …`).
 
 ## Deployment
 
@@ -143,7 +149,7 @@ Dependabot PR or running an update.
   default**. Only `minimatch >= 10.2.0` speaks the new shape. Bumping
   brace-expansion alone does not fail the build: it degrades to
   `An error occurred when globbing for files` in a warning, and the **workbox
-  precache silently drops from 55 entries to 4** — shipping a service worker that
+  precache silently drops from 57 entries to 4** — shipping a service worker that
   precaches nothing. Always check the `precache N entries` line in build output
   after touching either.
 - **`linkedom: 0.18.12` (exact).** 0.18.13 moved its `css-select` dep from `^5.1.0`
@@ -152,7 +158,7 @@ Dependabot PR or running an update.
   Both extraction suites fail to parse. Unpin only together with a Jest ESM story.
 - **`typescript: ^5.9.3` (devDependency).** Declared so the toolchain is
   deterministic: an undeclared version drifts, and 6.0's `rootDir`
-  enforcement fails all 45 suites at once (`TS5011`).
+  enforcement fails every suite at once (`TS5011`).
 - **`@hono/node-server: ^2.0.11` (override).** Patches a path-traversal advisory
   that the current `@modelcontextprotocol/sdk` still ships un-fixed. Not reachable
   here — our MCP server is `StdioServerTransport` only, and the flaw is Windows

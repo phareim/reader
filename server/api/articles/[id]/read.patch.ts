@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
 
   const id = parseInt(getRouterParam(event, 'id') || '')
   const body = await readBody(event)
-  const { isRead } = body
+  const { isRead } = body ?? {}
 
   if (isNaN(id)) {
     throw createError({

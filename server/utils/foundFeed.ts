@@ -5,7 +5,8 @@ import { lastRowId } from '~/server/utils/d1Result'
 /**
  * Resolve (or lazily create) a user's single Found feed — the push-only
  * bucket social collectors and the X bookmark sync insert into.
- * Shared by POST /api/ingest and /api/internal/sync-x-bookmarks.
+ * Shared by POST /api/ingest, /api/internal/sync-sources and
+ * /api/internal/email-ingest.
  */
 export async function resolveFoundFeed(event: H3Event, userId: string): Promise<number> {
   const db = getD1(event)

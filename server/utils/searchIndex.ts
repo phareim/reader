@@ -65,10 +65,16 @@ export async function deleteFtsRows(event: any, articleIds: number[]): Promise<v
   if (!articleIds.length) return
   try {
     const db = getD1(event)
-    const placeholders = articleIds.map(() => '?').join(',')
-    await db.prepare(
-      `DELETE FROM "ArticleFts" WHERE rowid IN (${placeholders})`
-    ).bind(...articleIds).run()
+    // Chunked: D1 rejects a statement with more than 100 bound parameters,
+    // and a feed easily holds more articles than that.
+    const CHUNK = 90
+    for (let i = 0; i < articleIds.length; i += CHUNK) {
+      const slice = articleIds.slice(i, i + CHUNK)
+      const placeholders = slice.map(() => '?').join(',')
+      await db.prepare(
+        `DELETE FROM "ArticleFts" WHERE rowid IN (${placeholders})`
+      ).bind(...slice).run()
+    }
   } catch (err: any) {
     console.error('FTS delete failed:', err.message)
   }

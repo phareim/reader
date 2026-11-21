@@ -5,9 +5,8 @@ import { isPersonalUser } from '~/server/utils/personal'
 
 /**
  * Elevate an article into the SFL knowledge pipeline: create a page idea in
- * SFL (which sleeper-articles polls and folds into thoughts/wiki), and mark
- * the article read locally. NOT optimistic — the client keeps the card if
- * this fails.
+ * SFL (which sleeper-articles polls), and mark the article read locally.
+ * NOT optimistic — the client keeps the card if this fails.
  */
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)

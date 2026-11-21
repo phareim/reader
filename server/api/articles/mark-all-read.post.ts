@@ -88,6 +88,10 @@ export default defineEventHandler(async (event) => {
     if (targetFeedId !== undefined) {
       where += ' AND feed_id = ?'
       params.push(targetFeedId)
+    } else if (tagFeedIds && tagFeedIds.length > 90) {
+      // D1 rejects a statement with more than 100 bound parameters; these are
+      // integer ids read back from D1 above, so they can go into the SQL.
+      where += ` AND feed_id IN (${tagFeedIds.filter(Number.isSafeInteger).join(',')})`
     } else if (tagFeedIds) {
       where += ` AND feed_id IN (${tagFeedIds.map(() => '?').join(',')})`
       params.push(...tagFeedIds)

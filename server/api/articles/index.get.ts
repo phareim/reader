@@ -15,6 +15,9 @@ const HALF_LIFE_HOURS = `COALESCE(NULLIF(NULLIF(f.half_life_hours, 0), ${DECAY.F
 // filter below deliberately keeps using AGE_HOURS/HALF_LIFE_HOURS un-boosted.
 const INTEREST_BOOST = `(0.75 + 0.25 * COALESCE(a.interest, 1))`
 const DECAY_AGE = `${AGE_HOURS} / (${HALF_LIFE_HOURS} * ${INTEREST_BOOST})`
+// Feed ids are bound up to this many; the query binds a handful of other
+// values too, and D1 caps a statement at 100 bound parameters.
+const MAX_BOUND_FEED_IDS = 90
 
 export default defineEventHandler(async (event) => {
   // Auth required — results are always scoped to the caller's own feeds.
@@ -35,7 +38,8 @@ export default defineEventHandler(async (event) => {
   // fade articles past the horizon. Never combined with inProgress — the
   // "Continue reading" strip must not lose a half-read article.
   const decay = query.decay === 'true' && !inProgress
-  const limit = Math.min(parseInt(query.limit as string) || 50, 200)
+  // Clamped at both ends: a negative LIMIT means "no limit" to SQLite.
+  const limit = Math.min(Math.max(parseInt(query.limit as string) || 50, 1), 200)
   const offset = parseInt(query.offset as string) || 0
 
   try {
@@ -130,8 +134,14 @@ export default defineEventHandler(async (event) => {
     }
 
     const params: any[] = []
-    let where = `a.feed_id IN (${allowedFeedIds.map(() => '?').join(',')})`
-    params.push(...allowedFeedIds)
+    // D1 rejects a statement with more than 100 bound parameters, so an
+    // account with many feeds gets its feed ids written into the SQL instead.
+    // Safe: they are integer ids read back from D1 above, never caller text.
+    const inlineFeedIds = allowedFeedIds.length > MAX_BOUND_FEED_IDS
+    let where = inlineFeedIds
+      ? `a.feed_id IN (${allowedFeedIds.map(Number).filter(Number.isSafeInteger).join(',')})`
+      : `a.feed_id IN (${allowedFeedIds.map(() => '?').join(',')})`
+    if (!inlineFeedIds) params.push(...allowedFeedIds)
 
     if (isRead !== undefined) {
       where += ' AND a.is_read = ?'

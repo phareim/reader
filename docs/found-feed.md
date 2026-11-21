@@ -79,7 +79,7 @@ The one generic seam. MCP-authed (`X-MCP-Token`).
 - `pages/found.vue` — resolves the `kind='found'` feed from `useFeeds()` and mounts
   the existing `<DeckScreen :feed-id>` scoped to it. So Found is a normal swipeable
   deck: the five verbs work, and **swipe-up elevates a found tweet straight into
-  SFL → thoughts/wiki**. Shows a "Nothing found yet" empty state until the first
+  SFL**. Shows a "Nothing found yet" empty state until the first
   item arrives.
 - Because Found is a real feed, it also appears in the main Deck (`/` pulls all
   feeds) and under Sources automatically.
@@ -141,7 +141,7 @@ per `LinkedSource` row on `source`; the shared shape:
 1. Refresh OAuth credentials if near expiry. **X and Reddit rotate refresh
    tokens on every refresh** — the rotation is persisted to D1 immediately,
    and this endpoint must remain the credentials' *only* refresher.
-2. Page newest-first (X 25/page ≤5 pages; Reddit saved 50/page ≤5, raw_json=1;
+2. Page newest-first (X 10/page ≤5 pages; Reddit saved 50/page ≤5, raw_json=1;
    HN favorites 30/page ≤2 — scraped off the public page, each new id hydrated
    from `hacker-news.firebaseio.com/v0/item/<id>.json`; GitHub starred 30/page
    ≤2 — `Accept: application/vnd.github.star+json` so entries carry

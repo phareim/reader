@@ -1,6 +1,6 @@
 import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
-import { deleteArticleContent, deleteSavedArticleNote } from '~/server/utils/article-content'
+import { deleteStoredObjects } from '~/server/utils/article-content'
 import { deleteFtsRows } from '~/server/utils/searchIndex'
 
 export default defineEventHandler(async (event) => {
@@ -33,17 +33,22 @@ export default defineEventHandler(async (event) => {
     ).bind(id).all()
 
     const articleCount = articlesResult.results?.length || 0
-    for (const article of articlesResult.results || []) {
-      const notesResult = await db.prepare(
-        'SELECT note_key FROM "SavedArticle" WHERE article_id = ?'
-      ).bind(article.id).all()
 
-      for (const row of notesResult.results || []) {
-        await deleteSavedArticleNote(event, row.note_key)
-      }
+    // One statement for the feed's saved-article notes and batched R2
+    // deletes. A round trip per article (a SELECT plus an R2 delete each) ran
+    // a feed of ~500 articles past the invocation's 1000-subrequest cap: the
+    // delete failed halfway, with bodies gone and the feed still there.
+    const notesResult = await db.prepare(
+      `SELECT sa.note_key
+       FROM "SavedArticle" sa
+       JOIN "Article" a ON a.id = sa.article_id
+       WHERE a.feed_id = ? AND sa.note_key IS NOT NULL`
+    ).bind(id).all()
 
-      await deleteArticleContent(event, article.content_key)
-    }
+    await deleteStoredObjects(event, [
+      ...(notesResult.results || []).map((row: any) => row.note_key),
+      ...(articlesResult.results || []).map((article: any) => article.content_key)
+    ])
 
     // FTS rows don't cascade with the article delete below.
     await deleteFtsRows(event, (articlesResult.results || []).map((a: any) => Number(a.id)))

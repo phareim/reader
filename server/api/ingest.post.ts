@@ -21,7 +21,7 @@ import { getAuthenticatedUser } from '~/server/utils/auth'
 import { getD1 } from '~/server/utils/cloudflare'
 import { z } from 'zod'
 import { insertArticleWithContent } from '~/server/utils/article-store'
-import { storeArticleContent } from '~/server/utils/article-content'
+import { storeArticleContent, fetchArticleContent } from '~/server/utils/article-content'
 import { normalizeUrl } from '~/server/utils/urlNormalize'
 import { indexArticleFts } from '~/server/utils/searchIndex'
 import { resolveFoundFeed } from '~/server/utils/foundFeed'
@@ -63,8 +63,8 @@ export default defineEventHandler(async (event) => {
 
     const guid = `${source}:${externalId}`
     const existing = await db.prepare(
-      `SELECT id FROM "Article" WHERE feed_id = ? AND guid = ?`
-    ).bind(feedId, guid).first<{ id: number }>()
+      `SELECT id, content_key FROM "Article" WHERE feed_id = ? AND guid = ?`
+    ).bind(feedId, guid).first<{ id: number; content_key: string | null }>()
 
     if (existing?.id) {
       if (replace) {
@@ -85,7 +85,10 @@ export default defineEventHandler(async (event) => {
           title, url, author || null, summary || null, imageUrl || null,
           publishedAt || null, contentKey, normalizeUrl(url), existing.id
         ).run()
-        await indexArticleFts(event, { id: existing.id, title, summary, bodyHtml: content })
+        // A replace without `content` keeps the stored body (COALESCE above),
+        // so index that body rather than an empty one.
+        const bodyHtml = content || await fetchArticleContent(event, existing.content_key)
+        await indexArticleFts(event, { id: existing.id, title, summary, bodyHtml })
         return {
           success: true,
           ingested: false,

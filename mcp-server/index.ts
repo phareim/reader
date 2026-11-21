@@ -12,7 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool
+  type Tool
 } from '@modelcontextprotocol/sdk/types.js'
 import type {
   FeedsResponse,
@@ -314,7 +314,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text: JSON.stringify({
                 articles: data.articles,
-                total: data.total,
                 hasMore: data.hasMore,
                 showing: data.articles.length
               }, null, 2)
@@ -356,7 +355,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               type: 'text',
               text: JSON.stringify({
                 articles: data.articles,
-                total: data.total,
                 hasMore: data.hasMore
               }, null, 2)
             }

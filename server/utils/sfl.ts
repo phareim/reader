@@ -119,9 +119,9 @@ export async function createQuoteIdea(
 }
 
 /**
- * Find-or-create a `type='tag'` idea by name and return its id — mirrors the
- * canonical sfl-hook convention (list /api/tags, case-insensitive title match,
- * else POST a new tag idea). Returns null on any failure so tagging stays
+ * Find-or-create a `type='tag'` idea by name and return its id — SFL's tag
+ * convention (list /api/tags, case-insensitive title match, else POST a new
+ * tag idea). Returns null on any failure so tagging stays
  * best-effort and never sinks the highlight.
  */
 export async function findOrCreateTag(cfg: SflConfig, name: string): Promise<string | null> {

@@ -50,7 +50,7 @@ export async function discoverFeeds(url: string, opts: { maxProbes?: number } = 
 
   try {
     // Normalize URL
-    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+    const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`
 
     // Fetch the page HTML
     const timeout = Number(process.env.FETCH_TIMEOUT) || 30000

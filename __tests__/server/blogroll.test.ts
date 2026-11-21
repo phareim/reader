@@ -201,6 +201,15 @@ describe('candidateHost / isPlatformHost', () => {
     expect(candidateHost('not a url')).toBeNull()
   })
 
+  it('returns null for anything that is not http(s)', () => {
+    // An OPML htmlUrl is third-party text that ends up as a link on /discover;
+    // `javascript://host/…` parses with a hostname, so the scheme must be checked.
+    expect(candidateHost('javascript://friend.example/%0Aalert(document.domain)')).toBeNull()
+    expect(candidateHost('data://friend.example/x')).toBeNull()
+    expect(candidateHost('found://user-1')).toBeNull()
+    expect(candidateHost('http://friend.example/')).toBe('friend.example')
+  })
+
   it('matches platform domains by suffix', () => {
     expect(isPlatformHost('youtube.com')).toBe(true)
     expect(isPlatformHost('gist.github.com')).toBe(true)

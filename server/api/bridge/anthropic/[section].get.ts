@@ -9,7 +9,8 @@ import { buildBridgeXml, BRIDGE_SECTIONS, type BridgeSection } from '~/server/ut
  */
 export default defineEventHandler(async (event) => {
   const section = getRouterParam(event, 'section') ?? ''
-  if (!(section in BRIDGE_SECTIONS)) {
+  // Own keys only: `in` is also true for 'constructor', 'toString', ….
+  if (!Object.hasOwn(BRIDGE_SECTIONS, section)) {
     throw createError({ statusCode: 404, statusMessage: `Unknown bridge section: ${section}` })
   }
 

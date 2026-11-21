@@ -8,7 +8,7 @@
  *
  * Everything here is BEST-EFFORT by design (unlike sfl.ts, whose non-503
  * errors surface to the user): the mirror is downstream of the highlight, a
- * NULL taste_item_id is repairable via scripts/taste-highlight-sync.mjs, and
+ * NULL taste_item_id is repairable via scripts/taste-highlight-backfill.mjs, and
  * a taste-maker outage must never sink a highlight.
  */
 

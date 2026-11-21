@@ -13,7 +13,8 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   const q = String(getQuery(event).q || '').trim()
-  const limit = Math.min(parseInt(String(getQuery(event).limit)) || 30, 100)
+  // Clamped at both ends: a negative LIMIT means "no limit" to SQLite.
+  const limit = Math.min(Math.max(parseInt(String(getQuery(event).limit)) || 30, 1), 100)
   if (q.length < 2) {
     return { results: [], query: q }
   }

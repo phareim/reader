@@ -28,7 +28,7 @@ Reader stays completely source-agnostic; zero Reader-app changes.
 
 Read the **SFL `ai-news` stream**, not any single producer. The recurring
 AI-discovery job already deposits `ai-news`-tagged ideas into SFL (they flow on
-downstream into `sleeper-articles` → `~/thoughts/raw/` → the monthly wiki fold).
+downstream into `sleeper-articles`).
 By reading the tag rather than the job, the digest is robust to *how* those
 ideas arrive — cloud routine, agent, or a manual save all work, and a future
 change of producer needs no change here.
@@ -89,7 +89,7 @@ other collectors). Payload:
 
 The card lands **unread**, neither saved nor read — it flows into the Found tab
 and the main Deck like everything else. The five verbs work: swipe-up **elevates
-the digest into SFL → wiki**, which is a nice loop (a synthesis of ai-news can
+the digest into SFL**, which is a nice loop (a synthesis of ai-news can
 itself become a durable note).
 
 ## Idempotency & re-runs

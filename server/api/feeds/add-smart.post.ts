@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
 
   const body = await readBody(event)
-  const { url } = body
+  const { url } = body ?? {}
 
   if (!url || typeof url !== 'string') {
     throw createError({
@@ -43,8 +43,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Normalize URL — a bare domain ("vg.no") becomes https://vg.no
-  const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
+  // Normalize URL — a bare domain ("vg.no") becomes https://vg.no. Tested on
+  // the scheme, not the prefix "http": httpie.io is a bare domain too.
+  const normalizedUrl = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`
 
   try {
     // ====================================

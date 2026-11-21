@@ -11,8 +11,8 @@ export const useAuth = () => {
   // tell "still checking" apart from "actually signed out", so signed-out
   // states never flash during the initial load.
   const checked = useState<boolean>('auth_checked', () => false)
-  // Allowlisted personal integrations (SFL elevate, highlight mirror,
-  // read-aloud) — false for guest accounts, so the UI hides those verbs.
+  // Allowlisted personal integrations (SFL elevate, highlight mirror) —
+  // false for guest accounts, so the UI hides those verbs.
   const personal = useState<boolean>('auth_personal', () => false)
 
   const fetchSession = () => {
@@ -44,12 +44,26 @@ export const useAuth = () => {
     fetchSession()
   }
 
+  // The sign-in and sign-up answers carry no feature flags, so ask the session
+  // for them: otherwise `personal` keeps the signed-out answer from the check
+  // /login ran on mount, and Elevate stays hidden until the next full load.
+  // A failed check keeps the fresh sign-in rather than undoing it.
+  const loadFeatures = async () => {
+    try {
+      const res = await $fetch<{ user: any; features?: { personal?: boolean } }>('/api/auth/session')
+      personal.value = !!res.features?.personal
+    } catch {
+      // the next full load asks again
+    }
+  }
+
   const signIn = async (email: string, password: string) => {
     const res = await $fetch<{ user: any }>('/api/auth/sign-in', {
       method: 'POST',
       body: { email, password },
     })
     user.value = res.user
+    await loadFeatures()
     return res
   }
 
@@ -59,12 +73,14 @@ export const useAuth = () => {
       body: { email, password, name, inviteCode },
     })
     user.value = res.user
+    await loadFeatures()
     return res
   }
 
   const signOut = async () => {
     await $fetch('/api/auth/sign-out', { method: 'POST' })
     user.value = null
+    personal.value = false
   }
 
   return {

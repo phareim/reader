@@ -17,7 +17,7 @@ jobs:
 
       - run: npm install
 
-      # The gate. Reader is the login for do/write/dagbok/taste, so a red suite
+      # The gate. Reader is the login for every *.phareim.no app, so a red suite
       # must stop the Worker AND the migrations from shipping. ~5s, 466 tests.
       - run: npm test
 
